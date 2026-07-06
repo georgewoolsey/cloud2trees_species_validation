@@ -1,0 +1,4 @@
+introduction
+proposed-species-classification-method
+validation-data-and-accuracy-evaluation
+benefits-and-next-steps
