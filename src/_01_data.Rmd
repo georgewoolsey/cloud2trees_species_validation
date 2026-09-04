@@ -1,5 +1,105 @@
 # Data Overview
 
+```{r, include=F, warning=F, message=F, eval = F}
+######################################################################################################################
+######################################################################################################################
+# https://doi.org/10.5281/zenodo.6637599
+# Tallo database to build ITD segmentation ws functions by genus/forest type based on height-crown diameter?
+######################################################################################################################
+######################################################################################################################
+# https://doi.org/10.5281/zenodo.6637599
+# we developed the Tallo database, a collection of 498,838 georeferenced and taxonomically 
+# standardized records of individual trees for which stem diameter, height and/or crown radius 
+# have been measured. These data were collected at 61,856 globally distributed sites, spanning 
+# all major forested and non-forested biomes. The majority of trees in the database are identified
+# to species (88%), and collectively Tallo includes data for 5163 species distributed 
+# across 1453 genera and 187 plant families.
+
+######################################################################################################################
+######################################################################################################################
+# https://gdam-api-v2-782971006568.us-west1.run.app/docs#/Index/index
+# fastfuels api to get species?
+######################################################################################################################
+######################################################################################################################
+###########################################################
+###########################################################
+# here's the example py from the docs
+###########################################################
+###########################################################
+# import pandas as pd
+# import requests
+
+# # 1. Prepare your input data
+# input_df = pd.DataFrame({
+#     "Lat": [48.1234, 48.1240],
+#     "Lon": [-114.5678, -114.5680],
+#     "HT": [25.5, 18.2],
+#     "DIA": [None, 8.5]  # Missing fields will be imputed
+# })
+
+# # 2. Format the payload using orient="split"
+# payload = {
+#     "trees": input_df.to_dict(orient="split")
+# }
+
+# # 3. Send the request
+# response = requests.post("https://<API_URL>/v1/predict/batch", json=payload)
+
+# # 4. Reconstruct the output directly back into a Pandas DataFrame
+# response_data = response.json()
+# predictions_df = pd.DataFrame(**response_data["predictions"])
+
+# print(predictions_df.head())
+
+###########################################################
+###########################################################
+# here's the start of formatting data to send to api
+###########################################################
+###########################################################
+validation_trees %>% 
+  sf::st_transform(crs = sf::st_crs(4326)) %>% 
+  dplyr::mutate(
+    tree_lon = sf::st_coordinates(.)[,1]
+    , tree_lat = sf::st_coordinates(.)[,2]
+    , fastfuels_api = paste0(
+      # https://gdam-api-v2-782971006568.us-west1.run.app/docs#/Index/index
+      # fastfuels api to get species?
+      # {
+      #   "Lat": 48.1234,
+      #   "Lon": -114.5678,
+      #   "HT": 25.5
+      # }
+      "{"
+        , "\"Lat\":" , scales::number(tree_lat, accuracy = 0.000001)
+        , ",\"Lon\":" , scales::number(tree_lon, accuracy = 0.000001)
+        , ",\"HT\":" , scales::number(field_tree_height_m, accuracy = 0.01)
+      , "}"
+      
+    )
+  ) %>% 
+  dplyr::slice_sample(n=44) %>% 
+  dplyr::slice_head(n=7) %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(fastfuels_api)
+
+# {"Lat":39.125813,"Lon":-105.115625,"HT":19.05}    # 39.125813,-105.115625
+# {"Lat":39.125659,"Lon":-105.113507,"HT":18.90}    # 39.125659,-105.113507
+# {"Lat":39.125840,"Lon":-105.112728,"HT":20.73}    # 39.125840,-105.112728
+# {"Lat":39.126451,"Lon":-105.115426,"HT":2.44}   # 39.126451,-105.115426
+# {"Lat":39.126394,"Lon":-105.115221,"HT":2.13}   # 39.126394,-105.115221
+# {"Lat":39.124983,"Lon":-105.115187,"HT":15.54}    # 39.124983,-105.115187
+# {"Lat":39.125319,"Lon":-105.115390,"HT":3.35}   # 39.125319,-105.115390
+
+
+# {"Lat":39.127170,"Lon":-105.115781,"HT":20.12}
+# {"Lat":39.127175,"Lon":-105.115772,"HT":10.06}
+# {"Lat":39.127174,"Lon":-105.115760,"HT":7.01}"
+# {"Lat":39.127124,"Lon":-105.115732,"HT":11.28}
+# {"Lat":39.127110,"Lon":-105.115742,"HT":23.47}
+# {"Lat":39.127099,"Lon":-105.115714,"HT":11.89}
+# {"Lat":39.127073,"Lon":-105.115716,"HT":20.12}
+```
+
 We compiled a collection of validation datasets across diverse forest conditions for this specific analysis project. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.
 
 | Name | State | Forest Type | Point Cloud Data | Field Data |
@@ -65,6 +165,74 @@ gc()
 remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
+
+## Eglin Air Force Base (Florida)
+
+Field data from this study site is from: 
+
+* Andrew Hudak, Seth Bigelow, Nuria Sánchez-López, and Vanessa Niemczyk. 2025. Field measurements of coarse wood, duff, litter, and trees for the Eglin Air Force Base 2023 fuels campaign. Wildland Fire Science Initiative (WFSI) [https://doi.org/10.60594/W4RG6P](https://doi.org/10.60594/W4RG6P)
+
+>Field measurements collected before and after 2023 study fires at Eglin Air Force Base (AFB) to document fuel loads (large diameter fuels, litter depth, duff depth) and trees in a 3-year rough in sandhill longleaf pine, and the effects of study fires on these variables. Fuel loads, which were measured along transects, were co-located with tree observations, which were measured within fixed-radius plots. These field observations were also co-located with three-dimensional fuel and laser scan plots to allow for leveraging of these other data.
+
+>After the study fires in March 2023, trees within 10 m of plot center were identified to functional group (pine, hardwood or species), measured for diameter at breast height with a diameter tape, measured for distance from outer bark to plot center, and measured for azimuth from plot center to tree. Some post-processing was done using lidar scans to distinguish between evergreeen and deciduous hardwoods. Saplings were tallied by ordinal quadrant (up to 5 m from plot center). Tree measurements were not taken in unit L25. In unit G20, plots HH01, HH02, HH03, HH04, HH05 were sampled pre-fire but not post fire. In unit G25, plots HH105, HH95, PP16 were sampled pre-fire but not post fire.
+
+the post-fire sampling protocol for trees was:
+
+I. Determine if plot radius is 8 or 11.3 meters and record on datasheet
+  a. If there are 4 or more trees within an 8-meter radius, then the plot radius is 8-meters.
+  b. If there are 0 to 3 trees within an 8-meter radius, then increase the plot radius to 11.3-meters.
+II. Sample all trees >10 cm DBH within the plot radius and over from plot center 
+III. Sample all pine saplings ONLY >2.5 to 10 cm DBH by recording:
+  a. Radius (4 or 5.6m):
+    i. If tree sampling radius was 8-meters, then sapling sampling radius = 4-meters
+    ii. If tree sampling radius was 11.3-meters, then sapling sampling radius = 5.6-meters
+  b. Quadrant = NE, SE, SW, or NW
+  c. Count = How many of the same species in that quadrant
+  d. Species = Longleaf pine (Pinus palustris), Loblolly pine (Pinus taeda), Sand pine (Pinus clausa) or TBD
+
+
+```{r}
+wfsi_eglinafb_trees <-
+  readr::read_csv(
+    "../data/WFSI_EglinAFB/Eglin_Air_Force_Base_2023_fuels/data/trees.csv"
+    , progress = F
+    , show_col_types = F
+  ) %>% 
+  dplyr::rename_with(~tolower(.x) %>% make.names()) %>% 
+  # dplyr::count(species)
+  dplyr::filter(
+    species != ""
+    , !is.na(species)
+    , !is.na(tree_x)
+    , !is.na(tree_y)
+  ) %>% 
+  # spatial that
+  sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = 26916, remove = F)
+# huh?
+wfsi_eglinafb_trees %>% dplyr::glimpse()
+```
+
+check those field trees out in space
+
+```{r}
+# option to put satellite imagery as base layer of mapview maps
+mapview::mapviewOptions(
+  homebutton = FALSE
+  , basemaps = c("Esri.WorldImagery","OpenStreetMap")
+)
+wfsi_eglinafb_trees %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::count(unit,species)
+
+wfsi_eglinafb_trees %>% 
+  mapview::mapview(zcol = "species", layer.name="field trees") +
+
+  mapview::mapview(zcol = "species", layer.name="field trees")
+
+
+```
+
+
 
 ## Penobscot Experimental Forest (Maine)
 
