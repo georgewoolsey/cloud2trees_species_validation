@@ -176,13 +176,13 @@ Field data from this study site is from:
 
 >After the study fires in March 2023, trees within 10 m of plot center were identified to functional group (pine, hardwood or species), measured for diameter at breast height with a diameter tape, measured for distance from outer bark to plot center, and measured for azimuth from plot center to tree. Some post-processing was done using lidar scans to distinguish between evergreeen and deciduous hardwoods. Saplings were tallied by ordinal quadrant (up to 5 m from plot center). Tree measurements were not taken in unit L25. In unit G20, plots HH01, HH02, HH03, HH04, HH05 were sampled pre-fire but not post fire. In unit G25, plots HH105, HH95, PP16 were sampled pre-fire but not post fire.
 
-the post-fire sampling protocol for trees was:
+according to *Eglin_2022_Tree_and_Transect_Field_Protocol.pdf*, the post-fire sampling protocol for trees was:
 
 I. Determine if plot radius is 8 or 11.3 meters and record on datasheet
   a. If there are 4 or more trees within an 8-meter radius, then the plot radius is 8-meters.
   b. If there are 0 to 3 trees within an 8-meter radius, then increase the plot radius to 11.3-meters.
-II. Sample all trees >10 cm DBH within the plot radius and over from plot center 
-III. Sample all pine saplings ONLY >2.5 to 10 cm DBH by recording:
+II. Sample all trees ≥10 cm DBH within the plot radius and over from plot center 
+III. Sample all pine saplings ONLY ≥2.5 to 10 cm DBH by recording:
   a. Radius (4 or 5.6m):
     i. If tree sampling radius was 8-meters, then sapling sampling radius = 4-meters
     ii. If tree sampling radius was 11.3-meters, then sapling sampling radius = 5.6-meters
@@ -190,8 +190,10 @@ III. Sample all pine saplings ONLY >2.5 to 10 cm DBH by recording:
   c. Count = How many of the same species in that quadrant
   d. Species = Longleaf pine (Pinus palustris), Loblolly pine (Pinus taeda), Sand pine (Pinus clausa) or TBD
 
+for those interested, pre- and post-burn photographs for each plot were archived here: [https://doi.org/10.60594/W4GW2T](https://doi.org/10.60594/W4GW2T)
 
 ```{r}
+# https://doi.org/10.60594/W4RG6P
 wfsi_eglinafb_trees <-
   readr::read_csv(
     "../data/WFSI_EglinAFB/Eglin_Air_Force_Base_2023_fuels/data/trees.csv"
@@ -207,10 +209,128 @@ wfsi_eglinafb_trees <-
     , !is.na(tree_y)
   ) %>% 
   # spatial that
+  # epsg from "data_dictionary.csv"
   sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = 26916, remove = F)
 # huh?
 wfsi_eglinafb_trees %>% dplyr::glimpse()
 ```
+
+what is the count of trees measured pre- and post-burn?
+
+```{r}
+wfsi_eglinafb_trees %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::count(burn_status)
+```
+
+so these are all post-burn samples. what is the distribution of species?
+
+```{r}
+wfsi_eglinafb_trees %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::count(species) %>% 
+  dplyr::arrange(desc(n)) %>% 
+  dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
+```
+
+how many plots have trees by unit?
+
+```{r}
+wfsi_eglinafb_trees %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::distinct(unit,plot) %>% 
+  dplyr::count(unit)
+```
+
+we need to get the plot location points and buffer them by 10 m of plot center which was said to be the field sampling protocol to "*Sample all trees ≥10 cm DBH within the plot radius and over from plot center*" ...clear as mud!
+
+```{r}
+# https://doi.org/10.60594/W4T880
+wfsi_eglinafb_plots <-
+  readr::read_csv(
+    "../data/WFSI_EglinAFB/Macroplot_Geographical_Location_Data/data/Geographical_Macroplot_Data_Eglin_2023.csv"
+    , progress = F
+    , show_col_types = F
+  ) %>% 
+  dplyr::rename_with(~tolower(.x) %>% make.names()) %>% 
+  dplyr::filter(
+    !is.na(latitude_y)
+    , !is.na(longitude_x)
+    , !is.na(macroplot)
+  ) %>% 
+  # spatial that
+  sf::st_as_sf(coords = c("longitude_x", "latitude_y"), crs = 4326, remove = F) %>% 
+  # converts proj to match trees and horizontal units to m
+  sf::st_transform(sf::st_crs(wfsi_eglinafb_trees)) %>% 
+  # "After the study fires in March 2023, trees within 10 m of plot center were identified..."
+  sf::st_buffer(10) %>% 
+  dplyr::mutate(
+    plot_area_m2 = sf::st_area(.) %>% as.numeric()
+    # this is good data mgmt: make sure to specify unit orientation in the plot data but not the tree data
+    , burn_unit = burn_unit %>% stringr::str_remove("[EWSNewsn]$")
+    # # more good practice is to format the plot id's to have padding of two zeros in the plot data but only padding of one zero in the tree data
+    , macroplot = dplyr::case_when(
+      stringr::str_sub(wfsi_eglinafb_plots$plot, 3, 4) == "00" ~ stringr::str_c( stringr::str_sub(macroplot,1,2), "0", stringr::str_sub(macroplot,5) )
+      , stringr::str_sub(wfsi_eglinafb_plots$plot, 3, 3) == "0" ~  stringr::str_c( stringr::str_sub(macroplot,1,2), stringr::str_sub(macroplot,4) )
+      , T ~ macroplot
+    )
+  ) %>% 
+  dplyr::rename(
+    plot = macroplot
+    , unit = burn_unit
+  )
+# wfsi_eglinafb_plots %>% dplyr::glimpse()
+# wfsi_eglinafb_plots$plot %>% unique()
+
+# # check for plot and unit non-matches
+# wfsi_eglinafb_trees %>%
+#   sf::st_drop_geometry() %>%
+#   dplyr::distinct(unit,plot) %>%
+#   dplyr::anti_join(
+#     wfsi_eglinafb_plots %>%
+#       sf::st_drop_geometry() %>%
+#       dplyr::distinct(unit,plot,plot_area_m2)
+#     , by = dplyr::join_by(unit,plot)
+#   ) %>%
+#   dplyr::glimpse()
+```
+
+let's quickly check the trees and plots to make sure they align
+
+```{r}
+# wfsi_eglinafb_trees %>% dplyr::glimpse()
+ggplot2::ggplot() + 
+  ggplot2::geom_sf(
+    data = 
+      wfsi_eglinafb_plots %>% 
+      dplyr::inner_join(
+        wfsi_eglinafb_trees %>%
+          dplyr::select(unit,plot) %>%
+          dplyr::slice(nrow_temp) %>%
+          sf::st_drop_geometry()
+        , by = dplyr::join_by(unit,plot)
+      )
+    , color = "black"
+    , fill = NA
+  ) + 
+  ggplot2::geom_sf(
+    data = 
+      wfsi_eglinafb_trees %>% 
+      dplyr::inner_join(
+        wfsi_eglinafb_trees %>%
+          dplyr::select(unit,plot) %>%
+          dplyr::slice(nrow_temp) %>%
+          sf::st_drop_geometry()
+        , by = dplyr::join_by(unit,plot)
+      )
+    , mapping = ggplot2::aes(color = species)
+    , size = 2.5
+  ) + 
+  ggplot2::scale_color_viridis_d() +
+  ggplot2::theme_light()
+  
+```
+
 
 check those field trees out in space
 
@@ -220,12 +340,9 @@ mapview::mapviewOptions(
   homebutton = FALSE
   , basemaps = c("Esri.WorldImagery","OpenStreetMap")
 )
-wfsi_eglinafb_trees %>% 
-  sf::st_drop_geometry() %>% 
-  dplyr::count(unit,species)
 
 wfsi_eglinafb_trees %>% 
-  mapview::mapview(zcol = "species", layer.name="field trees") +
+  mapview::mapview(zcol = "species", layer.name="field trees")
 
   mapview::mapview(zcol = "species", layer.name="field trees")
 
