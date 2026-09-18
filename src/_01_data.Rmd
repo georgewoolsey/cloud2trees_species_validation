@@ -176,8 +176,15 @@ project_data_df <-
   dplyr::mutate(
     data_site_nm = basename(data_dir)
   )
+# project_data_df$data_site_nm
+# make a list for the CHM, predicted trees, field trees, and plot spatial data we can add to
+chm_list <- setNames( vector("list", nrow(project_data_df)), project_data_df$data_site_nm)
+# chm_list
+# names(chm_list)
+pred_trees_list <- chm_list
+ref_trees_list <- chm_list
+ref_plots_list <- chm_list
 ```
-
 
 ## Eglin Air Force Base (Florida)
 
@@ -239,7 +246,14 @@ wfsi_eglinafb_trees %>%
     , layer.name="WFSI Eglin AFB: field trees"
     , popup=F
   )
-
+# wfsi_eglinafb_trees %>%
+#   sf::st_union() %>%
+#   sf::st_bbox() %>%
+#   sf::st_as_sfc() %>%
+#   sf::st_centroid() %>%
+#   sf::st_transform(crs=4326) %>%
+#   sf::st_coordinates()
+# # 30.53834,-86.7296
 ```
 
 what is the count of trees measured pre- and post-burn?
@@ -384,7 +398,6 @@ pl_temp <-
   sample(12) %>% 
   purrr::map(p_fn_temp)
 patchwork::wrap_plots(pl_temp,ncol=4,guides = "collect")
-  
 ```
 
 spot check of alignment between plot and tree spatial data looks good but we can quickly look at all plots and trees to see if any trees fall outside of the plot boundaries
@@ -492,53 +505,118 @@ mapview::mapview(
 
 use `cloud2trees` to process the raw point cloud data to generate a CHM for use in tree detection
 
-```{r, eval = F}
+```{r}
+################################################
+# input/output data str
+################################################
 # outdir
 c2t_output_dir_temp <- project_data_df %>% 
   dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
   dplyr::pull(data_dir)
 c2t_process_dir_temp <- file.path(c2t_output_dir_temp, "point_cloud_processing_delivery")
-# save to tracking df
-project_data_df <- project_data_df %>% dplyr::mutate(c2t_process_dir = ifelse(data_dir==c2t_output_dir_temp, c2t_process_dir_temp, ""))
 # timer file
 c2t_tracking_fnm_temp <- file.path(c2t_process_dir_temp, "processed_tracking_data.csv")
 # save to tracking df
-project_data_df <- project_data_df %>% dplyr::mutate(c2t_tracking_fnm = ifelse(data_dir==c2t_output_dir_temp, c2t_tracking_fnm_temp, ""))
+project_data_df <- project_data_df %>% 
+  dplyr::mutate(
+    c2t_process_dir = ifelse(data_dir==c2t_output_dir_temp, c2t_process_dir_temp, "")
+    , c2t_tracking_fnm = ifelse(data_dir==c2t_output_dir_temp, c2t_tracking_fnm_temp, "")
+  )
 # project_data_df %>% print(n=nrow(project_data_df))
 
-# what is the point cloud point density
-pts_m2_temp <- 
-  wfsi_eglinafb_las_ctg_temp@data %>% 
-  dplyr::mutate(
-    area_m2 = sf::st_area(geometry) %>% as.numeric()
-  ) %>% 
-  sf::st_drop_geometry() %>% 
-  dplyr::ungroup() %>% 
-  dplyr::summarise(
-    pts_m2 = sum(Number.of.point.records,na.rm = T)/sum(area_m2,na.rm = T)
-  )
-# 1/sqrt(pts_m2_temp)
+################################################
+# use point cloud point density
+# to automatically set CHM and DTM res
+# make a fn to do this based on input LAScatalog
+################################################
 
-# there is so much overlap in this data, our density might be better than looking at each tile separately
-pts_m2_temp <- 
-  sum(wfsi_eglinafb_las_ctg_temp@data$Number.of.point.records,na.rm=T) /
-    ( wfsi_eglinafb_las_ctg_temp@data$geometry %>% sf::st_union() %>% sf::st_area() %>% as.numeric() )
-chm_res_m_temp <- as.character( round(1/sqrt(pts_m2_temp),2) + 0.01)
-chm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("chm_",chm_res_m_temp,"m.tif") )
-# save to tracking df
-project_data_df <- project_data_df %>% 
-  dplyr::mutate(
-    chm_res_m = ifelse(data_dir==c2t_output_dir_temp, chm_res_m_temp, "")
-    , chm_fnm = ifelse(data_dir==c2t_output_dir_temp, chm_fnm_temp, "")
+get_ptcld_density_chm_res_fn <- function(las_ctg, rast_res_buffer = 0.01, min_chm_res_m = 0.15, chm_factor_for_dtm = 2) {
+  rast_res_buffer <- dplyr::coalesce(as.numeric(rast_res_buffer),0)
+  min_chm_res_m <- dplyr::coalesce(as.numeric(min_chm_res_m),0.15)
+  chm_factor_for_dtm <- dplyr::coalesce(as.numeric(chm_factor_for_dtm),2)
+  
+  if(!inherits(las_ctg, "LAScatalog")){stop("must be a `LAScatalog` read with `lidR::readLAScatalog()`")}
+  if(
+    !( methods::slotNames(las_ctg) %>% stringr::str_equal("data") %>% any() )
+  ){stop("can't find `data` layer in `LAScatalog` read with `lidR::readLAScatalog()`")}
+  if(!inherits(las_ctg@data, "sf")){stop("non-sf `data` from `LAScatalog` read with `lidR::readLAScatalog()`")}
+  
+  # some point clouds have tiles with lots of overlap
+  # some point clouds have tiles with no overlap
+  
+  # union over total area will help us identify overlap
+  # high overlap >> union will be much smaller than total area (e.g., uoa ratio < 0.66)
+  # low overlap >> union will be similar to total area (e.g., uoa ratio > 0.88)
+  
+  # union area
+  las_uoa_temp <- 
+  (
+    las_ctg@data %>% 
+    dplyr::ungroup() %>% 
+    sf::st_union() %>% 
+    sf::st_area() %>% 
+    as.numeric()
+  ) /
+  # tot area
+  (
+    las_ctg@data %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(
+      area_m2 = sf::st_area(geometry) %>% as.numeric()
+    ) %>% 
+    dplyr::summarise(area_m2=sum(area_m2,na.rm=T)) %>% 
+    dplyr::pull(area_m2)
   )
-dtm_res_m_temp <- as.character( round(as.numeric(chm_res_m_temp)*2,2) )
-dtm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("dtm_",dtm_res_m_temp,"m.tif") )
+  # las_uoa_temp
+  # when a lot of overlap, union and calculate density based off union
+  if(las_uoa_temp<0.66){
+    pts_m2_temp <- 
+      sum(las_ctg@data$Number.of.point.records,na.rm=T) /
+      ( las_ctg@data$geometry %>% sf::st_union() %>% sf::st_area() %>% as.numeric() )  
+  }else{
+  # when NOT a lot of overlap, calculate density as-is
+    pts_m2_temp <- 
+      las_ctg@data %>% 
+      dplyr::mutate(
+        area_m2 = sf::st_area(geometry) %>% as.numeric()
+      ) %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::ungroup() %>% 
+      dplyr::summarise(
+        pts_m2 = sum(Number.of.point.records,na.rm = T)/sum(area_m2,na.rm = T)
+      ) %>% 
+      dplyr::pull(pts_m2)
+  }
+  # pts_m2_temp
+  # 1/sqrt(pts_m2_temp)
+  
+  chm_res_m_temp <- max(round(1/sqrt(pts_m2_temp),2) + rast_res_buffer, min_chm_res_m) 
+  dtm_res_m_temp <- round(as.numeric(chm_res_m_temp)*chm_factor_for_dtm,2)
+  
+  return(list(
+    pts_m2 = pts_m2_temp
+    , chm_res_m = chm_res_m_temp
+    , dtm_res_m = dtm_res_m_temp
+  ))
+}
+
+# get point cloud density and raster resolutions
+get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(wfsi_eglinafb_las_ctg_temp)
+# get_ptcld_density_chm_res_temp
+
+# fnm
+chm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("chm_",get_ptcld_density_chm_res_temp$chm_res_m,"m.tif") )
+dtm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("dtm_",get_ptcld_density_chm_res_temp$dtm_res_m,"m.tif") )
 # save to tracking df
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
-    dtm_res_m = ifelse(data_dir==c2t_output_dir_temp, dtm_res_m_temp, "")
+    las_pts_m2 = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$pts_m2, as.numeric(NA))
+    , chm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$chm_res_m, as.numeric(NA))
+    , chm_fnm = ifelse(data_dir==c2t_output_dir_temp, chm_fnm_temp, "")
+    , dtm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$dtm_res_m, as.numeric(NA))
     , dtm_fnm = ifelse(data_dir==c2t_output_dir_temp, dtm_fnm_temp, "")
   )
+
 # project_data_df %>% dplyr::filter(data_dir==c2t_output_dir_temp) %>% dplyr::glimpse()
 
 ##############################################################
@@ -557,8 +635,8 @@ if(
     , input_las_dir = wfsi_eglinafb_las_f_temp
     , accuracy_level = 2
     , keep_intrmdt = T
-    , dtm_res_m = as.numeric(dtm_res_m_temp) # (1/sqrt(pts_m2_temp))*2
-    , chm_res_m = as.numeric(chm_res_m_temp) # 1/sqrt(pts_m2_temp)
+    , dtm_res_m = get_ptcld_density_chm_res_temp$dtm_res_m # (1/sqrt(pts_m2_temp))*2
+    , chm_res_m = get_ptcld_density_chm_res_temp$chm_res_m # 1/sqrt(pts_m2_temp)
     , min_height = 0 # effectively generates a DSM based on non-ground points
   )
   
@@ -582,8 +660,599 @@ if(
     , "chm_rast" = chm_temp
   )
 }
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+we'll set the minimum CHM resolution to 0.25 m to match the `cloud2trees` default. if the automatically-determined CHM resolution based on the point cloud density used in the `cloud2trees::cloud2raster()` was lower than this level, we'll aggregate the raster using `terra::aggregate()` and `terra::resample()` to get the exact target resolution. if the determined CHM resolution was higher than this level due to low point density, we will use the CHM as-is since this is already the finest resolution possible with the point cloud density.
+
+```{r}
+min_chm_res <- 0.25
+##################################################################
+# aggregate to make raster more coarse for tree detection
+##################################################################
+agg_chm_rast_fn <- function(chm, res, dir) {
+  fp <- file.path(dir, paste0("chm_",res,"m.tif"))
+  if(terra::res(chm)[1]<res){
+    # first, we'll borrow from the `cloud2trees` codebase to get a function to change the resolution of a raster exactly
+    ###___________________________________________###
+    # adjust the resolution of a raster to be in exactly the target resolution
+    ###___________________________________________###
+    if(
+      !file.exists(fp)
+    ){
+      agg_chm_rast <- cloud2trees:::adjust_raster_resolution(
+        chm
+        , target_resolution = res
+        , fun = max
+        , resample_method = "max"
+        , ofile = fp
+      )
+    }else{
+      agg_chm_rast <- terra::rast( fp )
+    }
+  }else{
+    agg_chm_rast <- chm  
+  }
+  return(agg_chm_rast)
+}
 
 ```
+
+let's aggregate the CHM for this site and put it into a list of CHM rasters that we can map over in all of the processing
+
+```{r}
+agg_chm_rast_temp <- agg_chm_rast_fn(
+  chm = cloud2raster_ans$chm_rast
+  , res = min_chm_res
+  , dir = 
+    project_data_df %>% 
+    dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+    dplyr::pull(c2t_process_dir)
+)
+# agg_chm_rast_temp
+# agg_chm_rast_temp %>% terra::clamp(lower = 1.37, values = F) %>% terra::plot()
+
+# add to the chm list
+nm_temp <- project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::pull(data_site_nm)
+chm_list[[nm_temp]] <- agg_chm_rast_temp
+# chm_list
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+### Tree Detection
+
+`cloud2trees` implements a CHM-based individual tree detection method accessible via `cloud2trees::raster2trees()`. this method requires a window function used to set the search radius used to find local maxima in the CHM. These local maxima represent individual tree top points and are subsequently used to delineate individual tree crowns via a marker-controlled watershed segmentation
+
+because the objective of this study is to evaluate a species/genera classification method, we just want the best ITD results we can get based on the field reference data. We are not interested in evaluating tree segmentation here, that has already been done across varied input data and forest types.
+
+let's make a function to test many different window functions, compare the segmentation results to the field reference data, then select the best window function based on tree detection accuracy.
+
+```{r, purl=F, include=F, eval=FALSE}
+# test a bunch of different variable window sizes within `lidR::lmf()` 
+# that cover a range of possibilities and function shapes including linear, concave up, and concave down
+# empty list
+vws_functions <- list()
+min_ws_temp <- 0.5
+max_ws_temp <- 6.0
+
+###########################################################################
+# linear functions over a range
+###########################################################################
+# how many functions to test
+n_temp <- 40
+# end points for the line
+linear_targets <- base::seq(from = max_ws_temp, to = max_ws_temp*2*10, length.out = n_temp)
+
+for (i in 1:n_temp) {
+  target_height <- linear_targets[i]
+  slope <- (max_ws_temp - min_ws_temp) / target_height
+  
+  # Pad names with a zero (01 to 60) for clean sorting
+  func_name <- base::paste0("linear_", base::sprintf("%02d", i))
+  
+  v_min  <- base::as.numeric(min_ws_temp)
+  v_max  <- base::as.numeric(max_ws_temp)
+  v_slope <- base::as.numeric(slope)
+  
+  func_body <- base::substitute(
+    dplyr::case_when(
+      base::is.na(x) ~ v_min,
+      (v_min + v_slope * x) < v_min ~ v_min,
+      (v_min + v_slope * x) > v_max ~ v_max,
+      TRUE ~ (v_min + v_slope * x)
+    ),
+    list(v_min = v_min, v_max = v_max, v_slope = v_slope)
+  )
+  
+  vws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+}
+# vws_functions[1]
+# vws_functions[[1]]
+# class(vws_functions[[1]])
+# vws_functions[[1]](1.5)
+# vws_functions[[1]](0)
+# vws_functions[[1]](18)
+# 
+# vws_functions[[40]](1.5)
+# vws_functions[[40]](0)
+# vws_functions[[40]](18)
+
+###########################################################################
+# concave down functions over a range
+###########################################################################
+# total potential growth (or distance) between the floor and the ceiling is: 6.0-0.5=5.5
+# the halfway point of growth is exactly half of that distance: 5.5/2=2.75
+# when the curve reaches its exact halfway point, the resulting window size must be the baseline floor plus that half-distance: 0.5+2.75=3.25
+# in `half_sat`, setting the constant of 1.375 means the function will hit its halfway mark of 3.25 when the tree is only 1.375 meters tall
+  # max slope = 4 (for ever 1 m growth, ws increases by 4 m)
+  # 4 = (6.0-0.5)/c >> 4 = 5.5/c >> c = 5.5/4 >> c = 1.375
+# how far out to look based on maximum plot/tree height? 45 m tree??
+
+# how many functions to test
+n_temp <- 30
+for (i in 1:n_temp) {
+  c <- 1.375 # ~dbh height
+  max_end <- 45 # biggest tree everrrrr
+  half_sat <- c + (i - 1) * ( (max_end-c) / (n_temp-1))
+  
+  func_name <- base::paste0("concave_down_", base::sprintf("%02d", i))
+  
+  v_min  <- base::as.numeric(min_ws_temp)
+  v_max  <- base::as.numeric(max_ws_temp)
+  v_half <- base::as.numeric(half_sat)
+  
+  func_body <- base::substitute(
+    dplyr::case_when(
+      base::is.na(x) ~ v_min,
+      (v_min + ((v_max - v_min) * x) / (v_half + x)) < v_min ~ v_min,
+      (v_min + ((v_max - v_min) * x) / (v_half + x)) > v_max ~ v_max,
+      TRUE ~ (v_min + ((v_max - v_min) * x) / (v_half + x))
+    ),
+    list(v_min = v_min, v_max = v_max, v_half = v_half)
+  )
+  
+  vws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+}
+# vws_functions[length(vws_functions)]
+# vws_functions[length(vws_functions)-1]
+
+###########################################################################
+# constant functions over a range
+###########################################################################
+# range
+constant_values <- base::seq(from = min_ws_temp, to = max_ws_temp * 0.95, by = 0.5)
+
+for (i in base::seq_along(constant_values)) {
+  const_val <- constant_values[i]
+  
+  func_name <- base::paste0("constant_", base::sprintf("%02d", i))
+  
+  v_min <- base::as.numeric(min_ws_temp)
+  v_val <- base::as.numeric(const_val)
+  
+  func_body <- base::substitute(
+    dplyr::case_when(
+      base::is.na(x) ~ v_min,
+      TRUE ~ v_val
+    ),
+    list(v_min = v_min, v_val = v_val)
+  )
+  
+  vws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+}
+vws_functions[length(vws_functions)]
+vws_functions[[length(vws_functions)]]
+vws_functions[length(vws_functions)-1]
+
+
+###########################################################################
+# two-step linear functions over a range
+###########################################################################
+# Varying break points to spread the elbow transition across different canopy depths
+for (i in 1:30) {
+  # x_b: Canopy break height (ranging smoothly from 5m to 25m)
+  x_b <- 5 + (i - 1) * (20 / 29)
+  # y_b: Window size at break (ranging from 2.5m to 4.5m to ensure it grows faster initially)
+  y_b <- 2.5 + (i - 1) * (2.0 / 29)
+  
+  # Calculate segment slopes
+  slope1 <- (y_b - min_ws_temp) / x_b
+  # The second slope is deliberately slower, extending out to a target cap position
+  target_cap_x <- x_b + 15 + (i - 1) * (25 / 29)
+  slope2 <- (max_ws_temp - y_b) / (target_cap_x - x_b)
+  
+  func_name <- base::paste0("twostep_linear_", base::sprintf("%02d", i))
+  
+  v_min    <- base::as.numeric(min_ws_temp)
+  v_max    <- base::as.numeric(max_ws_temp)
+  v_xb     <- base::as.numeric(x_b)
+  v_yb     <- base::as.numeric(y_b)
+  v_slope1 <- base::as.numeric(slope1)
+  v_slope2 <- base::as.numeric(slope2)
+  
+  func_body <- base::substitute(
+    dplyr::case_when(
+      base::is.na(x) ~ v_min,
+      x <= v_xb ~ {
+        val <- v_min + v_slope1 * x
+        dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
+      },
+      x > v_xb ~ {
+        val <- v_yb + v_slope2 * (x - v_xb)
+        dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
+      }
+    ),
+    list(v_min = v_min, v_max = v_max, v_xb = v_xb, v_yb = v_yb, v_slope1 = v_slope1, v_slope2 = v_slope2)
+  )
+  
+  vws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+}
+
+
+# 3. EVALUATE FUNCTIONS OVER A RANGE FOR VISUALIZATION -----------------------
+
+height_sequence <- base::seq(0, 45, by = 0.25)
+
+plot_data <- 
+  purrr::map_dfr(
+  names(vws_functions)
+  , function(name) {
+    tibble::tibble(
+      height = height_sequence,
+      window_size = vws_functions[[name]](height_sequence),
+      function_id = name,
+      shape_type = dplyr::case_when(
+        base::grepl("linear", name) ~ "linear",
+        base::grepl("concave_down", name) ~ "concave down"
+      )
+    )
+  }
+)
+
+
+ggplot2::ggplot(
+  data = plot_data, 
+  mapping = ggplot2::aes(x = height, y = window_size, group = function_id, color = shape_type)
+) +
+  ggplot2::geom_line(alpha = 0.6, linewidth = 0.7) +
+  ggplot2::labs(
+    x = "CHM (m)",
+    , y = "ws diameter (m)"
+    , color = "ws type"
+  ) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(
+    legend.position = "bottom",
+    plot.title = ggplot2::element_text(face = "bold", size = 13),
+    panel.grid.minor = ggplot2::element_blank()
+  )
+
+names(vws_functions)
+vws_functions[["concave_down_05"]]
+# function(x){ 
+#   dplyr::case_when(
+#     is.na(x) ~ 0.5
+#     , (0.5 + ((6 - 0.5) * x)/(7.39224 + x)) < 0.5 ~ 0.5
+#     , (0.5 + ((6 - 0.5) * x)/(7.39224 + x)) > 6 ~ 6
+#     , TRUE ~ (0.5 + ((6 - 0.5) * x)/(7.39224 + x))
+#   )
+# }
+vws_functions[["concave_down_06"]]
+# function(x){ 
+#   dplyr::case_when(
+#     is.na(x) ~ 0.5
+#     , (0.5 + ((6 - 0.5) * x)/(8.89655 + x)) < 0.5 ~ 0.5
+#     , (0.5 + ((6 - 0.5) * x)/(8.89655 + x)) > 6 ~ 6
+#     , TRUE ~ (0.5 + ((6 - 0.5) * x)/(8.89655 + x))
+#   )
+# }
+
+#### set up CHM for raster2trees
+agg_chm_rast <- terra::rast( file.path(c2t_process_dir, "chm_0.21m.tif") )
+if(!file.exists("../data/chm_rast_test.tif")){
+  chm_rast_test <- 
+    agg_chm_rast %>% 
+    terra::crop(
+      validation_plots %>% 
+        sf::st_buffer(.$plot_radius_m) %>% 
+        sf::st_union() %>% 
+        sf::st_buffer(8) %>% 
+        sf::st_transform(terra::crs(agg_chm_rast)) %>% 
+        terra::vect()
+      , mask = T
+      , filename = "../data/chm_rast_test.tif"
+    )
+}else{
+  chm_rast_test <- terra::rast("../data/chm_rast_test.tif")
+}
+chm_rast_test <- chm_rast_test*1
+# chm_rast_test %>% terra::plot()
+
+testtest_fn <- function(nm) {
+  if (exists("my_temp_dir") && dir.exists(my_temp_dir)) {
+    unlink(my_temp_dir, recursive = TRUE, force = TRUE)
+  }
+  if (exists("my_temp_dir2") && dir.exists(my_temp_dir2)) {
+    unlink(my_temp_dir2, recursive = TRUE, force = TRUE)
+  }
+  warning(paste0("making dir: ",nm,"....",Sys.time()),immediate. = T,call. = F)
+  my_temp_dir <- tempfile(pattern = nm)
+  dir.create(my_temp_dir, showWarnings = FALSE)
+  my_temp_dir2 <- tempfile(pattern = paste0("xx",nm))
+  dir.create(my_temp_dir2, showWarnings = FALSE)
+  warning(paste0("raster2trees: ",nm,"....",Sys.time()),immediate. = T,call. = F)
+  xxx_raster2trees_ans <- cloud2trees::raster2trees(
+      chm_rast = chm_rast_test
+      , outfolder = my_temp_dir
+      , ws = vws_functions[[nm]]
+      , min_height = 1.37
+      , min_crown_area = 0.5
+      , tempdir = my_temp_dir2
+    )
+  # xxx_raster2trees_ans %>% names()
+  xxx_treetops_sf <- xxx_raster2trees_ans %>% 
+    sf::st_drop_geometry() %>% 
+    sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(xxx_raster2trees_ans)) %>% 
+    dplyr::mutate(dbh_cm = mean(validation_trees$dbh_cm,na.rm=T))
+  # xxx_treetops_sf %>% mapview::mapview(zcol="tree_height_m", layer.name="trees")
+  # nrow(xxx_treetops_sf)
+  xxx_treetops_sf <- 
+    sf::st_filter(
+      xxx_treetops_sf
+      , piles_workflow_ans %>% 
+        dplyr::filter(is_in_trtmnt_unit, inrange_th_votes>=5) %>% 
+        sf::st_union()
+      , .predicate = sf::st_disjoint
+    )
+  # nrow(xxx_treetops_sf)
+  warning(paste0("reference_prediction_match: ",nm,"....",Sys.time()),immediate. = T,call. = F)
+  ################### map it
+  xxx_gt_pred_match_map_ans <- validation_trees$plot %>% 
+    unique() %>% 
+    purrr::set_names() %>% 
+    purrr::map(function(plt_id) {
+      # reference_prediction_match
+      rp_match_ans_temp <- reference_prediction_match(
+        pred_data = 
+          xxx_treetops_sf %>% 
+            dplyr::filter(tree_height_m>=min_tree_ht_m) %>% 
+            sf::st_intersection(
+              validation_plots %>% 
+                dplyr::filter(plot==plt_id) %>%  
+                dplyr::mutate(plot_radius_m = plot_radius_m+1) %>% 
+                sf::st_transform(sf::st_crs(xxx_treetops_sf)) %>% 
+                sf::st_buffer(.$plot_radius_m) %>% 
+                dplyr::select(plot_area_m2)
+            ) %>% 
+            dplyr::left_join(
+              xxx_treetops_sf %>% 
+                # clip to study boundary
+                sf::st_intersection(
+                  validation_plots %>% 
+                    dplyr::filter(plot==plt_id) %>%  
+                    sf::st_transform(sf::st_crs(xxx_treetops_sf)) %>% 
+                    sf::st_buffer(.$plot_radius_m) %>% 
+                    dplyr::mutate(is_in_stand = T)
+                ) %>% 
+                sf::st_drop_geometry() %>% 
+                dplyr::select(treeID, is_in_stand)
+              , by = "treeID"
+            ) %>% 
+            dplyr::mutate(
+              is_in_stand = dplyr::coalesce(is_in_stand,F)
+            )
+        , ref_data = 
+          validation_trees %>% 
+            dplyr::filter(plot==plt_id) %>%
+            dplyr::rename(tree_height_m=height_m, dbh_cm=dbh_cm, tree_cbh_m=cbh_m) %>% 
+            sf::st_transform(sf::st_crs(xxx_treetops_sf))
+        , max_dist_m = 2 # round(median(validation_trees$crown_width_m)/2)
+        , max_height_error_m = 1.5 # round(sd(validation_trees$height_m)*1.1,1)
+      )
+      # # wha?
+      # rp_match_ans_temp$ref_data %>% dplyr::glimpse()
+      # rp_match_ans_temp$pred_data %>% dplyr::glimpse()
+      
+      gt_temp <- ground_truth_prediction_match(
+        reference_prediction_match_ans = rp_match_ans_temp
+        , comp_cols = c("tree_height_m", "dbh_cm") #, "tree_cbh_m")
+      )
+      
+      if(!is.null(rp_match_ans_temp$pred_data) && nrow(rp_match_ans_temp$pred_data)>0){
+        gt_temp <- gt_temp %>% 
+          # remove FP that were outside boundary since we included them to allow for edge reference trees to be matched
+          dplyr::left_join(
+            rp_match_ans_temp$pred_data %>% 
+              sf::st_drop_geometry() %>% 
+              dplyr::select(pred_match_idx, is_in_stand)
+            , by = "pred_match_idx"
+          ) %>% 
+          dplyr::filter(
+            !(!is_in_stand & match_grp=="commission")
+          ) 
+      }
+      # gt_temp %>% agg_ground_truth_match() %>% dplyr::glimpse()
+      return(gt_temp)
+  })
+  xxx_ground_truth_prediction_match_ans <- 
+    xxx_gt_pred_match_map_ans %>%
+    purrr::compact() %>% 
+    purrr::list_rbind(names_to = "plot")
+  ans <- xxx_ground_truth_prediction_match_ans %>% 
+    sf::st_drop_geometry() %>% 
+    agg_ground_truth_match()
+  ans %>% readr::write_csv(file.path("../data/testtest", paste0(nm,".csv")))
+  return(ans)
+}
+
+# testtest_ans <- 
+#   names(vws_functions) %>%
+#   # .[2:3] %>% 
+#   purrr::set_names() %>% 
+#   purrr::map(testtest_fn)
+# testtest_ans %>% 
+#   purrr::compact() %>% 
+#   purrr::list_rbind(names_to = "vws_function_nm") %>% 
+#   dplyr::glimpse()
+
+readr::write_csv(file.path("../data/testtest", paste0(nm,".csv")))
+
+p_temp <- 
+  testtest_ans %>% 
+  purrr::compact() %>% 
+  purrr::list_rbind(names_to = "vws_function_nm") %>% 
+  ggplot(aes(x=recall,y=precision,color=f_score,label=vws_function_nm)) +
+  geom_point() +
+  scale_color_viridis_c()
+p_temp
+plotly::ggplotly(p_temp)
+```
+
+for this project, we're going to set a minimum height to qualify as a "tree" which will be applied across study sites. Since many field-measured data do not include height measurements but included diameter limits for measurement, this height threshold will align with measuring only larger trees, ignoring seedlings, saplings, and shrubs.
+
+
+## CSFS SWE
+
+### Point Cloud Data
+
+UAS-lidar data was collected with a DJI Matrice M350 (DJI, Shenzhen, China) platform equipped with  a Zenmuse L2 lidar sensor.
+
+let's check out the raw ALS data
+
+```{r}
+# csfs_swe
+csfs_swe_las_f_temp <- "../data/csfs_swe/las"
+csfs_swe_las_ctg_temp <- lidR::readLAScatalog(csfs_swe_las_f_temp)
+csfs_swe_las_ctg_temp
+# csfs_swe_las_ctg_temp@data %>% dplyr::glimpse()
+```
+
+let's check out the lidar data coverage compared to the field plot data
+
+```{r}
+csfs_swe_las_ctg_temp@data$geometry %>% 
+  sf::st_union() %>% 
+  sf::st_as_sf() %>% 
+  dplyr::mutate(data = "UAS-lidar data extent") %>% 
+mapview::mapview(
+ zcol = "data"
+  , layer.name="CSFS SWE: UAS-lidar data"
+  , popup=F
+)
+# mapview::mapview(
+#   csfs_swe_trees
+#   , zcol = "species"
+#   , layer.name="WFSI Eglin AFB: field trees"
+#   , popup=F
+# )
+# 40.59503,-105.9903
+```
+
+use `cloud2trees` to process the raw point cloud data to generate a CHM for use in tree detection
+
+```{r}
+################################################
+# input/output data str
+################################################
+# outdir
+c2t_output_dir_temp <- project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
+  dplyr::pull(data_dir)
+c2t_process_dir_temp <- file.path(c2t_output_dir_temp, "point_cloud_processing_delivery")
+# timer file
+c2t_tracking_fnm_temp <- file.path(c2t_process_dir_temp, "processed_tracking_data.csv")
+# save to tracking df
+project_data_df <- project_data_df %>% 
+  dplyr::mutate(
+    c2t_process_dir = ifelse(data_dir==c2t_output_dir_temp, c2t_process_dir_temp, c2t_process_dir)
+    , c2t_tracking_fnm = ifelse(data_dir==c2t_output_dir_temp, c2t_tracking_fnm_temp, c2t_tracking_fnm)
+  )
+# project_data_df %>% print(n=nrow(project_data_df))
+
+################################################
+# use point cloud point density
+# to automatically set CHM and DTM res
+# make a fn to do this based on input LAScatalog
+################################################
+
+# get point cloud density and raster resolutions
+get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(csfs_swe_las_ctg_temp)
+# get_ptcld_density_chm_res_temp
+
+# fnm
+chm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("chm_",get_ptcld_density_chm_res_temp$chm_res_m,"m.tif") )
+dtm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("dtm_",get_ptcld_density_chm_res_temp$dtm_res_m,"m.tif") )
+# save to tracking df
+project_data_df <- project_data_df %>% 
+  dplyr::mutate(
+    , las_pts_m2 = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$pts_m2, las_pts_m2)
+    , chm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$chm_res_m, chm_res_m)
+    , chm_fnm = ifelse(data_dir==c2t_output_dir_temp, chm_fnm_temp, chm_fnm)
+    , dtm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$dtm_res_m, dtm_res_m)
+    , dtm_fnm = ifelse(data_dir==c2t_output_dir_temp, dtm_fnm_temp, dtm_fnm)
+  )
+
+# project_data_df %>% dplyr::filter(data_dir==c2t_output_dir_temp) %>% dplyr::glimpse()
+# project_data_df %>% print(n=nrow(project_data_df))
+
+##############################################################
+# cloud2trees::cloud2raster
+##############################################################
+if(
+  !file.exists(chm_fnm_temp)
+  || !file.exists(dtm_fnm_temp)
+){
+  # time it
+  st_temp <- Sys.time()
+  # run it
+  # cloud2trees
+  cloud2raster_ans <- cloud2trees::cloud2raster(
+    output_dir = c2t_output_dir_temp
+    , input_las_dir = csfs_swe_las_f_temp
+    , accuracy_level = 2
+    , keep_intrmdt = T
+    , dtm_res_m = get_ptcld_density_chm_res_temp$dtm_res_m # (1/sqrt(pts_m2_temp))*2
+    , chm_res_m = get_ptcld_density_chm_res_temp$chm_res_m # 1/sqrt(pts_m2_temp)
+    , min_height = 0 # effectively generates a DSM based on non-ground points
+  )
+  
+  # timer
+  mins_temp <- difftime(Sys.time(),st_temp,units = "mins") %>% as.numeric()
+  # save tracking
+  dplyr::tibble(
+    timer_cloud2raster_mins = mins_temp
+  ) %>% 
+    write.csv(
+      file = c2t_tracking_fnm_temp
+      , row.names = F, append = F
+    )
+}else{
+  dtm_temp <- terra::rast( dtm_fnm_temp )
+  chm_temp <- terra::rast( chm_fnm_temp )
+  
+  
+  cloud2raster_ans <- list(
+    "dtm_rast" = dtm_temp
+    , "chm_rast" = chm_temp
+  )
+}
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
 
 ## Penobscot Experimental Forest (Maine)
 
