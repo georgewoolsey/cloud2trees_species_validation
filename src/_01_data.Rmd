@@ -737,226 +737,299 @@ because the objective of this study is to evaluate a species/genera classificati
 
 let's make a function to test many different window functions, compare the segmentation results to the field reference data, then select the best window function based on tree detection accuracy.
 
-```{r, purl=F, include=F, eval=FALSE}
+```{r}
 # test a bunch of different variable window sizes within `lidR::lmf()` 
-# that cover a range of possibilities and function shapes including linear, concave up, and concave down
-# empty list
-vws_functions <- list()
-min_ws_temp <- 0.5
-max_ws_temp <- 6.0
-
-###########################################################################
-# linear functions over a range
-###########################################################################
-# how many functions to test
-n_temp <- 40
-# end points for the line
-linear_targets <- base::seq(from = max_ws_temp, to = max_ws_temp*2*10, length.out = n_temp)
-
-for (i in 1:n_temp) {
-  target_height <- linear_targets[i]
-  slope <- (max_ws_temp - min_ws_temp) / target_height
+# that cover a range of possibilities and function shapes including linear, concave up, and constant
+get_ws_fn_list <- function(min_ws = 0.5, max_ws = 6.0, n_linear = 40, n_concave = 30, n_cr = 30, max_ht = 45) {
   
-  # Pad names with a zero (01 to 60) for clean sorting
-  func_name <- base::paste0("linear_", base::sprintf("%02d", i))
+  # empty list
+  ws_functions <- list()
   
-  v_min  <- base::as.numeric(min_ws_temp)
-  v_max  <- base::as.numeric(max_ws_temp)
-  v_slope <- base::as.numeric(slope)
+  ###########################################################################
+  # linear functions over a range
+  ###########################################################################
+  # end points for the line
+  linear_targets <- base::seq(from = max_ws, to = max_ws*4*10, length.out = n_linear)
   
-  func_body <- base::substitute(
-    dplyr::case_when(
-      base::is.na(x) ~ v_min,
-      (v_min + v_slope * x) < v_min ~ v_min,
-      (v_min + v_slope * x) > v_max ~ v_max,
-      TRUE ~ (v_min + v_slope * x)
-    ),
-    list(v_min = v_min, v_max = v_max, v_slope = v_slope)
-  )
+  n_linear_pad <- ceiling(n_linear*1.5)
   
-  vws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+  for (i in 1:n_linear_pad) {
+    target_height <- linear_targets[i]
+    slope <- (max_ws - min_ws) / target_height
+    
+    # Pad names with a zero (01 to 60) for clean sorting
+    func_name <- base::paste0("linear_", base::sprintf("%02d", i))
+    
+    v_min  <- base::as.numeric(min_ws)
+    v_max  <- base::as.numeric(max_ws)
+    v_slope <- base::as.numeric(slope)
+    
+    func_body <- base::substitute(
+      dplyr::case_when(
+        base::is.na(x) ~ v_min,
+        (v_min + v_slope * x) < v_min ~ v_min,
+        (v_min + v_slope * x) > v_max ~ v_max,
+        TRUE ~ (v_min + v_slope * x)
+      ),
+      list(v_min = v_min, v_max = v_max, v_slope = v_slope)
+    )
+    
+    ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+  }
+  
+  # the flat slopes are too close together...let's remove every other one
+  # how many to remove
+  num_to_remove <- length(ws_functions) - n_linear
+  
+  # half
+  start_idx <- length(ws_functions) - (num_to_remove - 1) * 2
+  
+  # remove
+  remove_idx <- seq(from = start_idx, to = length(ws_functions), by = 2)
+  ws_functions <- ws_functions[-remove_idx]
+  names(ws_functions) <- base::paste0("linear_", base::sprintf("%02d", c(1:length(ws_functions)) ))
+  
+  # ws_functions[1]
+  # ws_functions[[1]]
+  # class(ws_functions[[1]])
+  # ws_functions[[1]](1.5)
+  # ws_functions[[1]](0)
+  # ws_functions[[1]](18)
+  # 
+  # ws_functions[[40]](1.5)
+  # ws_functions[[40]](0)
+  # ws_functions[[40]](18)
+  
+  ###########################################################################
+  # concave down functions over a range
+  ###########################################################################
+  # total potential growth (or distance) between the floor and the ceiling is: 6.0-0.5=5.5
+  # the halfway point of growth is exactly half of that distance: 5.5/2=2.75
+  # when the curve reaches its exact halfway point, the resulting window size must be the baseline floor plus that half-distance: 0.5+2.75=3.25
+  # in `half_sat`, setting the constant of 1.375 means the function will hit its halfway mark of 3.25 when the tree is only 1.375 meters tall
+    # max slope = 4 (for ever 1 m growth, ws increases by 4 m)
+    # 4 = (6.0-0.5)/c >> 4 = 5.5/c >> c = 5.5/4 >> c = 1.375
+  # how far out to look based on maximum plot/tree height? 45 m tree??
+  
+  for (i in 1:n_concave) {
+    c <- 1.375 # ~dbh height
+    max_end <- max_ht # biggest tree everrrrr
+    half_sat <- c + (i - 1) * ( (max_end-c) / (n_concave-1))
+    
+    func_name <- base::paste0("concave_down_", base::sprintf("%02d", i))
+    
+    v_min  <- base::as.numeric(min_ws)
+    v_max  <- base::as.numeric(max_ws)
+    v_half <- base::as.numeric(half_sat)
+    
+    func_body <- base::substitute(
+      dplyr::case_when(
+        base::is.na(x) ~ v_min,
+        (v_min + ((v_max - v_min) * x) / (v_half + x)) < v_min ~ v_min,
+        (v_min + ((v_max - v_min) * x) / (v_half + x)) > v_max ~ v_max,
+        TRUE ~ (v_min + ((v_max - v_min) * x) / (v_half + x))
+      ),
+      list(v_min = v_min, v_max = v_max, v_half = v_half)
+    )
+    
+    ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+  }
+  # ws_functions[length(ws_functions)]
+  # ws_functions[length(ws_functions)-1]
+  
+  ###########################################################################
+  # constant functions over a range
+  ###########################################################################
+  # range
+  constant_values <- base::seq(from = min_ws, to = max_ws * 0.95, by = 0.5)
+  
+  for (i in base::seq_along(constant_values)) {
+    const_val <- constant_values[i]
+    
+    func_name <- base::paste0("constant_", base::sprintf("%02d", i))
+    
+    v_min <- base::as.numeric(min_ws)
+    v_val <- base::as.numeric(const_val)
+    
+    func_body <- base::substitute(
+      dplyr::case_when(
+        base::is.na(x) ~ v_min,
+        TRUE ~ v_val
+      ),
+      list(v_min = v_min, v_val = v_val)
+    )
+    
+    ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+  }
+  # ws_functions[length(ws_functions)]
+  # ws_functions[[length(ws_functions)]](0.1)
+  # ws_functions[[length(ws_functions)]](4)
+  # ws_functions[[length(ws_functions)]](15)
+  # ws_functions[length(ws_functions)-1]
+  
+  
+  # ###########################################################################
+  # # two-step linear functions over a range
+  # ###########################################################################
+  # # how many functions to test
+  # n_temp <- 16
+  # # max tree height in CHM
+  # 
+  # # Calculate fractional boundary envelopes based on global constraints
+  # xb_min <- max_ht * 0.09   # ~5m height
+  # xb_max <- max_ht * 0.66   # ~25m height
+  # yb_min <- min_ws + (max_ws - min_ws) * 0.36  # ~2.5m window size
+  # yb_max <- min_ws + (max_ws - min_ws) * 0.88  # ~4.5m window size
+  # 
+  # xb_sequence  <- base::seq(from = xb_min, to = xb_max, length.out = n_temp)
+  # yb_sequence  <- base::seq(from = yb_min, to = yb_max, length.out = n_temp)
+  # cap_sequence <- base::seq(from = 15.0,   to = 40.0,   length.out = n_temp)
+  # 
+  # for (i in 1:n_temp) {
+  #   x_b <- xb_sequence[i]
+  #   y_b <- yb_sequence[i]
+  #   
+  #   slope1 <- (y_b - min_ws) / x_b
+  #   
+  #   target_cap_x <- x_b + cap_sequence[i]
+  #   slope2 <- (max_ws - y_b) / (target_cap_x - x_b)
+  #   
+  #   func_name <- base::paste0("twostep_linear_", base::sprintf("%02d", i))
+  #   
+  #   v_min    <- base::as.numeric(min_ws)
+  #   v_max    <- base::as.numeric(max_ws)
+  #   v_xb     <- base::as.numeric(x_b)
+  #   v_yb     <- base::as.numeric(y_b)
+  #   v_slope1 <- base::as.numeric(slope1)
+  #   v_slope2 <- base::as.numeric(slope2)
+  #   
+  #   func_body <- base::substitute(
+  #     dplyr::case_when(
+  #       base::is.na(x) ~ v_min,
+  #       x <= v_xb ~ {
+  #         val <- v_min + v_slope1 * x
+  #         dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
+  #       },
+  #       x > v_xb ~ {
+  #         val <- v_yb + v_slope2 * (x - v_xb)
+  #         dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
+  #       }
+  #     ),
+  #     list(v_min = v_min, v_max = v_max, v_xb = v_xb, v_yb = v_yb, v_slope1 = v_slope1, v_slope2 = v_slope2)
+  #   )
+  #   
+  #   ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+  # }
+  # 
+  # 
+  # # ws_functions[length(ws_functions)]
+  # # ws_functions[[length(ws_functions)]](0.1)
+  # # ws_functions[[length(ws_functions)]](4)
+  # # ws_functions[[length(ws_functions)]](15)
+  # # ws_functions[length(ws_functions)-1]
+  
+  
+  ###########################################################################
+  # chapman richards functions over a range
+  ###########################################################################
+  # Generate parameters that smoothly spread across your MAX_CANOPY_HEIGHT
+  # Beta controls horizontal stretching; Gamma controls the sharpness of the initial lag
+  beta_sequence  <- base::seq(from = 0.15, to = 0.02, length.out = n_cr)
+  gamma_sequence <- base::seq(from = 1.5,  to = 4.0,  length.out = n_cr)
+  
+  for (i in 1:n_cr) {
+    b_param <- beta_sequence[i]
+    g_param <- gamma_sequence[i]
+    
+    func_name <- base::paste0("chapman_richards_", base::sprintf("%02d", i))
+    
+    v_min   <- base::as.numeric(min_ws)
+    v_max   <- base::as.numeric(max_ws)
+    v_beta  <- base::as.numeric(b_param)
+    v_gamma <- base::as.numeric(g_param)
+    
+    # Chapman-Richards equation with case_when boundaries
+    func_body <- base::substitute(
+      dplyr::case_when(
+        base::is.na(x) ~ v_min,
+        TRUE ~ {
+          # Core Chapman-Richards Sigmoid Formula
+          val <- v_min + (v_max - v_min) * (1 - base::exp(-v_beta * x))^v_gamma
+          dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
+        }
+      ),
+      list(v_min = v_min, v_max = v_max, v_beta = v_beta, v_gamma = v_gamma)
+    )
+    
+    ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
+  }
+  
+  return(ws_functions)
 }
-# vws_functions[1]
-# vws_functions[[1]]
-# class(vws_functions[[1]])
-# vws_functions[[1]](1.5)
-# vws_functions[[1]](0)
-# vws_functions[[1]](18)
-# 
-# vws_functions[[40]](1.5)
-# vws_functions[[40]](0)
-# vws_functions[[40]](18)
+```
 
-###########################################################################
-# concave down functions over a range
-###########################################################################
-# total potential growth (or distance) between the floor and the ceiling is: 6.0-0.5=5.5
-# the halfway point of growth is exactly half of that distance: 5.5/2=2.75
-# when the curve reaches its exact halfway point, the resulting window size must be the baseline floor plus that half-distance: 0.5+2.75=3.25
-# in `half_sat`, setting the constant of 1.375 means the function will hit its halfway mark of 3.25 when the tree is only 1.375 meters tall
-  # max slope = 4 (for ever 1 m growth, ws increases by 4 m)
-  # 4 = (6.0-0.5)/c >> 4 = 5.5/c >> c = 5.5/4 >> c = 1.375
-# how far out to look based on maximum plot/tree height? 45 m tree??
+let's take that function for a spin to get a list of window functions for testing and plot the functions over a height range
 
-# how many functions to test
-n_temp <- 30
-for (i in 1:n_temp) {
-  c <- 1.375 # ~dbh height
-  max_end <- 45 # biggest tree everrrrr
-  half_sat <- c + (i - 1) * ( (max_end-c) / (n_temp-1))
-  
-  func_name <- base::paste0("concave_down_", base::sprintf("%02d", i))
-  
-  v_min  <- base::as.numeric(min_ws_temp)
-  v_max  <- base::as.numeric(max_ws_temp)
-  v_half <- base::as.numeric(half_sat)
-  
-  func_body <- base::substitute(
-    dplyr::case_when(
-      base::is.na(x) ~ v_min,
-      (v_min + ((v_max - v_min) * x) / (v_half + x)) < v_min ~ v_min,
-      (v_min + ((v_max - v_min) * x) / (v_half + x)) > v_max ~ v_max,
-      TRUE ~ (v_min + ((v_max - v_min) * x) / (v_half + x))
-    ),
-    list(v_min = v_min, v_max = v_max, v_half = v_half)
-  )
-  
-  vws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
-}
-# vws_functions[length(vws_functions)]
-# vws_functions[length(vws_functions)-1]
+```{r}
+get_ws_fn_list_ans <- get_ws_fn_list(min_ws = 0.5, max_ws = 7.0, n_linear = 30, n_concave = 30, n_cr = 30, max_ht = 45)
+# get_ws_fn_list_ans %>% names()
+# get_ws_fn_list_ans %>% length()
 
-###########################################################################
-# constant functions over a range
-###########################################################################
-# range
-constant_values <- base::seq(from = min_ws_temp, to = max_ws_temp * 0.95, by = 0.5)
+# plot that
+ht_seq_temp <- base::seq(0, 50, by = 0.25)
 
-for (i in base::seq_along(constant_values)) {
-  const_val <- constant_values[i]
-  
-  func_name <- base::paste0("constant_", base::sprintf("%02d", i))
-  
-  v_min <- base::as.numeric(min_ws_temp)
-  v_val <- base::as.numeric(const_val)
-  
-  func_body <- base::substitute(
-    dplyr::case_when(
-      base::is.na(x) ~ v_min,
-      TRUE ~ v_val
-    ),
-    list(v_min = v_min, v_val = v_val)
-  )
-  
-  vws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
-}
-vws_functions[length(vws_functions)]
-vws_functions[[length(vws_functions)]]
-vws_functions[length(vws_functions)-1]
-
-
-###########################################################################
-# two-step linear functions over a range
-###########################################################################
-# Varying break points to spread the elbow transition across different canopy depths
-for (i in 1:30) {
-  # x_b: Canopy break height (ranging smoothly from 5m to 25m)
-  x_b <- 5 + (i - 1) * (20 / 29)
-  # y_b: Window size at break (ranging from 2.5m to 4.5m to ensure it grows faster initially)
-  y_b <- 2.5 + (i - 1) * (2.0 / 29)
-  
-  # Calculate segment slopes
-  slope1 <- (y_b - min_ws_temp) / x_b
-  # The second slope is deliberately slower, extending out to a target cap position
-  target_cap_x <- x_b + 15 + (i - 1) * (25 / 29)
-  slope2 <- (max_ws_temp - y_b) / (target_cap_x - x_b)
-  
-  func_name <- base::paste0("twostep_linear_", base::sprintf("%02d", i))
-  
-  v_min    <- base::as.numeric(min_ws_temp)
-  v_max    <- base::as.numeric(max_ws_temp)
-  v_xb     <- base::as.numeric(x_b)
-  v_yb     <- base::as.numeric(y_b)
-  v_slope1 <- base::as.numeric(slope1)
-  v_slope2 <- base::as.numeric(slope2)
-  
-  func_body <- base::substitute(
-    dplyr::case_when(
-      base::is.na(x) ~ v_min,
-      x <= v_xb ~ {
-        val <- v_min + v_slope1 * x
-        dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
-      },
-      x > v_xb ~ {
-        val <- v_yb + v_slope2 * (x - v_xb)
-        dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
-      }
-    ),
-    list(v_min = v_min, v_max = v_max, v_xb = v_xb, v_yb = v_yb, v_slope1 = v_slope1, v_slope2 = v_slope2)
-  )
-  
-  vws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
-}
-
-
-# 3. EVALUATE FUNCTIONS OVER A RANGE FOR VISUALIZATION -----------------------
-
-height_sequence <- base::seq(0, 45, by = 0.25)
-
-plot_data <- 
+p_dta_temp <- 
   purrr::map_dfr(
-  names(vws_functions)
+  names(get_ws_fn_list_ans)
   , function(name) {
     tibble::tibble(
-      height = height_sequence,
-      window_size = vws_functions[[name]](height_sequence),
-      function_id = name,
-      shape_type = dplyr::case_when(
-        base::grepl("linear", name) ~ "linear",
-        base::grepl("concave_down", name) ~ "concave down"
+      height = ht_seq_temp
+      , window_size = get_ws_fn_list_ans[[name]](ht_seq_temp)
+      , function_id = name
+      , shape_type = dplyr::case_when(
+        stringr::str_starts(name,"linear_") ~ "linear"
+        , stringr::str_starts(name,"concave_down_") ~ "concave down"
+        , stringr::str_starts(name,"twostep_linear_") ~ "two-step linear"
+        , stringr::str_starts(name,"constant_") ~ "constant"
+        , stringr::str_starts(name,"chapman_richards_") ~ "chapman-richards"
       )
     )
   }
 )
+# p_dta_temp %>% dplyr::count(shape_type)
+# p_dta_temp %>% dplyr::distinct(function_id,shape_type) %>% dplyr::count(shape_type)
 
-
-ggplot2::ggplot(
-  data = plot_data, 
-  mapping = ggplot2::aes(x = height, y = window_size, group = function_id, color = shape_type)
-) +
-  ggplot2::geom_line(alpha = 0.6, linewidth = 0.7) +
-  ggplot2::labs(
-    x = "CHM (m)",
-    , y = "ws diameter (m)"
-    , color = "ws type"
+p_temp <- 
+  ggplot2::ggplot(
+    data = p_dta_temp
+    , mapping = ggplot2::aes(x = height, y = window_size, group = function_id, color = shape_type)
   ) +
-  ggplot2::theme_minimal() +
-  ggplot2::theme(
-    legend.position = "bottom",
-    plot.title = ggplot2::element_text(face = "bold", size = 13),
-    panel.grid.minor = ggplot2::element_blank()
-  )
+    ggplot2::geom_line(alpha = 0.6, linewidth = 1) +
+    ggplot2::labs(
+      x = "CHM (m)",
+      , y = "ws diameter (m)"
+      , color = "ws type"
+    ) +
+    # ggplot2::facet_wrap(facets = dplyr::vars(shape_type)) +
+    ggplot2::scale_color_viridis_d(option = "turbo") +
+    ggplot2::scale_y_continuous(limits=c(0,NA), breaks = scales::breaks_extended(n=6)) +
+    ggplot2::theme_light() +
+    ggplot2::theme(
+      legend.position = "top"
+    )
+p_temp
 
-names(vws_functions)
-vws_functions[["concave_down_05"]]
-# function(x){ 
-#   dplyr::case_when(
-#     is.na(x) ~ 0.5
-#     , (0.5 + ((6 - 0.5) * x)/(7.39224 + x)) < 0.5 ~ 0.5
-#     , (0.5 + ((6 - 0.5) * x)/(7.39224 + x)) > 6 ~ 6
-#     , TRUE ~ (0.5 + ((6 - 0.5) * x)/(7.39224 + x))
-#   )
-# }
-vws_functions[["concave_down_06"]]
-# function(x){ 
-#   dplyr::case_when(
-#     is.na(x) ~ 0.5
-#     , (0.5 + ((6 - 0.5) * x)/(8.89655 + x)) < 0.5 ~ 0.5
-#     , (0.5 + ((6 - 0.5) * x)/(8.89655 + x)) > 6 ~ 6
-#     , TRUE ~ (0.5 + ((6 - 0.5) * x)/(8.89655 + x))
-#   )
-# }
+```
 
+let's look at the functions by type so they are a little easier to see since that is `r length(get_ws_fn_list_ans)` unique functions
+
+```{r}
+p_temp + 
+  ggplot2::facet_wrap(facets = dplyr::vars(shape_type))
+```
+
+
+```{r, include = F, eval = F}
 #### set up CHM for raster2trees
 agg_chm_rast <- terra::rast( file.path(c2t_process_dir, "chm_0.21m.tif") )
 if(!file.exists("../data/chm_rast_test.tif")){
@@ -994,7 +1067,7 @@ testtest_fn <- function(nm) {
   xxx_raster2trees_ans <- cloud2trees::raster2trees(
       chm_rast = chm_rast_test
       , outfolder = my_temp_dir
-      , ws = vws_functions[[nm]]
+      , ws = ws_functions[[nm]]
       , min_height = 1.37
       , min_crown_area = 0.5
       , tempdir = my_temp_dir2
@@ -1096,7 +1169,7 @@ testtest_fn <- function(nm) {
 }
 
 # testtest_ans <- 
-#   names(vws_functions) %>%
+#   names(ws_functions) %>%
 #   # .[2:3] %>% 
 #   purrr::set_names() %>% 
 #   purrr::map(testtest_fn)
