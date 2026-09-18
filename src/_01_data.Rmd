@@ -166,7 +166,22 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
+let's make a quick data frame of our project data which is organized by site
+
+```{r}
+project_data_df <-
+  dplyr::tibble(
+   data_dir = list.dirs("../data", recursive = F) 
+  ) %>% 
+  dplyr::mutate(
+    data_site_nm = basename(data_dir)
+  )
+```
+
+
 ## Eglin Air Force Base (Florida)
+
+### Field Data
 
 Field data from this study site is from: 
 
@@ -213,6 +228,18 @@ wfsi_eglinafb_trees <-
   sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = 26916, remove = F)
 # huh?
 wfsi_eglinafb_trees %>% dplyr::glimpse()
+```
+
+let's check those field trees out to orient ourselves to the location
+
+```{r}
+wfsi_eglinafb_trees %>% 
+  mapview::mapview(
+    zcol = "species"
+    , layer.name="WFSI Eglin AFB: field trees"
+    , popup=F
+  )
+
 ```
 
 what is the count of trees measured pre- and post-burn?
@@ -268,10 +295,10 @@ wfsi_eglinafb_plots <-
     plot_area_m2 = sf::st_area(.) %>% as.numeric()
     # this is good data mgmt: make sure to specify unit orientation in the plot data but not the tree data
     , burn_unit = burn_unit %>% stringr::str_remove("[EWSNewsn]$")
-    # # more good practice is to format the plot id's to have padding of two zeros in the plot data but only padding of one zero in the tree data
+    # # another good practice is to format the plot id's to have padding of two zeros in the plot data but only padding of one zero in the tree data
     , macroplot = dplyr::case_when(
-      stringr::str_sub(wfsi_eglinafb_plots$plot, 3, 4) == "00" ~ stringr::str_c( stringr::str_sub(macroplot,1,2), "0", stringr::str_sub(macroplot,5) )
-      , stringr::str_sub(wfsi_eglinafb_plots$plot, 3, 3) == "0" ~  stringr::str_c( stringr::str_sub(macroplot,1,2), stringr::str_sub(macroplot,4) )
+      stringr::str_sub(macroplot, 3, 4) == "00" ~ stringr::str_c( stringr::str_sub(macroplot,1,2), "0", stringr::str_sub(macroplot,5) )
+      , stringr::str_sub(macroplot, 3, 3) == "0" ~  stringr::str_c( stringr::str_sub(macroplot,1,2), stringr::str_sub(macroplot,4) )
       , T ~ macroplot
     )
   ) %>% 
@@ -279,6 +306,7 @@ wfsi_eglinafb_plots <-
     plot = macroplot
     , unit = burn_unit
   )
+
 # wfsi_eglinafb_plots %>% dplyr::glimpse()
 # wfsi_eglinafb_plots$plot %>% unique()
 
@@ -293,65 +321,273 @@ wfsi_eglinafb_plots <-
 #     , by = dplyr::join_by(unit,plot)
 #   ) %>%
 #   dplyr::glimpse()
+  
+# lets keep only plots for which tree data exists since we know those were measured post-burn
+wfsi_eglinafb_plots <- wfsi_eglinafb_plots %>% 
+  dplyr::inner_join(
+    wfsi_eglinafb_trees %>%
+      sf::st_drop_geometry() %>%
+      dplyr::distinct(unit,plot)
+    , by = dplyr::join_by(unit,plot)
+  )
+# wfsi_eglinafb_plots %>% dplyr::glimpse()
 ```
 
 let's quickly check the trees and plots to make sure they align
 
 ```{r}
 # wfsi_eglinafb_trees %>% dplyr::glimpse()
-ggplot2::ggplot() + 
-  ggplot2::geom_sf(
-    data = 
-      wfsi_eglinafb_plots %>% 
+# plot function
+p_fn_temp <- function(nr){
+    p <- wfsi_eglinafb_plots %>% dplyr::slice(nr)
+    t <- wfsi_eglinafb_trees %>% 
       dplyr::inner_join(
-        wfsi_eglinafb_trees %>%
+          p %>% 
           dplyr::select(unit,plot) %>%
-          dplyr::slice(nrow_temp) %>%
           sf::st_drop_geometry()
         , by = dplyr::join_by(unit,plot)
       )
-    , color = "black"
-    , fill = NA
-  ) + 
-  ggplot2::geom_sf(
-    data = 
-      wfsi_eglinafb_trees %>% 
-      dplyr::inner_join(
-        wfsi_eglinafb_trees %>%
-          dplyr::select(unit,plot) %>%
-          dplyr::slice(nrow_temp) %>%
-          sf::st_drop_geometry()
-        , by = dplyr::join_by(unit,plot)
-      )
-    , mapping = ggplot2::aes(color = species)
-    , size = 2.5
-  ) + 
-  ggplot2::scale_color_viridis_d() +
-  ggplot2::theme_light()
+    ggplot2::ggplot() + 
+    ggplot2::geom_sf(
+      data = t
+      , mapping = ggplot2::aes(color = dbh_cm)
+      , size = 2.5
+    ) + 
+    ggplot2::geom_sf(
+      data = p
+      , color = "gray33"
+      , fill = NA
+      , lwd = 1.5
+    ) + 
+    ggplot2::geom_sf(
+      data = t
+      , mapping = ggplot2::aes(color = dbh_cm)
+      , size = 2.5
+    ) + 
+    ggplot2::scale_color_viridis_c(
+      option = "mako"
+      , limits = c(0, ceiling(max(wfsi_eglinafb_trees$dbh_cm,na.rm=T)*1.01))
+      , direction = -1
+      , name = "DBH (cm)"
+    ) +
+    ggplot2::labs(
+      subtitle = paste0(p$unit, " | ", p$plot)
+    ) +
+    ggplot2::theme_void() +
+    ggplot2::theme(
+      plot.subtitle = ggplot2::element_text(size = 8, hjust = 0.5, face = "bold")
+    )
+  }
+
+pl_temp <- 
+  1:nrow(wfsi_eglinafb_plots) %>% 
+  sample(12) %>% 
+  purrr::map(p_fn_temp)
+patchwork::wrap_plots(pl_temp,ncol=4,guides = "collect")
   
 ```
 
-
-check those field trees out in space
+spot check of alignment between plot and tree spatial data looks good but we can quickly look at all plots and trees to see if any trees fall outside of the plot boundaries
 
 ```{r}
-# option to put satellite imagery as base layer of mapview maps
-mapview::mapviewOptions(
-  homebutton = FALSE
-  , basemaps = c("Esri.WorldImagery","OpenStreetMap")
-)
+# wfsi_eglinafb_trees %>% dplyr::glimpse()
+wfsi_eglinafb_trees <- 
+  1:nrow(wfsi_eglinafb_plots) %>% 
+  purrr::map(function(nr){
+    p <- wfsi_eglinafb_plots %>% dplyr::slice(nr)
+    t <- wfsi_eglinafb_trees %>% 
+      dplyr::inner_join(
+          p %>% 
+          dplyr::select(unit,plot) %>%
+          sf::st_drop_geometry()
+        , by = dplyr::join_by(unit,plot)
+      )
+    # points outside?
+    out <- t %>% sf::st_filter(p, .predicate = sf::st_disjoint)
+      
+    return(
+      t %>% 
+        dplyr::left_join(
+          out %>% 
+            sf::st_drop_geometry() %>% 
+            dplyr::select(plot,unit,tree_number) %>% 
+            dplyr::mutate(is_out_of_plot = T)
+          , by = dplyr::join_by(plot,unit,tree_number)
+        ) %>% 
+        dplyr::mutate(
+          is_out_of_plot = dplyr::coalesce(is_out_of_plot,F)
+        )
+    )
+  }) %>% 
+  purrr::list_rbind()
 
-wfsi_eglinafb_trees %>% 
-  mapview::mapview(zcol = "species", layer.name="field trees")
+# are there any out?
+wfsi_eglinafb_trees %>% sf::st_drop_geometry() %>% dplyr::count(is_out_of_plot)
+```
 
-  mapview::mapview(zcol = "species", layer.name="field trees")
+uh-oh we have one tree outside of the plot
 
+```{r}
+wfsi_eglinafb_plots %>% 
+  dplyr::mutate(rn=dplyr::row_number()) %>% 
+  dplyr::inner_join(
+    wfsi_eglinafb_trees %>% 
+      dplyr::filter(is_out_of_plot) %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::distinct(unit,plot)
+    , by = dplyr::join_by(unit,plot) 
+  ) %>% 
+  dplyr::pull(rn) %>% 
+  purrr::map(p_fn_temp)
 
 ```
 
+right on the edge, but just outside based on a slight misalignment in GPS locations or in/out determination in the field
 
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+### Point Cloud Data
+
+Andrew Hudak, & Benjamin Bright. (2026). *Airborne Lidar Data from the 2023 Department of Defense Wildland Fire Science Initiative Eglin Air Force Base Campaign*. WFSI Data Portal. [doi:10.60594/W4B017](https://doi.org/10.60594/W4B017)
+
+>This dataset contains airborne light detection and ranging (lidar) data across burn units G20, G25, and L25 in Eglin AFB, FL. Kucera International acquired airborne lidar on January 28, 2023 (before prescribed fire), and on April 26, 2023 (after prescribed fire); prescribed fires occurred from March 11 to 19, 2023. Lidar data were acquired to characterize pre- and post-fire vegetation and estimate fire-caused biomass consumption. 
+
+some other relevant notes about the data:
+
+>Kucera International acquired airborne lidar data across burn units G20, G25, and L25 on January 28, 2023 (before prescribed fire), and across burn units G20 and G25 on April 26, 2023 (after prescribed fire); prescribed fires occurred from March 11 to 19, 2023. The lidar sensor, an Optech Galaxy T2000, was mounted on a PA-31 Piper Navajo Chieftain fixed-wing aircraft, which flew at an elevation of 1341 m (4400 ft) above ground level at a speed of about 150 knots, with a planned sidelap of 30%. The Optech Galaxy T2000 scanned with a laser pulse rate of 1600 kHz, a scan rate of 150 Hz, and a scan field of view of 30 degrees, which resulted in swath widths of 716 meters (2350 feet) and an average point density of 15 points per square meter.
+
+>LAZ file horizontal distance units are meters, in the UTM Zone 16N NAD83 (2011) geographic coordinate system (EPSG 6345)
+
+let's check out the raw ALS data
+
+```{r}
+wfsi_eglinafb_las_f_temp <- "../data/WFSI_EglinAFB/post_fire_laz_apr2023"
+wfsi_eglinafb_las_ctg_temp <- lidR::readLAScatalog(wfsi_eglinafb_las_f_temp)
+wfsi_eglinafb_las_ctg_temp
+# wfsi_eglinafb_las_ctg_temp@data %>% dplyr::glimpse()
+```
+
+let's check out the lidar data coverage compared to the field plot data
+
+```{r}
+wfsi_eglinafb_las_ctg_temp@data$geometry %>% 
+  sf::st_union() %>% 
+  sf::st_as_sf() %>% 
+  dplyr::mutate(data = "ALS data extent") %>% 
+mapview::mapview(
+ zcol = "data"
+  , layer.name="WFSI Eglin AFB: ALS data"
+  , popup=F
+) +
+mapview::mapview(
+  wfsi_eglinafb_trees
+  , zcol = "species"
+  , layer.name="WFSI Eglin AFB: field trees"
+  , popup=F
+)
+```
+
+use `cloud2trees` to process the raw point cloud data to generate a CHM for use in tree detection
+
+```{r, eval = F}
+# outdir
+c2t_output_dir_temp <- project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::pull(data_dir)
+c2t_process_dir_temp <- file.path(c2t_output_dir_temp, "point_cloud_processing_delivery")
+# save to tracking df
+project_data_df <- project_data_df %>% dplyr::mutate(c2t_process_dir = ifelse(data_dir==c2t_output_dir_temp, c2t_process_dir_temp, ""))
+# timer file
+c2t_tracking_fnm_temp <- file.path(c2t_process_dir_temp, "processed_tracking_data.csv")
+# save to tracking df
+project_data_df <- project_data_df %>% dplyr::mutate(c2t_tracking_fnm = ifelse(data_dir==c2t_output_dir_temp, c2t_tracking_fnm_temp, ""))
+# project_data_df %>% print(n=nrow(project_data_df))
+
+# what is the point cloud point density
+pts_m2_temp <- 
+  wfsi_eglinafb_las_ctg_temp@data %>% 
+  dplyr::mutate(
+    area_m2 = sf::st_area(geometry) %>% as.numeric()
+  ) %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::ungroup() %>% 
+  dplyr::summarise(
+    pts_m2 = sum(Number.of.point.records,na.rm = T)/sum(area_m2,na.rm = T)
+  )
+# 1/sqrt(pts_m2_temp)
+
+# there is so much overlap in this data, our density might be better than looking at each tile separately
+pts_m2_temp <- 
+  sum(wfsi_eglinafb_las_ctg_temp@data$Number.of.point.records,na.rm=T) /
+    ( wfsi_eglinafb_las_ctg_temp@data$geometry %>% sf::st_union() %>% sf::st_area() %>% as.numeric() )
+chm_res_m_temp <- as.character( round(1/sqrt(pts_m2_temp),2) + 0.01)
+chm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("chm_",chm_res_m_temp,"m.tif") )
+# save to tracking df
+project_data_df <- project_data_df %>% 
+  dplyr::mutate(
+    chm_res_m = ifelse(data_dir==c2t_output_dir_temp, chm_res_m_temp, "")
+    , chm_fnm = ifelse(data_dir==c2t_output_dir_temp, chm_fnm_temp, "")
+  )
+dtm_res_m_temp <- as.character( round(as.numeric(chm_res_m_temp)*2,2) )
+dtm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("dtm_",dtm_res_m_temp,"m.tif") )
+# save to tracking df
+project_data_df <- project_data_df %>% 
+  dplyr::mutate(
+    dtm_res_m = ifelse(data_dir==c2t_output_dir_temp, dtm_res_m_temp, "")
+    , dtm_fnm = ifelse(data_dir==c2t_output_dir_temp, dtm_fnm_temp, "")
+  )
+# project_data_df %>% dplyr::filter(data_dir==c2t_output_dir_temp) %>% dplyr::glimpse()
+
+##############################################################
+# cloud2trees::cloud2raster
+##############################################################
+if(
+  !file.exists(chm_fnm_temp)
+  || !file.exists(dtm_fnm_temp)
+){
+  # time it
+  st_temp <- Sys.time()
+  # run it
+  # cloud2trees
+  cloud2raster_ans <- cloud2trees::cloud2raster(
+    output_dir = c2t_output_dir_temp
+    , input_las_dir = wfsi_eglinafb_las_f_temp
+    , accuracy_level = 2
+    , keep_intrmdt = T
+    , dtm_res_m = as.numeric(dtm_res_m_temp) # (1/sqrt(pts_m2_temp))*2
+    , chm_res_m = as.numeric(chm_res_m_temp) # 1/sqrt(pts_m2_temp)
+    , min_height = 0 # effectively generates a DSM based on non-ground points
+  )
+  
+  # timer
+  mins_temp <- difftime(Sys.time(),st_temp,units = "mins") %>% as.numeric()
+  # save tracking
+  dplyr::tibble(
+    timer_cloud2raster_mins = mins_temp
+  ) %>% 
+    write.csv(
+      file = c2t_tracking_fnm_temp
+      , row.names = F, append = F
+    )
+}else{
+  dtm_temp <- terra::rast( dtm_fnm_temp )
+  chm_temp <- terra::rast( chm_fnm_temp )
+  
+  
+  cloud2raster_ans <- list(
+    "dtm_rast" = dtm_temp
+    , "chm_rast" = chm_temp
+  )
+}
+
+```
 
 ## Penobscot Experimental Forest (Maine)
+
+### Field Data
 
 Field data from this study site is from: 
 
@@ -389,20 +625,97 @@ usfs_penobscotef_plots <- readr::read_csv(
     # 1 ha = 2.47105 acres
     , plot_area_ha = plot_area_ac/2.47105
     , plot_area_m2 = plot_area_ha*10000
-    , plot_radius_meters = sqrt(plot_area_m2 / pi)    
+    , plot_radius_meters = sqrt(plot_area_m2 / pi)
   ) %>% 
   sf::st_buffer(.$plot_radius_meters)
 # huh?
 # usfs_penobscotef_plots %>% dplyr::count(projection)
 usfs_penobscotef_plots %>% dplyr::glimpse()
+# usfs_penobscotef_plots %>% sf::st_drop_geometry() %>% dplyr::count(mu,plot) %>% dplyr::filter(n>1)
 ```
 
 we did a lot of data cleaning in there which we won't describe (you can read the code if you're interested). let's look at the plot locations...
 
+load in the trees
+
+```{r}
+usfs_penobscotef_trees <- 
+  readr::read_csv(
+    "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_TreeLocationData.csv"
+    , progress = F
+    , show_col_types = F
+  ) %>% 
+  dplyr::rename_with(~tolower(.x) %>% make.names()) %>% 
+  dplyr::left_join(
+    usfs_penobscotef_plots %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::select(mu,plot,plot_utm_north=utm_north,plot_utm_east=utm_east)
+    , by = dplyr::join_by(mu,plot)
+  ) %>% 
+  # convert from dist and azimuth to coords
+  dplyr::mutate(
+    # dist to m
+    dist_m = dist/3.280839895
+    # convert azimuth from degrees to radians
+    , az_rad = az * pi / 180
+    , tree_utm_east = plot_utm_east + (dist_m * sin(az_rad)),
+    , tree_utm_north = plot_utm_north + (dist_m * cos(az_rad))
+  ) %>% 
+  # filter
+  dplyr::filter(
+    !is.na(tree_utm_east)
+    , !is.na(tree_utm_north)
+  ) %>% 
+  # what if a tree has multiple locations? ... take the most recent
+  dplyr::arrange(mu,plot,treenum,desc(year),desc(month),desc(inv)) %>% 
+  dplyr::group_by(mu,plot,treenum) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(mu,plot,treenum,tidyselect::starts_with("tree_utm_")) %>% 
+  # spatial that
+  sf::st_as_sf(coords = c("tree_utm_east", "tree_utm_north"), crs = sf::st_crs(usfs_penobscotef_plots), remove = F)
+
+# read and attach tree information
+usfs_penobscotef_trees <- 
+  usfs_penobscotef_trees %>% 
+  dplyr::inner_join(
+    readr::read_csv(
+        "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_TreeData.csv"
+        , progress = F
+        , show_col_types = F
+      ) %>% 
+      dplyr::rename_with(~tolower(.x) %>% make.names())
+    , by = dplyr::join_by(mu,plot,treenum)
+    , relationship = "one-to-many"
+  )
+# huh?
+usfs_penobscotef_trees %>% dplyr::glimpse()
+# only keep plots we have trees for
+usfs_penobscotef_plots <- usfs_penobscotef_plots %>% 
+  dplyr::inner_join(
+    usfs_penobscotef_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::distinct(mu,plot)
+    , by = dplyr::join_by(mu,plot)
+  )
+```
+
+let's check those field plots out to orient ourselves to the location
+
 ```{r}
 usfs_penobscotef_plots %>% 
-  dplyr::select(plot_id,mu,plot,plot_area_ha) %>% 
-  mapview::mapview(zcol = "mu", col.regions = sample(viridis::turbo(100)), layer.name = "plots", legend = F)
+  mapview::mapview(
+    layer.name="USFS Penobscot EF: field plots"
+    , popup=F
+  )
+# usfs_penobscotef_plots %>% 
+#   sf::st_union() %>% 
+#   sf::st_bbox() %>% 
+#   sf::st_as_sfc() %>% 
+#   sf::st_centroid() %>% 
+#   sf::st_transform(crs=4326) %>% 
+#   sf::st_coordinates()
+# 44.85681,-68.62513
 ```
 
 
