@@ -232,7 +232,12 @@ wfsi_eglinafb_trees <-
   ) %>% 
   # spatial that
   # epsg from "data_dictionary.csv"
-  sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = 26916, remove = F)
+  sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = 26916, remove = F) %>% 
+  # make a plot_id that is unique for all so we don't have to join by multiple columns
+  # and for all sites we'll just use a plot_id
+  dplyr::mutate(
+    plot_id = stringr::str_c(unit,plot,sep = "_")
+  )
 # huh?
 wfsi_eglinafb_trees %>% dplyr::glimpse()
 ```
@@ -341,9 +346,10 @@ wfsi_eglinafb_plots <- wfsi_eglinafb_plots %>%
   dplyr::inner_join(
     wfsi_eglinafb_trees %>%
       sf::st_drop_geometry() %>%
-      dplyr::distinct(unit,plot)
+      dplyr::distinct(unit,plot,plot_id)
     , by = dplyr::join_by(unit,plot)
   )
+  
 # wfsi_eglinafb_plots %>% dplyr::glimpse()
 ```
 
@@ -975,6 +981,18 @@ get_ws_fn_list_ans <- get_ws_fn_list(min_ws = 0.5, max_ws = 7.0, n_linear = 30, 
 # get_ws_fn_list_ans %>% names()
 # get_ws_fn_list_ans %>% length()
 
+# cloud2trees::itd_ws_functions() %>% names()
+# get_ws_fn_list_ans %>% names()
+# 
+# cloud2trees::itd_ws_functions()[[1]] %>% class()
+# get_ws_fn_list_ans[[1]] %>% class()
+# 
+# cloud2trees::itd_ws_functions()[[1]](2.22) %>% class()
+# get_ws_fn_list_ans[[1]](2.22) %>% class()
+# 
+# cloud2trees::itd_ws_functions()[[1]](2.22)
+# get_ws_fn_list_ans[[1]](2.22)
+
 # plot that
 ht_seq_temp <- base::seq(0, 50, by = 0.25)
 
@@ -1028,56 +1046,174 @@ p_temp +
   ggplot2::facet_wrap(facets = dplyr::vars(shape_type))
 ```
 
+now we need a function to clip the CHM to the plot plus a buffer and run `cloud2trees::raster2trees()` for each window function. the return should be a spatial tree list unique by function.
+
+```{r}
+# function to loop over ws function list in raster2trees
+ws_testtest_fn <- function(
+    chm
+    , buffer = 5
+    , plot_sf
+    , ws_fn_list # a named list of functions ex: cloud2trees::itd_ws_functions()
+  ) {
+  # min ht for chm so we can test non-na
+  min_chm_ht <- 1.37
+  # crop chm
+  chm_crop <- chm %>% 
+    terra::crop(
+      plot_sf %>% 
+        sf::st_transform(terra::crs(chm)) %>% 
+        sf::st_buffer(buffer)
+      , mask = T
+    ) %>% 
+    terra::clamp(lower = min_chm_ht, values = F)
+  
+  # terra::plot(chm_crop)
+  # terra::plot(
+  #   plot_sf %>%
+  #     sf::st_transform(terra::crs(chm))
+  #   , add = T
+  #   , border = "cyan"
+  #   , col = NA
+  # )
+
+  if( !any( terra::global(chm_crop, fun = "anynotNA") ) ){
+    return(NULL)
+  }
+  
+  # map over the function list
+  ws_tree_list <- 
+    names(ws_fn_list) %>%
+    purrr::set_names() %>%
+    purrr::map(function(nm){
+      if (exists("my_temp_dir") && dir.exists(my_temp_dir)) {
+        unlink(my_temp_dir, recursive = TRUE, force = TRUE)
+      }
+      if (exists("my_temp_dir2") && dir.exists(my_temp_dir2)) {
+        unlink(my_temp_dir2, recursive = TRUE, force = TRUE)
+      }
+      warning(paste0("making dir: ",nm,"....",Sys.time()),immediate. = T,call. = F)
+      my_temp_dir <- tempfile(pattern = nm)
+      dir.create(my_temp_dir, showWarnings = FALSE)
+      my_temp_dir2 <- tempfile(pattern = paste0("xx",nm))
+      dir.create(my_temp_dir2, showWarnings = FALSE)
+      warning(paste0("raster2trees: ",nm,"....",Sys.time()),immediate. = T,call. = F)
+      
+      safe_raster2trees <- purrr::safely( cloud2trees::raster2trees )
+      xxx_raster2trees_ans <- safe_raster2trees(
+          chm_rast = chm_crop
+          , outfolder = my_temp_dir
+          , ws = ws_fn_list[[nm]]
+          , min_height = min_chm_ht
+          , min_crown_area = 0.5
+          , tempdir = my_temp_dir2
+        )
+      
+      if(!is.null(xxx_raster2trees_ans$result)){
+        xxx_raster2trees_ans <- xxx_raster2trees_ans$result
+        # xxx_raster2trees_ans %>% names()
+        return(
+          xxx_raster2trees_ans %>% 
+            cloud2trees::simplify_multipolygon_crowns()
+            # sf::st_drop_geometry() %>% 
+            # sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(xxx_raster2trees_ans))
+        )
+      }else{return(NULL)}
+    }) %>% 
+    purrr::list_rbind(names_to = "ws_fn_nm")
+  
+  # ws_tree_list %>% dplyr::glimpse()
+  # ws_tree_list %>% sf::st_drop_geometry() %>% dplyr::count(ws_fn_nm)
+  # ws_tree_list %>% class()
+  
+  return(ws_tree_list)
+}
+```
+
+get the individual tree predictions for each window function for the area within the field reference plots with a buffer
+
+```{r}
+c2t_process_dir_temp <- 
+  project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::pull(c2t_process_dir)
+fnm_temp <- file.path(c2t_process_dir_temp,"ws_pred_trees.gpkg")
+project_data_df <- project_data_df %>% 
+  dplyr::mutate(
+    ws_pred_trees_fnm = ifelse(c2t_process_dir==c2t_process_dir_temp, fnm_temp, "")
+  )
+if(!file.exists(fnm_temp)){
+  wfsi_eglinafb_ws_pred_trees <- 
+    1:nrow(wfsi_eglinafb_plots) %>% 
+    purrr::map(
+      \(x)
+      ws_testtest_fn(
+        chm = chm_list$WFSI_EglinAFB
+        , buffer = 5.5
+        , plot_sf = 
+          wfsi_eglinafb_plots %>% 
+          dplyr::ungroup() %>% 
+          dplyr::slice(x) %>%
+          sf::st_union()
+        # a named list of functions ex: cloud2trees::itd_ws_functions()
+        , ws_fn_list = get_ws_fn_list_ans # cloud2trees::itd_ws_functions() # 
+      )  
+    ) %>% 
+    purrr::list_rbind(names_to = "plot_dta_idx")
+  
+  # add plot id
+  wfsi_eglinafb_ws_pred_trees <- 
+    wfsi_eglinafb_ws_pred_trees %>% 
+    dplyr::left_join(
+      wfsi_eglinafb_plots %>% 
+        dplyr::mutate(plot_dta_idx=dplyr::row_number()) %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::select(plot_dta_idx,plot_id)
+      , by = "plot_dta_idx"
+    )
+    
+  # save
+  sf::st_write(wfsi_eglinafb_ws_pred_trees, dsn = fnm_temp, quiet = T, append = F)
+}else{
+  wfsi_eglinafb_ws_pred_trees <- sf::st_read(fnm_temp, quiet = T)
+}
+# wfsi_eglinafb_ws_pred_trees %>% dplyr::glimpse()
+```
+
+now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial intersection of these points with the predicted crowns. if multiple tree points fall within a single crown, we'll select the tree that is closest in terms of relative size based on whatever field data is available (height or DBH). Since this is not uniform across data sets, we'll relativize the measurement based on all field-measured data (0-1) and do the same thing for the predicted tree height (which is always available).
+
+```{r}
+plot_sf <- wfsi_eglinafb_plots %>% dplyr::slice(1)
+pred_crowns <- wfsi_eglinafb_ws_pred_trees %>% dplyr::filter(ws_fn_nm==wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1])
+ref_points <- 
+  wfsi_eglinafb_trees %>% 
+  dplyr::inner_join(
+    wfsi_eglinafb_plots %>% 
+      dplyr::slice(1) %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::distinct(unit,plot)
+    , by = dplyr::join_by(unit,plot)
+  )
+  
+
+# instance_match_fn <- function(
+#   plot_sf
+#   , pred_crowns
+#   , ref_points
+# ){
+  
+  
+  
+}
+
+wfsi_eglinafb_ws_pred_trees %>% 
+  
+```
+
+
 
 ```{r, include = F, eval = F}
-#### set up CHM for raster2trees
-agg_chm_rast <- terra::rast( file.path(c2t_process_dir, "chm_0.21m.tif") )
-if(!file.exists("../data/chm_rast_test.tif")){
-  chm_rast_test <- 
-    agg_chm_rast %>% 
-    terra::crop(
-      validation_plots %>% 
-        sf::st_buffer(.$plot_radius_m) %>% 
-        sf::st_union() %>% 
-        sf::st_buffer(8) %>% 
-        sf::st_transform(terra::crs(agg_chm_rast)) %>% 
-        terra::vect()
-      , mask = T
-      , filename = "../data/chm_rast_test.tif"
-    )
-}else{
-  chm_rast_test <- terra::rast("../data/chm_rast_test.tif")
-}
-chm_rast_test <- chm_rast_test*1
-# chm_rast_test %>% terra::plot()
-
-testtest_fn <- function(nm) {
-  if (exists("my_temp_dir") && dir.exists(my_temp_dir)) {
-    unlink(my_temp_dir, recursive = TRUE, force = TRUE)
-  }
-  if (exists("my_temp_dir2") && dir.exists(my_temp_dir2)) {
-    unlink(my_temp_dir2, recursive = TRUE, force = TRUE)
-  }
-  warning(paste0("making dir: ",nm,"....",Sys.time()),immediate. = T,call. = F)
-  my_temp_dir <- tempfile(pattern = nm)
-  dir.create(my_temp_dir, showWarnings = FALSE)
-  my_temp_dir2 <- tempfile(pattern = paste0("xx",nm))
-  dir.create(my_temp_dir2, showWarnings = FALSE)
-  warning(paste0("raster2trees: ",nm,"....",Sys.time()),immediate. = T,call. = F)
-  xxx_raster2trees_ans <- cloud2trees::raster2trees(
-      chm_rast = chm_rast_test
-      , outfolder = my_temp_dir
-      , ws = ws_functions[[nm]]
-      , min_height = 1.37
-      , min_crown_area = 0.5
-      , tempdir = my_temp_dir2
-    )
-  # xxx_raster2trees_ans %>% names()
-  xxx_treetops_sf <- xxx_raster2trees_ans %>% 
-    sf::st_drop_geometry() %>% 
-    sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(xxx_raster2trees_ans)) %>% 
-    dplyr::mutate(dbh_cm = mean(validation_trees$dbh_cm,na.rm=T))
-  # xxx_treetops_sf %>% mapview::mapview(zcol="tree_height_m", layer.name="trees")
+# xxx_treetops_sf %>% mapview::mapview(zcol="tree_height_m", layer.name="trees")
   # nrow(xxx_treetops_sf)
   xxx_treetops_sf <- 
     sf::st_filter(
