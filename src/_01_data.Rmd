@@ -240,6 +240,7 @@ wfsi_eglinafb_trees <-
   )
 # huh?
 wfsi_eglinafb_trees %>% dplyr::glimpse()
+# wfsi_eglinafb_trees %>% dplyr::select(dbh_cm) %>% summary()
 ```
 
 let's check those field trees out to orient ourselves to the location
@@ -1029,7 +1030,7 @@ p_temp <-
       , color = "ws type"
     ) +
     # ggplot2::facet_wrap(facets = dplyr::vars(shape_type)) +
-    ggplot2::scale_color_viridis_d(option = "turbo") +
+    ggplot2::scale_color_viridis_d(option = "viridis", direction = -1) +
     ggplot2::scale_y_continuous(limits=c(0,NA), breaks = scales::breaks_extended(n=6)) +
     ggplot2::theme_light() +
     ggplot2::theme(
@@ -1171,43 +1172,368 @@ if(!file.exists(fnm_temp)){
         dplyr::select(plot_dta_idx,plot_id)
       , by = "plot_dta_idx"
     )
-    
+  # get dbh
+  wfsi_eglinafb_ws_pred_trees_dbh_temp <- 
+    wfsi_eglinafb_ws_pred_trees %>% 
+    dplyr::rename(xxxtreeID=treeID) %>% 
+    dplyr::mutate(
+      treeID = dplyr::row_number()
+    ) %>% 
+    cloud2trees::trees_dbh()
+  # wfsi_eglinafb_ws_pred_trees_dbh_temp %>% dplyr::glimpse()
+  # add to trees
+  wfsi_eglinafb_ws_pred_trees <- 
+    wfsi_eglinafb_ws_pred_trees %>% 
+    dplyr::mutate(
+      join_id = dplyr::row_number()
+    ) %>% 
+    dplyr::left_join(
+      wfsi_eglinafb_ws_pred_trees_dbh_temp %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::mutate(
+          join_id = as.numeric(treeID)
+        ) %>% 
+        dplyr::select(
+          join_id, tidyselect::starts_with("fia_est_dbh"), dbh_cm
+        )
+      , by = "join_id"
+    )
+  # wfsi_eglinafb_ws_pred_trees %>% dplyr::glimpse()
+  
+  # # plot real quick
+  # wfsi_eglinafb_ws_pred_trees %>% 
+  #   sf::st_drop_geometry() %>% 
+  #   dplyr::slice_sample(n = 9999) %>% 
+  #   ggplot2::ggplot(mapping = ggplot2::aes(x=tree_height_m,y=dbh_cm)) + 
+  #   ggplot2::geom_point() +
+  #   ggplot2::geom_point(mapping = ggplot2::aes(y=fia_est_dbh_cm_lower),color="gray") +
+  #   ggplot2::geom_point(mapping = ggplot2::aes(y=fia_est_dbh_cm_upper),color="gray")
+
   # save
   sf::st_write(wfsi_eglinafb_ws_pred_trees, dsn = fnm_temp, quiet = T, append = F)
 }else{
   wfsi_eglinafb_ws_pred_trees <- sf::st_read(fnm_temp, quiet = T)
 }
+wfsi_eglinafb_ws_pred_trees <- wfsi_eglinafb_ws_pred_trees %>% 
+  dplyr::mutate(
+    ws_type = 
+      ws_fn_nm %>% 
+      # removes all numeric digits
+      stringr::str_remove_all("[0-9]+") %>% 
+      stringr::str_replace_all("_"," ") %>% 
+      stringr::str_squish() %>% 
+      as.factor() %>% 
+      forcats::fct_inorder(ordered = T)
+  )
 # wfsi_eglinafb_ws_pred_trees %>% dplyr::glimpse()
+# wfsi_eglinafb_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_type)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+let's check out one example field plot and a few different window function tree detection and crown delineation results
+
+```{r, fig.height=10}
+# plot
+p_temp <- wfsi_eglinafb_plots %>% dplyr::slice(1)
+# some trees
+t_temp <- 
+  wfsi_eglinafb_ws_pred_trees %>% 
+  dplyr::filter(plot_id==p_temp$plot_id[1]) %>% 
+  dplyr::inner_join(
+    wfsi_eglinafb_ws_pred_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::distinct(ws_fn_nm,ws_type) %>% 
+      dplyr::slice_sample(n = 3, by = ws_type) %>% 
+      dplyr::select(ws_fn_nm)
+    , by = "ws_fn_nm"
+  )
+chm_temp <- chm_list[["WFSI_EglinAFB"]] %>% 
+  terra::crop(
+    t_temp %>% 
+      sf::st_union() %>% 
+      sf::st_bbox() %>% 
+      sf::st_as_sfc() %>% 
+      terra::vect()
+    , mask = T
+  )
+# terra::plot(chm_temp)
+plt_temp <-
+  chm_temp %>% 
+  terra::clamp(lower = 1.37, values = F) %>% 
+  terra::as.data.frame(xy=T) %>% 
+  dplyr::rename(f=3) %>% 
+  ggplot2::ggplot() +
+  ggplot2::geom_tile(
+    mapping = ggplot2::aes(x=x,y=y,fill=f)
+    , color = NA
+    , lwd = 0
+  ) +
+  ggplot2::scale_fill_viridis_c(option = "plasma", na.value = "transparent", name = "CHM (m)") +
+  ggplot2::scale_x_continuous(expand = c(0, 0)) +
+  ggplot2::scale_y_continuous(expand = c(0, 0)) +
+  ggplot2::theme_void() +
+  ggplot2::theme(legend.position = "top")
+plt_temp +
+  ggplot2::geom_sf(
+    data = p_temp %>% sf::st_transform(terra::crs(chm_temp))
+    , fill = NA
+    , color = "black"
+    , lwd = 0.8
+  ) + 
+  ggplot2::geom_sf(
+    data = t_temp
+    , mapping = ggplot2::aes(color = ws_type)
+    , fill = NA
+    , lwd = 0.7
+  ) +
+  ggplot2::scale_color_viridis_d() +
+  ggplot2::facet_wrap(facets = dplyr::vars(ws_fn_nm), ncol = 3) +
+  ggplot2::theme(
+    strip.text = ggplot2::element_text(face = "bold")
+    , strip.background = ggplot2::element_rect(color = "black")
+    , panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 0.5)
+  ) +
+  ggplot2::guides(
+    color = "none"
+  )
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
 ```
 
 now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial intersection of these points with the predicted crowns. if multiple tree points fall within a single crown, we'll select the tree that is closest in terms of relative size based on whatever field data is available (height or DBH). Since this is not uniform across data sets, we'll relativize the measurement based on all field-measured data (0-1) and do the same thing for the predicted tree height (which is always available).
 
 ```{r}
-plot_sf <- wfsi_eglinafb_plots %>% dplyr::slice(1)
-pred_crowns <- wfsi_eglinafb_ws_pred_trees %>% dplyr::filter(ws_fn_nm==wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1])
-ref_points <- 
-  wfsi_eglinafb_trees %>% 
-  dplyr::inner_join(
-    wfsi_eglinafb_plots %>% 
-      dplyr::slice(1) %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::distinct(unit,plot)
-    , by = dplyr::join_by(unit,plot)
-  )
+# instance matching function for points reference and polys predictions
+# matches a single set of predictions with a single reference set
+instance_match_fn <- function(
+  pred_crowns
+  , ref_points
+){
   
-
-# instance_match_fn <- function(
-#   plot_sf
-#   , pred_crowns
-#   , ref_points
-# ){
+  # set up matching col based on what data is available
+  if(
+    any( stringr::str_equal(names(pred_crowns),"tree_height_m") ) &&
+    any( stringr::str_equal(names(ref_points),"tree_height_m") )
+  ){
+    pred_crowns <- pred_crowns %>% dplyr::mutate(xxx_match_col = as.numeric(tree_height_m))
+    ref_points <- ref_points %>% dplyr::mutate(xxx_match_col = as.numeric(tree_height_m))
+  }else if(
+    any( stringr::str_equal(names(pred_crowns),"dbh_cm") ) &&
+    any( stringr::str_equal(names(ref_points),"dbh_cm") )
+  ){
+    pred_crowns <- pred_crowns %>% dplyr::mutate(xxx_match_col = as.numeric(dbh_cm))
+    ref_points <- ref_points %>% dplyr::mutate(xxx_match_col = as.numeric(dbh_cm))
+  }
+  # get rid of data without data
+  pred_crowns <- pred_crowns %>% dplyr::filter(!is.na(xxx_match_col), xxx_match_col>0) %>% 
+    # make an id
+    dplyr::mutate(xxx_id = dplyr::row_number())
+  ref_points <- ref_points %>% dplyr::filter(!is.na(xxx_match_col), xxx_match_col>0) %>% 
+    # make it the same crs
+    sf::st_transform(sf::st_crs(pred_crowns)) %>% 
+    # make an id
+    dplyr::mutate(xxx_id = dplyr::row_number())
+  
+  # intersection for tp's
+  i_temp <-
+    pred_crowns %>% 
+    dplyr::rename_with(
+      .fn = ~stringr::str_replace(.x, "^xxx_", "xxx_pred_")
+      , .cols = tidyselect::starts_with("xxx_")
+    ) %>% 
+    sf::st_intersection(
+      ref_points %>% 
+        dplyr::select(xxx_id,xxx_match_col) %>% 
+        dplyr::rename_with(
+          .fn = ~stringr::str_replace(.x, "^xxx_", "xxx_ref_")
+          , .cols = tidyselect::starts_with("xxx_")
+        )
+    ) %>% 
+    sf::st_drop_geometry() %>% 
+    # absolute diff between match col
+    dplyr::mutate(
+      xxx_abs_diff = abs(xxx_pred_match_col - xxx_ref_match_col)
+    ) %>% 
+    # sorting is key to make the purrr::reduce work how we want it
+    dplyr::arrange(
+      desc(xxx_pred_match_col)
+      , xxx_pred_id
+      , xxx_abs_diff
+    )
+  # i_temp %>% dplyr::glimpse()
+  
+  # if there even are any matches
+  if(nrow(i_temp)>1){
+    # ?purrr::reduce
+    # purrr::reduce(letters[1:5], paste, sep = ".")
+    # 1:3  %>% reduce(`+`)
+    match_temp <- purrr::reduce(
+      # go through all rows except first since we start there
+      .x = c(2:nrow(i_temp))
+      # start with the first row
+      , .init = i_temp %>% dplyr::slice(1) # = iter_temp
+      , .f = function(iter_temp, i){
+        
+        #ids of curr row
+        pred_id  <- i_temp$xxx_pred_id[i]
+        ref_id <- i_temp$xxx_ref_id[i]
+        
+        # either one used?
+        pred_used  <- pred_id %in% iter_temp$xxx_pred_id
+        ref_used <- ref_id %in% iter_temp$xxx_ref_id
+        
+        # add if freee
+        if(!pred_used && !ref_used) {
+          return(
+            iter_temp %>% 
+              dplyr::bind_rows(
+                dplyr::slice(i_temp, i)
+              )
+          )
+        }else{
+          # return current state
+          return(iter_temp)
+        }
+    })
+    # match_temp %>% dplyr::glimpse()
+    # match_temp %>% dplyr::count(xxx_pred_id) %>% dplyr::filter(n>1) %>% nrow()
+    # match_temp %>% dplyr::count(xxx_ref_id) %>% dplyr::filter(n>1) %>% nrow()
+  }else{
+    match_temp <- i_temp
+  }
+  # match_temp %>% dplyr::glimpse()
+  # these are matches
+  return_df <- match_temp %>% 
+    dplyr::rename(
+      ref_match_idx = xxx_ref_id
+      , pred_match_idx = xxx_pred_id
+    ) %>% 
+    dplyr::select(dplyr::all_of(c(
+      "ref_match_idx"
+      , "pred_match_idx"
+    ))) %>% 
+    dplyr::mutate(match_grp = "true positive")
+  # return_df %>% dplyr::glimpse()
   
   
+  return_df <-
+    return_df %>% 
+    # if reference but no predictions...they are all omissions (FN)
+    dplyr::bind_rows(
+      ref_points %>% 
+        dplyr::filter(
+          !(xxx_id %in% match_temp$xxx_ref_id)
+        ) %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::rename(
+          ref_match_idx = xxx_id
+        ) %>% 
+        dplyr::mutate(pred_match_idx = as.numeric(NA)) %>% 
+        dplyr::select(dplyr::all_of(c(
+          "ref_match_idx"
+          , "pred_match_idx"
+        ))) %>% 
+        dplyr::mutate(match_grp = "omission")  
+    ) %>% 
+    # if predictions but no reference...they are all commissions (FP)
+    dplyr::bind_rows(
+      pred_crowns %>% 
+        dplyr::filter(
+          !(xxx_id %in% match_temp$xxx_pred_id)
+        ) %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::rename(
+          pred_match_idx = xxx_id
+        ) %>% 
+        dplyr::mutate(ref_match_idx = as.numeric(NA)) %>% 
+        dplyr::select(dplyr::all_of(c(
+          "ref_match_idx"
+          , "pred_match_idx"
+        ))) %>% 
+        dplyr::mutate(match_grp = "commission")
+    )
+    
+  # return_df %>% dplyr::glimpse()
+  # return_df %>% View()
+  # return_df %>% dplyr::count(match_grp)
   
+  # make match_grp factor
+    return_df <- return_df %>% 
+      dplyr::mutate(
+        match_grp = factor(
+          match_grp
+          , ordered = T
+          , levels = c(
+            "true positive"
+            , "commission"
+            , "omission"
+          )
+        ) %>% forcats::fct_rev()
+      )
+    return(return_df)
 }
 
-wfsi_eglinafb_ws_pred_trees %>% 
-  
+
+
+
+# minimum tree height for prediction
+min_ht_m <- NA
+min_dbh_cm <- 10
+
+# which plot?
+plot_sf <- wfsi_eglinafb_plots %>% dplyr::slice(1)
+# crowns
+pred_crowns <- 
+  wfsi_eglinafb_ws_pred_trees %>% 
+  dplyr::filter(
+    plot_id == plot_sf$plot_id[1]
+    , ws_fn_nm==wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1]
+  )
+# filter based on field survey limit
+if(!is.na(as.numeric(min_dbh_cm))){
+  pred_crowns <- pred_crowns %>% 
+    dplyr::filter(
+      fia_est_dbh_cm_upper >= as.numeric(min_dbh_cm)
+    )
+}else{
+  pred_crowns <- pred_crowns %>% 
+    dplyr::filter(
+      tree_height_m >= dplyr::coalesce(as.numeric(min_ht_m),2)
+    )
+}
+
+# pred_crowns %>% 
+#   # plot real quick
+#   sf::st_drop_geometry() %>%
+#   dplyr::slice_sample(n = 9999) %>%
+#   ggplot2::ggplot(mapping = ggplot2::aes(x=tree_height_m,y=dbh_cm)) +
+#   ggplot2::geom_point() +
+#   ggplot2::geom_point(mapping = ggplot2::aes(y=fia_est_dbh_cm_lower),color="gray") +
+#   ggplot2::geom_point(mapping = ggplot2::aes(y=fia_est_dbh_cm_upper),color="gray")
+
+# reference points
+ref_points <- 
+  wfsi_eglinafb_trees %>% 
+  dplyr::filter(
+    plot_id == plot_sf$plot_id[1]
+  )
+# ref_points %>% names()
+
+# ggplot(data = pred_crowns) + 
+#   geom_sf(data = plot_sf %>% sf::st_transform(sf::st_crs(pred_crowns)), color = "black", fill = NA) + 
+#   geom_sf(color = "red", fill = NA) +
+#   geom_sf(
+#     data = ref_points %>% sf::st_transform(sf::st_crs(pred_crowns))
+#     , color = "blue"
+#   )
+
 ```
 
 
