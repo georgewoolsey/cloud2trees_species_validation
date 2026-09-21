@@ -1307,7 +1307,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial intersection of these points with the predicted crowns. if multiple tree points fall within a single crown, we'll select the tree that is closest in terms of relative size based on whatever field data is available (height or DBH). Since this is not uniform across data sets, we'll relativize the measurement based on all field-measured data (0-1) and do the same thing for the predicted tree height (which is always available).
+now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial intersection of these points with the predicted crowns. if multiple tree points fall within a single crown, we'll select the tree that is closest in terms of size based on whatever field data is available (height or DBH). One predicted tree will only be matched with one field reference tree and vice-versa.
 
 ```{r}
 # instance matching function for points reference and polys predictions
@@ -1316,6 +1316,34 @@ instance_match_fn <- function(
   pred_crowns
   , ref_points
 ){
+  
+  if(nrow(ref_points)==0){return(NULL)}
+  if(nrow(pred_crowns)==0 && nrow(ref_points)>0){
+    return(
+      ref_points %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::mutate(
+          ref_match_idx = dplyr::row_number()
+          , pred_match_idx = as.numeric(NA)
+        ) %>% 
+        dplyr::select(dplyr::all_of(c(
+          "ref_match_idx"
+          , "pred_match_idx"
+        ))) %>% 
+        dplyr::mutate(
+          match_grp = "omission"
+          , match_grp = factor(
+            match_grp
+            , ordered = T
+            , levels = c(
+              "true positive"
+              , "commission"
+              , "omission"
+            )
+          ) %>% forcats::fct_rev()
+        )
+    )
+  }
   
   # set up matching col based on what data is available
   if(
@@ -1480,60 +1508,239 @@ instance_match_fn <- function(
     return(return_df)
 }
 
-
-
-
-# minimum tree height for prediction
-min_ht_m <- NA
-min_dbh_cm <- 10
-
-# which plot?
-plot_sf <- wfsi_eglinafb_plots %>% dplyr::slice(1)
-# crowns
-pred_crowns <- 
-  wfsi_eglinafb_ws_pred_trees %>% 
-  dplyr::filter(
-    plot_id == plot_sf$plot_id[1]
-    , ws_fn_nm==wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1]
-  )
-# filter based on field survey limit
-if(!is.na(as.numeric(min_dbh_cm))){
-  pred_crowns <- pred_crowns %>% 
+###################################
+### test for one plot
+### test for one plot
+### test for one plot
+###################################
+instance_match_fn(
+  pred_crowns = 
+    wfsi_eglinafb_ws_pred_trees %>% 
     dplyr::filter(
-      fia_est_dbh_cm_upper >= as.numeric(min_dbh_cm)
+      plot_id == wfsi_eglinafb_plots$plot_id[1]
+      , ws_fn_nm==wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1]
     )
-}else{
-  pred_crowns <- pred_crowns %>% 
+  , ref_points = 
+    wfsi_eglinafb_trees %>% 
     dplyr::filter(
-      tree_height_m >= dplyr::coalesce(as.numeric(min_ht_m),2)
+      plot_id == wfsi_eglinafb_plots$plot_id[1]
     )
+) %>% 
+dplyr::count(match_grp)
+```
+
+remember, we have predictions for many different window functions for each plot. we need a function to iterate over each set of predictions (i.e. window function) for a single plot. this is where we'll filter the predictions to attempt to match the field data collection protocol (e.g. measure trees >= 10 cm DBH)
+
+```{r}
+ws_iter_instance_match_fn <- function(
+  plot_sf # needs plot_id # should be a single plot
+  , ref_pts # needs plot_id
+  , pred_polys # needs plot_id
+  # minimum tree height
+  , min_ht_m = NA
+  # -OR- minimum DBH
+  , min_dbh_cm = NA
+){
+  
+  # pred polys
+  pred_polys <- 
+    pred_polys %>% 
+    dplyr::filter(
+      plot_id == plot_sf$plot_id[1]
+    )
+  
+  # reference points
+  ref_pts <- 
+    ref_pts %>% 
+    dplyr::filter(
+      plot_id == plot_sf$plot_id[1]
+    )
+  
+  # filter based on field survey limit
+  if(
+    !is.na(as.numeric(min_dbh_cm))
+  ){
+    # do they exist? .... PRED
+    if(
+      any( stringr::str_equal(names(pred_polys),"fia_est_dbh_cm_upper") )
+    ){
+      pred_polys <- pred_polys %>% 
+        dplyr::filter(
+          fia_est_dbh_cm_upper >= as.numeric(min_dbh_cm)
+        )
+    }else if(
+      any( stringr::str_equal(names(pred_polys),"dbh_cm") )
+    ){
+      pred_polys <- pred_polys %>% 
+        dplyr::filter(
+          dbh_cm >= as.numeric(min_dbh_cm)
+        )
+    }else{
+      stop("`pred_polys` needs column named `dbh_cm`")
+    }
+    
+    # do they exist? .... REF
+    if(
+      any( stringr::str_equal(names(ref_pts),"dbh_cm") )
+    ){
+      ref_pts <- ref_pts %>% 
+        dplyr::filter(
+          dbh_cm >= as.numeric(min_dbh_cm)
+        )
+    }else{
+      stop("`ref_pts` needs column named `dbh_cm`")
+    }
+  }else if(
+    !is.na(as.numeric(min_ht_m))
+  ){
+    # do they exist? .... PRED
+    if(
+      any( stringr::str_equal(names(pred_polys),"tree_height_m") )
+    ){
+      pred_polys <- pred_polys %>% 
+        dplyr::filter(
+          tree_height_m >= as.numeric(min_ht_m)
+        )
+    }else{
+      stop("`pred_polys` needs column named `tree_height_m`")
+    }
+    
+    # do they exist? .... REF
+    if(
+      any( stringr::str_equal(names(ref_pts),"tree_height_m") )
+    ){
+      ref_pts <- ref_pts %>% 
+        dplyr::filter(
+          tree_height_m >= as.numeric(min_ht_m)
+        )
+    }else{
+      stop("`ref_pts` needs column named `tree_height_m`")
+    }
+  }
+  
+  if(nrow(ref_pts)==0){return(NULL)}
+  
+  # map over it
+  if(
+    !any( stringr::str_equal(names(pred_polys),"ws_fn_nm") )
+  ){
+    stop("`pred_polys` needs column named `ws_fn_nm` ... see ws_testtest_fn() ")
+  }
+  if(
+    !any( stringr::str_equal(names(pred_polys),"tree_x") )
+  ){
+    stop("`pred_polys` needs column named `tree_x` ... see ws_testtest_fn() ")
+  }
+  if(
+    !any( stringr::str_equal(names(pred_polys),"tree_y") )
+  ){
+    stop("`pred_polys` needs column named `tree_y` ... see ws_testtest_fn() ")
+  }
+  
+  # map it
+  instance_match_ans <- 
+    unique(pred_polys$ws_fn_nm) %>% 
+    purrr::set_names() %>%
+    purrr::map(function(nm){
+      # which preds?
+      these_pred_polys <- 
+        pred_polys %>% 
+        dplyr::filter(
+          ws_fn_nm == nm
+        )
+      # instance match
+      im <- 
+        instance_match_fn(
+          pred_crowns = these_pred_polys
+          , ref_points = ref_pts
+        )
+      # remove commission points outside plot boundary?
+      # remove commission points outside plot boundary?
+      # get rid of commissions outside of plot
+      outs <- 
+        these_pred_polys %>% 
+        dplyr::mutate(
+          pred_match_idx = dplyr::row_number()
+        ) %>% 
+        sf::st_drop_geometry() %>%
+        sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(pred_polys)) %>% 
+        sf::st_filter(
+          plot_sf %>% sf::st_union() %>% sf::st_transform(sf::st_crs(pred_polys))
+          , .predicate = sf::st_disjoint
+        ) %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::select(pred_match_idx) %>% 
+        dplyr::mutate(is_out = T)
+      
+      return_df <- 
+        im %>% 
+        dplyr::left_join(
+          outs
+          , by = "pred_match_idx"
+        ) %>% 
+        dplyr::filter(
+          !(match_grp == "commission" & dplyr::coalesce(is_out,F)==T)
+        ) %>% 
+        dplyr::select(-is_out)
+      return(return_df)
+    }) %>% 
+    purrr::list_rbind(names_to = "ws_fn_nm")
+  
+  
+  return(instance_match_ans)
 }
 
-# pred_crowns %>% 
-#   # plot real quick
-#   sf::st_drop_geometry() %>%
-#   dplyr::slice_sample(n = 9999) %>%
-#   ggplot2::ggplot(mapping = ggplot2::aes(x=tree_height_m,y=dbh_cm)) +
-#   ggplot2::geom_point() +
-#   ggplot2::geom_point(mapping = ggplot2::aes(y=fia_est_dbh_cm_lower),color="gray") +
-#   ggplot2::geom_point(mapping = ggplot2::aes(y=fia_est_dbh_cm_upper),color="gray")
+###################################
+### test for one plot
+### test for one plot
+### test for one plot
+###################################
 
-# reference points
-ref_points <- 
-  wfsi_eglinafb_trees %>% 
-  dplyr::filter(
-    plot_id == plot_sf$plot_id[1]
+ws_iter_instance_match_fn(
+  # needs plot_id # should be a single plot
+  plot_sf = wfsi_eglinafb_plots %>% dplyr::slice(4) 
+  # needs plot_id
+  , ref_pts = wfsi_eglinafb_trees 
+  # needs plot_id
+  , pred_polys = wfsi_eglinafb_ws_pred_trees %>% 
+    dplyr::inner_join(
+      wfsi_eglinafb_ws_pred_trees %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::distinct(ws_fn_nm,ws_type) %>% 
+        dplyr::slice_sample(n = 3, by = ws_type) %>% 
+        dplyr::select(ws_fn_nm)
+      , by = "ws_fn_nm"
+    )
+  # minimum tree height
+  , min_ht_m = NA
+  # -OR- minimum DBH
+  , min_dbh_cm = 10
+) %>% 
+
+# plot
+  dplyr::count(ws_fn_nm,match_grp) %>% 
+  dplyr::group_by(ws_fn_nm) %>% 
+  dplyr::mutate(pct = n/sum(n)) %>% 
+
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = pct, y = ws_fn_nm, fill=match_grp, group=match_grp)
+  ) +
+  ggplot2::geom_col(
+    width = 0.7, alpha=0.95
+  ) +
+  ggplot2::scale_fill_viridis_d(option = "magma", begin = 0.2, end = 0.8) +
+  ggplot2::scale_x_continuous(labels = scales::percent_format()) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , legend.direction  = "horizontal"
   )
-# ref_points %>% names()
 
-# ggplot(data = pred_crowns) + 
-#   geom_sf(data = plot_sf %>% sf::st_transform(sf::st_crs(pred_crowns)), color = "black", fill = NA) + 
-#   geom_sf(color = "red", fill = NA) +
-#   geom_sf(
-#     data = ref_points %>% sf::st_transform(sf::st_crs(pred_crowns))
-#     , color = "blue"
-#   )
+```
 
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
 ```
 
 
