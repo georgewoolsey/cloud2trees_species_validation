@@ -352,6 +352,15 @@ wfsi_eglinafb_plots <- wfsi_eglinafb_plots %>%
   )
   
 # wfsi_eglinafb_plots %>% dplyr::glimpse()
+
+# save to reference list
+# add to the ref trees list
+nm_temp <- project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::pull(data_site_nm)
+ref_plots_list[[nm_temp]] <- wfsi_eglinafb_plots
+# ref_plots_list
+
 ```
 
 let's quickly check the trees and plots to make sure they align
@@ -440,6 +449,14 @@ wfsi_eglinafb_trees <-
     )
   }) %>% 
   purrr::list_rbind()
+
+# save to reference list
+# add to the ref trees list
+nm_temp <- project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::pull(data_site_nm)
+ref_trees_list[[nm_temp]] <- wfsi_eglinafb_trees
+# ref_trees_list 
 
 # are there any out?
 wfsi_eglinafb_trees %>% sf::st_drop_geometry() %>% dplyr::count(is_out_of_plot)
@@ -1531,7 +1548,7 @@ dplyr::count(match_grp)
 
 remember, we have predictions for many different window functions for each plot. we need a function to iterate over each set of predictions (i.e. window function) for a single plot. this is where we'll filter the predictions to attempt to match the field data collection protocol (e.g. measure trees >= 10 cm DBH)
 
-```{r}
+```{r, fig.height=8.8}
 ws_iter_instance_match_fn <- function(
   plot_sf # needs plot_id # should be a single plot
   , ref_pts # needs plot_id
@@ -1541,6 +1558,21 @@ ws_iter_instance_match_fn <- function(
   # -OR- minimum DBH
   , min_dbh_cm = NA
 ){
+  if(
+    !any( stringr::str_equal(names(plot_sf),"plot_id") )
+  ){
+    stop("`plot_sf` needs column named `plot_id`")
+  }
+  if(
+    !any( stringr::str_equal(names(ref_pts),"plot_id") )
+  ){
+    stop("`ref_pts` needs column named `plot_id`")
+  }
+  if(
+    !any( stringr::str_equal(names(pred_polys),"plot_id") )
+  ){
+    stop("`pred_polys` needs column named `plot_id`")
+  }
   
   # pred polys
   pred_polys <- 
@@ -1743,6 +1775,300 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
+now, we need to iterate over all plots at a study site
+
+```{r}
+plot_iter_instance_match_fn <- function(
+  ref_plots
+  , ref_pts
+  # needs plot_id
+  , pred_polys
+  # minimum tree height
+  , min_ht_m = NA
+  # -OR- minimum DBH
+  , min_dbh_cm = NA
+) {
+  if(
+    !any( stringr::str_equal(names(ref_plots),"plot_id") )
+  ){
+    stop("`ref_plots` needs column named `plot_id`")
+  }
+  if(
+    !any( stringr::str_equal(names(ref_pts),"plot_id") )
+  ){
+    stop("`ref_pts` needs column named `plot_id`")
+  }
+  if(
+    !any( stringr::str_equal(names(pred_polys),"plot_id") )
+  ){
+    stop("`pred_polys` needs column named `plot_id`")
+  }
+  
+  ws_iter_instance_match_ans <- 
+    unique(ref_plots$plot_id) %>% 
+    purrr::set_names() %>% 
+    purrr::map(
+      \(pid)
+      ws_iter_instance_match_fn(
+        # needs plot_id # should be a single plot
+        plot_sf = ref_plots %>% dplyr::filter(plot_id==pid) 
+        # needs plot_id
+        , ref_pts = ref_pts 
+        # needs plot_id
+        , pred_polys = pred_polys
+        # minimum tree height
+        , min_ht_m = min_ht_m
+        # -OR- minimum DBH
+        , min_dbh_cm = min_dbh_cm
+      )
+  ) %>% 
+  purrr::list_rbind(names_to = "plot_id")
+  
+  return(ws_iter_instance_match_ans)
+}
+# get the ans
+c2t_process_dir_temp <- 
+  project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::pull(c2t_process_dir)
+fnm_temp <- file.path(c2t_process_dir_temp,"ws_instance_match.csv")
+if(!file.exists(fnm_temp)){
+  wfsi_eglinafb_ws_instance_match <- 
+    plot_iter_instance_match_fn(
+      ref_plots = ref_plots_list[["WFSI_EglinAFB"]]
+      , ref_pts = ref_trees_list[["WFSI_EglinAFB"]]
+      , pred_polys = wfsi_eglinafb_ws_pred_trees
+      , min_ht_m = NA
+      , min_dbh_cm = 10
+    )
+  readr::write_csv(wfsi_eglinafb_ws_instance_match, file = fnm_temp, append = F, progress = F)
+}else{
+  wfsi_eglinafb_ws_instance_match <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
+}
+# huh?
+# wfsi_eglinafb_ws_instance_match %>% dplyr::glimpse()
+```
+
+lastly, we need a function to aggregate these instance segmentation counts (TP, FP, and FN) to evaluate the overall accuracy of the tree segmentation method. then, we'll select the best window function and apply that across the entire study area.
+
+```{r}
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+# first function takes df with cols tp_n, fp_n, and fn_n to calculate rates
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+confusion_matrix_scores_fn <- function(df){
+  df %>% 
+  dplyr::mutate(
+    omission_rate = dplyr::case_when(
+      dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fn_n,0) == 0 ~ 0 # if there are no actual trees, there is nothing to miss
+      , dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fn_n,0) > 0 ~ 1 # every single actual tree was missed
+      , dplyr::coalesce(fn_n,0) == 0 & dplyr::coalesce(tp_n,0) > 0 ~ 0
+      , T ~ fn_n/(tp_n+fn_n)
+    ) # False Negative Rate or Miss Rate
+    , commission_rate = dplyr::case_when(
+      dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fp_n,0) == 0 ~ 0 # if no predictions are made, the model could not have made any commission errors
+      , dplyr::coalesce(fp_n,0) == 0 & dplyr::coalesce(tp_n,0) > 0 ~ 0
+      , T ~ fp_n/(tp_n+fp_n)
+    ) # False Positive Rate
+    , precision = dplyr::case_when(
+      dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fp_n,0) == 0 ~ 1 # if no predictions are made, the model made zero incorrect positive claims
+      , dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fp_n,0) > 0 ~ 0
+      , T ~ tp_n/(tp_n+fp_n)
+    )
+    , recall = dplyr::case_when(
+      dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fn_n,0) == 0 ~ 1 # if there are no actual trees, there is nothing to miss
+      , dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fn_n,0) > 0 ~ 0 # every single actual tree was missed
+      , T ~ tp_n/(tp_n+fn_n)
+    )
+    , f_score = dplyr::case_when(
+      dplyr::coalesce(precision,0) == 0 | dplyr::coalesce(recall,0) == 0 ~ 0
+      , T ~ 2 * ( (precision*recall)/(precision+recall) )
+    )    
+  ) 
+}
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+# aggregate results from ground_truth_prediction_match()
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+agg_ground_truth_match <- function(ground_truth_prediction_match_ans) {
+  if(nrow(ground_truth_prediction_match_ans)==0){return(NULL)}
+  if( !(names(ground_truth_prediction_match_ans) %>% stringr::str_equal("match_grp") %>% any()) ){stop("ground_truth_prediction_match_ans must contain `match_grp` column")}
+  
+  # check for difference columns (contains "_diff") and calc rmse for only those to return a single line df with colums for each diff_rmse
+    if(
+      (ground_truth_prediction_match_ans %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::select(tidyselect::starts_with("diff_") | tidyselect::starts_with("pct_diff_")) %>% 
+        ncol() )>0
+    ){
+      # get rmse and mean difference/error for all columns with "_diff" but not "pct_diff"
+      # get mape for all columns with "pct_diff" but not "diff_"
+      rmse_df <- 
+        ground_truth_prediction_match_ans %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::ungroup() %>% 
+        dplyr::select(
+          tidyselect::starts_with("diff_")
+          | tidyselect::starts_with("pct_diff_")
+        ) %>%
+        tidyr::pivot_longer(dplyr::everything(), values_drop_na = T) %>% 
+        dplyr::group_by(name) %>% 
+        dplyr::summarise(
+          sq = sum(value^2, na.rm = T)
+          , mean = mean(value, na.rm = T)
+          , sumabs = sum(abs(value), na.rm = T)
+          , nomiss = sum(!is.na(value))
+        ) %>% 
+        dplyr::ungroup() %>% 
+        dplyr::mutate(
+          rmse = dplyr::case_when(
+            dplyr::coalesce(nomiss,0)==0 ~ as.numeric(NA)
+            , T ~ sqrt(sq/nomiss)
+          )
+          , mape = dplyr::case_when(
+            dplyr::coalesce(nomiss,0)==0 ~ as.numeric(NA)
+            , T ~ sumabs/nomiss
+          )
+        ) %>% 
+        # NA nonsense values
+        dplyr::mutate(
+          mape = dplyr::case_when(
+            stringr::str_starts(name, "pct_diff_") ~ mape
+            , T ~ as.numeric(NA)
+          )
+          , rmse = dplyr::case_when(
+            stringr::str_starts(name, "pct_diff_") ~ as.numeric(NA)
+            , T ~ rmse
+          )
+          , mean = dplyr::case_when(
+            stringr::str_starts(name, "pct_diff_") ~ as.numeric(NA)
+            , T ~ mean
+          )
+        ) %>% 
+        dplyr::select(name,rmse,mean,mape) %>% 
+        tidyr::pivot_wider(
+          names_from = name
+          , values_from = c(rmse,mean,mape)
+          , names_glue = "{name}_{.value}"
+        ) %>% 
+        # remove columns with NA in all rows
+        dplyr::select( dplyr::where( ~!all(is.na(.x)) ) )
+      
+      if(
+        dplyr::coalesce(nrow(rmse_df),0)==0
+        || dplyr::coalesce(ncol(rmse_df),0)==0
+      ){
+        # empty df
+        rmse_df <- dplyr::tibble()
+      }
+    }else{
+      # empty df
+      rmse_df <- dplyr::tibble()
+    }
+  
+  # count by match group
+    agg <-
+      ground_truth_prediction_match_ans %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::ungroup() %>% 
+      dplyr::count(match_grp) %>% 
+      dplyr::mutate(
+        match_grp = dplyr::recode_values(
+          match_grp
+          , "true positive"~"tp"
+          , "commission"~"fp"
+          , "omission"~"fn"
+        )
+      )
+    # true positive, false positive, false negative rates
+    return_df <- dplyr::tibble(match_grp = c("tp","fp","fn")) %>% 
+      dplyr::left_join(agg, by = "match_grp") %>% 
+      dplyr::mutate(dplyr::across(.cols = c(n), .fn = ~dplyr::coalesce(.x,0))) %>% 
+      tidyr::pivot_wider(
+        names_from = match_grp
+        , values_from = c(n)
+        , names_glue = "{match_grp}_{.value}"
+      )
+    # rates, precision, recall, f-score
+    return_df <- confusion_matrix_scores_fn(return_df)
+    # add rmse
+    if(nrow(rmse_df)>0){
+      return_df <- return_df %>% dplyr::bind_cols(rmse_df)
+    }
+  # return
+  return(return_df)
+}
+# agg_ground_truth_match(
+#   wfsi_eglinafb_ws_instance_match %>% 
+#     dplyr::filter(
+#       plot_id==wfsi_eglinafb_ws_instance_match$plot_id[1]
+#       , ws_fn_nm==wfsi_eglinafb_ws_instance_match$ws_fn_nm[1]
+#     )
+# )
+
+# map it over
+# ?purrr::pmap
+wfsi_eglinafb_agg_ground_truth_match_ans <- 
+  wfsi_eglinafb_ws_instance_match %>% 
+  dplyr::distinct(plot_id,ws_fn_nm) %>% 
+  purrr::pmap(function(plot_id, ws_fn_nm) {
+    
+    d <- tibble(plot_id = plot_id, ws_fn_nm = ws_fn_nm)
+    
+    j <- 
+      wfsi_eglinafb_ws_instance_match %>% 
+      dplyr::inner_join(
+        d   
+        , by = dplyr::join_by("plot_id","ws_fn_nm")
+      )
+    
+    d %>% 
+      dplyr::bind_cols(agg_ground_truth_match(j))
+    
+  }) %>% 
+  list_rbind()
+# huh?
+# wfsi_eglinafb_agg_ground_truth_match_ans %>% dplyr::glimpse()
+```
+
+aggregate the plot level data to the window function to get the answer we've been searching for
+
+```{r}
+# wfsi_eglinafb_agg_ground_truth_match_ans %>% 
+#   dplyr::count(ws_fn_nm) %>% 
+#   dplyr::count(n)
+agg_temp <- 
+  wfsi_eglinafb_agg_ground_truth_match_ans %>% 
+  dplyr::group_by(ws_fn_nm) %>% 
+  dplyr::summarize(
+    n_plots = dplyr::n()
+    , dplyr::across(
+      .cols = c(precision,recall,f_score,tidyselect::ends_with("_rate"))
+      , list( 
+        mean= ~ mean(.x,na.rm=T)
+        , median= ~ median(.x,na.rm=T)
+      )
+    )
+  ) %>% 
+  dplyr::mutate(
+    dplyr::across(
+      .cols = dplyr::where(is.numeric)
+      , ~ round(.x,2) %>% as.character() %>% as.numeric()
+    )
+  ) %>% 
+  dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean))
+
+```
 
 
 ```{r, include = F, eval = F}
