@@ -237,6 +237,8 @@ wfsi_eglinafb_trees <-
   # and for all sites we'll just use a plot_id
   dplyr::mutate(
     plot_id = stringr::str_c(unit,plot,sep = "_")
+    # also, each tree needs a treeID
+    , treeID = dplyr::row_number()
   )
 # huh?
 wfsi_eglinafb_trees %>% dplyr::glimpse()
@@ -1466,8 +1468,7 @@ instance_match_fn <- function(
     ))) %>% 
     dplyr::mutate(match_grp = "true positive")
   # return_df %>% dplyr::glimpse()
-  
-  
+
   return_df <-
     return_df %>% 
     # if reference but no predictions...they are all omissions (FN)
@@ -1503,6 +1504,28 @@ instance_match_fn <- function(
           , "pred_match_idx"
         ))) %>% 
         dplyr::mutate(match_grp = "commission")
+    ) %>% 
+    # add on treeID
+    dplyr::left_join(
+      ref_points %>% 
+        sf::st_drop_geometry() %>%
+        dplyr::select(xxx_id, treeID) %>% 
+        dplyr::rename(
+          ref_match_idx = xxx_id
+          , ref_treeID = treeID
+        )
+      , by = "ref_match_idx"
+    )
+    # add on treeID
+    dplyr::left_join(
+      pred_crowns %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::select(xxx_id, treeID) %>% 
+        dplyr::rename(
+          pred_match_idx = xxx_id
+          , pred_treeID = treeID
+        )
+      , by = "ref_match_idx"
     )
     
   # return_df %>% dplyr::glimpse()
@@ -2018,20 +2041,21 @@ agg_ground_truth_match <- function(ground_truth_prediction_match_ans) {
 
 # map it over
 # ?purrr::pmap
+# A data frame is an important special case of .l. It will cause .f to be called once for each row.
 wfsi_eglinafb_agg_ground_truth_match_ans <- 
   wfsi_eglinafb_ws_instance_match %>% 
   dplyr::distinct(plot_id,ws_fn_nm) %>% 
   purrr::pmap(function(plot_id, ws_fn_nm) {
-    
-    d <- tibble(plot_id = plot_id, ws_fn_nm = ws_fn_nm)
-    
+    # the unique row data
+    d <- dplyr::tibble(plot_id = plot_id, ws_fn_nm = ws_fn_nm)
+    # filter full set based on the data
     j <- 
       wfsi_eglinafb_ws_instance_match %>% 
       dplyr::inner_join(
         d   
         , by = dplyr::join_by("plot_id","ws_fn_nm")
       )
-    
+    # agg_ground_truth_match
     d %>% 
       dplyr::bind_cols(agg_ground_truth_match(j))
     
@@ -2060,15 +2084,134 @@ agg_temp <-
       )
     )
   ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(
+    wfsi_eglinafb_ws_pred_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::distinct(ws_fn_nm, ws_type)
+    , by = "ws_fn_nm"
+  ) %>% 
   dplyr::mutate(
-    dplyr::across(
-      .cols = dplyr::where(is.numeric)
-      , ~ round(.x,2) %>% as.character() %>% as.numeric()
-    )
+    f_score_rank = dplyr::min_rank(-f_score_mean)
+    , ws_fn_nm_fact = forcats::fct_reorder(ws_fn_nm, f_score_rank)
+    # , dplyr::across(
+    #   .cols = dplyr::where(is.numeric)
+    #   , ~ round(.x,2) %>% as.character() %>% as.numeric()
+    # )
   ) %>% 
   dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean))
-
+# agg_temp %>% dplyr::glimpse()
 ```
+
+let's check out the plot-level distribution of F-score for the top window functions
+
+```{r}
+wfsi_eglinafb_agg_ground_truth_match_ans %>% 
+  # add agg data
+  dplyr::inner_join(
+    agg_temp %>% 
+      dplyr::filter(f_score_rank<=12) %>% 
+      dplyr::select(ws_fn_nm, ws_fn_nm_fact, ws_type)
+    , by = "ws_fn_nm"
+  ) %>% 
+  dplyr::arrange(ws_fn_nm_fact) %>% 
+  dplyr::mutate(ws_fn_nm_fact=forcats::fct_rev(ws_fn_nm_fact)) %>% 
+  # dplyr::pull(ws_fn_nm) %>% levels()
+  # View()
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = f_score, y = ws_fn_nm_fact, fill=ws_type)
+  ) +
+  ggplot2::geom_boxplot(
+    width = 0.4
+    , alpha=0.9
+    , outliers = F
+    , color = "black"
+  ) +
+  ggplot2::geom_point(color = "gray77") +
+  ggplot2::scale_fill_viridis_d() +
+  ggplot2::scale_x_continuous(labels = scales::percent_format()) +
+  ggplot2::labs(x="F-score", y="") +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "none"
+    , legend.direction  = "horizontal"
+  )
+```
+
+we can print the raw window function definition for those that achieved the highest F-score
+
+```{r}
+agg_temp %>% 
+  dplyr::filter(f_score_rank<=5) %>% 
+  dplyr::arrange(f_score_rank) %>% 
+  dplyr::pull(ws_fn_nm) %>% 
+  purrr::set_names() %>% 
+  # purrr::map(\(nm) purrr::pluck(get_ws_fn_list_ans, nm))
+  purrr::map(function(nm){
+    fn <- purrr::pluck(get_ws_fn_list_ans, nm)
+    dplyr::tibble(
+      ws_fn_nm = nm
+      , def = paste(format(fn), collapse = "\n")
+    )
+  }) %>%
+  purrr::list_rbind() %>% 
+  dplyr::inner_join(
+    agg_temp %>% 
+      dplyr::select(ws_fn_nm, f_score_mean, recall_mean, precision_mean) %>% 
+      dplyr::mutate(
+        dplyr::across(
+          dplyr::where(is.numeric)
+          , ~ scales::percent(.x,accuracy = 0.1)
+        )
+      )
+  ) %>% 
+  dplyr::relocate(def,.after = dplyr::everything()) %>% 
+  kableExtra::kbl(
+    caption = "WFSI Eglin Air Force Base top ITD window functions"
+    , col.names = c(
+      "function<br>name"
+      , "F-score<br>(mean)"
+      , "recall<br>(mean)"
+      , "precision<br>(mean)"
+      , "function<br>definition"
+    )
+    , escape = F
+  ) %>% 
+  kableExtra::kable_styling() %>% 
+  # make r line breaks (\n) and use monospace font for code
+  kableExtra::column_spec(5, monospace = T, extra_css = "white-space: pre;")
+```
+
+nice, we'll select the best non-constant window function for use in evaluation of the species accuracy. if we were to use the constant functions, even if they are the best performing, we would likely be overfitting to this specific data set. in addition to being more in-line with real-world tree height-to-crown relationships, the variable window functions are likely more broadly applicable
+
+```{r}
+project_data_df <- project_data_df %>% 
+  dplyr::mutate(
+    best_ws_fn_nm = ifelse(
+      tolower(data_site_nm)=="wfsi_eglinafb"
+      , agg_temp %>% 
+        dplyr::filter(ws_type!="constant") %>% 
+        dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean)) %>% 
+        dplyr::slice(1) %>% 
+        dplyr::pull(ws_fn_nm)
+      , ""
+    )
+  )
+# project_data_df %>% dplyr::glimpse()
+
+# let's also save the plot-level ITD predictions for this ws
+wfsi_eglinafb_ws_pred_trees %>% 
+  # have to match the filtering we used
+  dplyr::filter(
+    fia_est_dbh_cm_upper >= as.numeric(min_dbh_cm)
+  )
+  
+  
+  project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::pull(best_ws_fn_nm)
+```
+
 
 
 ```{r, include = F, eval = F}
