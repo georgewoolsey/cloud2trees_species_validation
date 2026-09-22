@@ -1,0 +1,469 @@
+# All Sites Processing
+
+```{r, include=F, warning=F, message=F, eval = F}
+######################################################################################################################
+######################################################################################################################
+# https://doi.org/10.5281/zenodo.6637599
+# Tallo database to build ITD segmentation ws functions by genus/forest type based on height-crown diameter?
+######################################################################################################################
+######################################################################################################################
+# https://doi.org/10.5281/zenodo.6637599
+# we developed the Tallo database, a collection of 498,838 georeferenced and taxonomically 
+# standardized records of individual trees for which stem diameter, height and/or crown radius 
+# have been measured. These data were collected at 61,856 globally distributed sites, spanning 
+# all major forested and non-forested biomes. The majority of trees in the database are identified
+# to species (88%), and collectively Tallo includes data for 5163 species distributed 
+# across 1453 genera and 187 plant families.
+
+######################################################################################################################
+######################################################################################################################
+# https://gdam-api-v2-782971006568.us-west1.run.app/docs#/Index/index
+# fastfuels api to get species?
+######################################################################################################################
+######################################################################################################################
+###########################################################
+###########################################################
+# here's the example py from the docs
+###########################################################
+###########################################################
+# import pandas as pd
+# import requests
+
+# # 1. Prepare your input data
+# input_df = pd.DataFrame({
+#     "Lat": [48.1234, 48.1240],
+#     "Lon": [-114.5678, -114.5680],
+#     "HT": [25.5, 18.2],
+#     "DIA": [None, 8.5]  # Missing fields will be imputed
+# })
+
+# # 2. Format the payload using orient="split"
+# payload = {
+#     "trees": input_df.to_dict(orient="split")
+# }
+
+# # 3. Send the request
+# response = requests.post("https://<API_URL>/v1/predict/batch", json=payload)
+
+# # 4. Reconstruct the output directly back into a Pandas DataFrame
+# response_data = response.json()
+# predictions_df = pd.DataFrame(**response_data["predictions"])
+
+# print(predictions_df.head())
+
+###########################################################
+###########################################################
+# here's the start of formatting data to send to api
+###########################################################
+###########################################################
+validation_trees %>% 
+  sf::st_transform(crs = sf::st_crs(4326)) %>% 
+  dplyr::mutate(
+    tree_lon = sf::st_coordinates(.)[,1]
+    , tree_lat = sf::st_coordinates(.)[,2]
+    , fastfuels_api = paste0(
+      # https://gdam-api-v2-782971006568.us-west1.run.app/docs#/Index/index
+      # fastfuels api to get species?
+      # {
+      #   "Lat": 48.1234,
+      #   "Lon": -114.5678,
+      #   "HT": 25.5
+      # }
+      "{"
+        , "\"Lat\":" , scales::number(tree_lat, accuracy = 0.000001)
+        , ",\"Lon\":" , scales::number(tree_lon, accuracy = 0.000001)
+        , ",\"HT\":" , scales::number(field_tree_height_m, accuracy = 0.01)
+      , "}"
+      
+    )
+  ) %>% 
+  dplyr::slice_sample(n=44) %>% 
+  dplyr::slice_head(n=7) %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(fastfuels_api)
+
+# {"Lat":39.125813,"Lon":-105.115625,"HT":19.05}    # 39.125813,-105.115625
+# {"Lat":39.125659,"Lon":-105.113507,"HT":18.90}    # 39.125659,-105.113507
+# {"Lat":39.125840,"Lon":-105.112728,"HT":20.73}    # 39.125840,-105.112728
+# {"Lat":39.126451,"Lon":-105.115426,"HT":2.44}   # 39.126451,-105.115426
+# {"Lat":39.126394,"Lon":-105.115221,"HT":2.13}   # 39.126394,-105.115221
+# {"Lat":39.124983,"Lon":-105.115187,"HT":15.54}    # 39.124983,-105.115187
+# {"Lat":39.125319,"Lon":-105.115390,"HT":3.35}   # 39.125319,-105.115390
+
+
+# {"Lat":39.127170,"Lon":-105.115781,"HT":20.12}
+# {"Lat":39.127175,"Lon":-105.115772,"HT":10.06}
+# {"Lat":39.127174,"Lon":-105.115760,"HT":7.01}"
+# {"Lat":39.127124,"Lon":-105.115732,"HT":11.28}
+# {"Lat":39.127110,"Lon":-105.115742,"HT":23.47}
+# {"Lat":39.127099,"Lon":-105.115714,"HT":11.89}
+# {"Lat":39.127073,"Lon":-105.115716,"HT":20.12}
+```
+
+We compiled a collection of validation datasets across diverse forest conditions for this specific analysis project. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.
+
+| Name | State | Forest Type | Point Cloud Data | Field Data |
+| :--- | :--- | :--- | :--- | :--- |
+| Penobscot Experimental Forest | Maine | northern mixed conifer | ALS | tree locations |
+| Manitou Experimental Forest (N1) | Colorado | ponderosa pine | UAS-SfM | tree locations |
+| Manitou Experimental Forest (Big Plot) | Colorado | western mixed conifer | UAS-SfM | tree locations |
+| CSFS State Forest State Park | Colorado | lodgepole pine | UAS-lidar | plots |
+| BLM Dawson Creek | Colorado | pinyon-juniper | UAS-SfM | tree locations |
+| Ute Creek | Colorado | | UAS-SfM | plots |
+| WFSI Fort Stewart | Georgia | southern yellow pine forest | UAS-lidar | plots |
+| WFSI Elgin AFB | Florida | longleaf pine | UAS-lidar | plots |
+| Wabikon Lake Forest Dynamics Plot (ForestGEO) | Wisconsin | northern mixed hardwood | ALS | tree locations |
+| UC Santa Cruz Forest Ecology Research Plot (ForestGEO) | California | coastal mixed-evergreen & coast redwood | ALS | tree locations |
+| Smithsonian Environmental Research Center (ForestGEO) | Maryland | mixed deciduous hardwood | ALS | tree locations |
+| Smithsonian Conservation Biology Institute (ForestGEO) | Virginia | mid-atlantic deciduous | ALS | tree locations |
+
+Load the standard libraries we use to do work
+
+```{r, warning=FALSE, message=FALSE}
+# bread-and-butter
+library(tidyverse) # the tidyverse
+library(viridis) # viridis colors
+library(harrypotter) # hp colors
+library(RColorBrewer) # brewer colors
+library(scales) # work with number and plot scales
+library(latex2exp)
+
+# visualization
+library(mapview) # interactive html maps
+library(kableExtra) # tables
+library(patchwork) # combine plots
+
+# spatial analysis
+library(terra) # raster
+library(sf) # simple features
+library(lidR) # lidar data
+library(cloud2trees) # the cloud2trees
+```
+
+```{r pkg-ld, include=F, warning=F, message=F}
+# knit options
+knitr::opts_chunk$set(
+  echo = TRUE
+  , warning = FALSE
+  , message = FALSE
+  # , results = 'hide'
+  , fig.width = 10.5
+  , fig.height = 7
+)
+# option to put satellite imagery as base layer of mapview maps
+  mapview::mapviewOptions(
+    homebutton = FALSE
+    # , basemaps = c("Esri.WorldImagery","OpenStreetMap")
+    , basemaps = c("OpenStreetMap", "Esri.WorldImagery")
+  )
+# clean session
+remove(list = ls())
+gc()
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+## CSFS SWE
+
+### Point Cloud Data
+
+UAS-lidar data was collected with a DJI Matrice M350 (DJI, Shenzhen, China) platform equipped with  a Zenmuse L2 lidar sensor.
+
+let's check out the raw ALS data
+
+```{r}
+# csfs_swe
+csfs_swe_las_f_temp <- "../data/csfs_swe/las"
+csfs_swe_las_ctg_temp <- lidR::readLAScatalog(csfs_swe_las_f_temp)
+csfs_swe_las_ctg_temp
+# csfs_swe_las_ctg_temp@data %>% dplyr::glimpse()
+```
+
+let's check out the lidar data coverage compared to the field plot data
+
+```{r}
+csfs_swe_las_ctg_temp@data$geometry %>% 
+  sf::st_union() %>% 
+  sf::st_as_sf() %>% 
+  dplyr::mutate(data = "UAS-lidar data extent") %>% 
+mapview::mapview(
+ zcol = "data"
+  , layer.name="CSFS SWE: UAS-lidar data"
+  , popup=F
+)
+# mapview::mapview(
+#   csfs_swe_trees
+#   , zcol = "species"
+#   , layer.name="WFSI Eglin AFB: field trees"
+#   , popup=F
+# )
+# 40.59503,-105.9903
+```
+
+use `cloud2trees` to process the raw point cloud data to generate a CHM for use in tree detection
+
+```{r}
+################################################
+# input/output data str
+################################################
+# outdir
+c2t_output_dir_temp <- project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
+  dplyr::pull(data_dir)
+c2t_process_dir_temp <- file.path(c2t_output_dir_temp, "point_cloud_processing_delivery")
+# timer file
+c2t_tracking_fnm_temp <- file.path(c2t_process_dir_temp, "processed_tracking_data.csv")
+# save to tracking df
+project_data_df <- project_data_df %>% 
+  dplyr::mutate(
+    c2t_process_dir = ifelse(data_dir==c2t_output_dir_temp, c2t_process_dir_temp, c2t_process_dir)
+    , c2t_tracking_fnm = ifelse(data_dir==c2t_output_dir_temp, c2t_tracking_fnm_temp, c2t_tracking_fnm)
+  )
+# project_data_df %>% print(n=nrow(project_data_df))
+
+################################################
+# use point cloud point density
+# to automatically set CHM and DTM res
+# make a fn to do this based on input LAScatalog
+################################################
+
+# get point cloud density and raster resolutions
+get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(csfs_swe_las_ctg_temp)
+# get_ptcld_density_chm_res_temp
+
+# fnm
+chm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("chm_",get_ptcld_density_chm_res_temp$chm_res_m,"m.tif") )
+dtm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("dtm_",get_ptcld_density_chm_res_temp$dtm_res_m,"m.tif") )
+# save to tracking df
+project_data_df <- project_data_df %>% 
+  dplyr::mutate(
+    , las_pts_m2 = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$pts_m2, las_pts_m2)
+    , chm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$chm_res_m, chm_res_m)
+    , chm_fnm = ifelse(data_dir==c2t_output_dir_temp, chm_fnm_temp, chm_fnm)
+    , dtm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$dtm_res_m, dtm_res_m)
+    , dtm_fnm = ifelse(data_dir==c2t_output_dir_temp, dtm_fnm_temp, dtm_fnm)
+  )
+
+# project_data_df %>% dplyr::filter(data_dir==c2t_output_dir_temp) %>% dplyr::glimpse()
+# project_data_df %>% print(n=nrow(project_data_df))
+
+##############################################################
+# cloud2trees::cloud2raster
+##############################################################
+if(
+  !file.exists(chm_fnm_temp)
+  || !file.exists(dtm_fnm_temp)
+){
+  # time it
+  st_temp <- Sys.time()
+  # run it
+  # cloud2trees
+  cloud2raster_ans <- cloud2trees::cloud2raster(
+    output_dir = c2t_output_dir_temp
+    , input_las_dir = csfs_swe_las_f_temp
+    , accuracy_level = 2
+    , keep_intrmdt = T
+    , dtm_res_m = get_ptcld_density_chm_res_temp$dtm_res_m # (1/sqrt(pts_m2_temp))*2
+    , chm_res_m = get_ptcld_density_chm_res_temp$chm_res_m # 1/sqrt(pts_m2_temp)
+    , min_height = 0 # effectively generates a DSM based on non-ground points
+  )
+  
+  # timer
+  mins_temp <- difftime(Sys.time(),st_temp,units = "mins") %>% as.numeric()
+  # save tracking
+  dplyr::tibble(
+    timer_cloud2raster_mins = mins_temp
+  ) %>% 
+    write.csv(
+      file = c2t_tracking_fnm_temp
+      , row.names = F, append = F
+    )
+}else{
+  dtm_temp <- terra::rast( dtm_fnm_temp )
+  chm_temp <- terra::rast( chm_fnm_temp )
+  
+  
+  cloud2raster_ans <- list(
+    "dtm_rast" = dtm_temp
+    , "chm_rast" = chm_temp
+  )
+}
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+
+## Penobscot Experimental Forest (Maine)
+
+### Field Data
+
+Field data from this study site is from: 
+
+* Kenefic, Laura S.; Allogio, Jeanette A.; Gerndt, Kathryn M.; Knapp, Rachel A.; Rogers, Nicole S.; Puhlick, Joshua J. 2025. Overstory tree and regeneration data from the "Silvicultural Effects on Composition, Structure, and Growth" study at Penobscot Experimental Forest. 3rd Edition. Fort Collins, CO: Forest Service Research Data Archive. [https://doi.org/10.2737/RDS-2012-0008-3](https://doi.org/10.2737/RDS-2012-0008-3)
+
+>Data were collected on a series of permanent sample plots distributed across management units receiving various silvicultural treatments. Plot data are available in eight separate data sets. Overstory tree and sapling data include tree species, condition (e.g., merchantability status and cause of mortality), and diameter at breast height of living and dead trees, 1952 to 2023...Tree location data include the distance and azimuth from plot center of a subsample of trees, 2003 to 2023. Height and crown radius data include total height, height to crown base, and crown radius measurements for a subsample of live trees, 2003 to 2020 (heights) and 2003 to 2017 (radii)...Permanent sample plot location data include geospatial coordinates for permanent sample plots, 2018 and 2020...Future inventories are planned for this study indefinitely.
+
+> 1/5th Acre Plots (were used to measure) Trees ≥ 4.5 inches DBH (with a) 52.7-foot plot radius
+
+let's load in the plot data first to orient ourselves
+
+```{r}
+usfs_penobscotef_plots <- readr::read_csv(
+    "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_PlotLocationsData.csv"
+    , progress = F
+    , show_col_types = F
+  ) %>% 
+  dplyr::rename_with(~tolower(.x) %>% make.names()) %>% 
+  dplyr::filter(
+    geodoubt == "N"
+    , active == 1
+    , !is.na(utm_east)
+    , !is.na(utm_north)
+  ) %>% 
+  dplyr::mutate(
+    plot_id = 
+      mu %>%
+        stringr::str_squish() %>% 
+        stringr::str_c("-", as.character(plot))
+  ) %>% 
+  # spatial that
+  sf::st_as_sf(coords = c("utm_east", "utm_north"), crs = 26919, remove = F) %>% 
+  dplyr::mutate(
+    plot_area_ac = 1/5
+    # 1 ha = 2.47105 acres
+    , plot_area_ha = plot_area_ac/2.47105
+    , plot_area_m2 = plot_area_ha*10000
+    , plot_radius_meters = sqrt(plot_area_m2 / pi)
+  ) %>% 
+  sf::st_buffer(.$plot_radius_meters)
+# huh?
+# usfs_penobscotef_plots %>% dplyr::count(projection)
+usfs_penobscotef_plots %>% dplyr::glimpse()
+# usfs_penobscotef_plots %>% sf::st_drop_geometry() %>% dplyr::count(mu,plot) %>% dplyr::filter(n>1)
+```
+
+we did a lot of data cleaning in there which we won't describe (you can read the code if you're interested). let's look at the plot locations...
+
+load in the trees
+
+```{r}
+usfs_penobscotef_trees <- 
+  readr::read_csv(
+    "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_TreeLocationData.csv"
+    , progress = F
+    , show_col_types = F
+  ) %>% 
+  dplyr::rename_with(~tolower(.x) %>% make.names()) %>% 
+  dplyr::left_join(
+    usfs_penobscotef_plots %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::select(mu,plot,plot_utm_north=utm_north,plot_utm_east=utm_east)
+    , by = dplyr::join_by(mu,plot)
+  ) %>% 
+  # convert from dist and azimuth to coords
+  dplyr::mutate(
+    # dist to m
+    dist_m = dist/3.280839895
+    # convert azimuth from degrees to radians
+    , az_rad = az * pi / 180
+    , tree_utm_east = plot_utm_east + (dist_m * sin(az_rad)),
+    , tree_utm_north = plot_utm_north + (dist_m * cos(az_rad))
+  ) %>% 
+  # filter
+  dplyr::filter(
+    !is.na(tree_utm_east)
+    , !is.na(tree_utm_north)
+  ) %>% 
+  # what if a tree has multiple locations? ... take the most recent
+  dplyr::arrange(mu,plot,treenum,desc(year),desc(month),desc(inv)) %>% 
+  dplyr::group_by(mu,plot,treenum) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(mu,plot,treenum,tidyselect::starts_with("tree_utm_")) %>% 
+  # spatial that
+  sf::st_as_sf(coords = c("tree_utm_east", "tree_utm_north"), crs = sf::st_crs(usfs_penobscotef_plots), remove = F)
+
+# read and attach tree information
+usfs_penobscotef_trees <- 
+  usfs_penobscotef_trees %>% 
+  dplyr::inner_join(
+    readr::read_csv(
+        "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_TreeData.csv"
+        , progress = F
+        , show_col_types = F
+      ) %>% 
+      dplyr::rename_with(~tolower(.x) %>% make.names())
+    , by = dplyr::join_by(mu,plot,treenum)
+    , relationship = "one-to-many"
+  )
+# huh?
+usfs_penobscotef_trees %>% dplyr::glimpse()
+# only keep plots we have trees for
+usfs_penobscotef_plots <- usfs_penobscotef_plots %>% 
+  dplyr::inner_join(
+    usfs_penobscotef_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::distinct(mu,plot)
+    , by = dplyr::join_by(mu,plot)
+  )
+```
+
+let's check those field plots out to orient ourselves to the location
+
+```{r}
+usfs_penobscotef_plots %>% 
+  mapview::mapview(
+    layer.name="USFS Penobscot EF: field plots"
+    , popup=F
+  )
+# usfs_penobscotef_plots %>% 
+#   sf::st_union() %>% 
+#   sf::st_bbox() %>% 
+#   sf::st_as_sfc() %>% 
+#   sf::st_centroid() %>% 
+#   sf::st_transform(crs=4326) %>% 
+#   sf::st_coordinates()
+# 44.85681,-68.62513
+```
+
+
+
+
+
+
+ForestGEO SCBI
+
+```{r}
+boundary_scbi_temp <- sf::st_read("../data/ForestGEO_SCBI/ForestGEO_SCBI_shapefiles/ForestGEO_grid_outline.shp") %>% 
+  sf::st_union() 
+boundary_scbi_temp %>% 
+  mapview::mapview(layer.name = "SCBI")
+boundary_scbi_temp %>% sf::st_centroid() %>% sf::st_transform(4326) %>% sf::st_coordinates()
+# 38.893480, -78.145380
+```
+
+
+
+
+
+
+The `cloud2trees` package can be installed by following the directions listed in the [README file on GitHub](https://github.com/georgewoolsey/cloud2trees). If one is still experiencing difficulties installing the package, see the [setup guide](https://georgewoolsey.github.io/cloud2trees/articles/cloud2trees-setup.html) which details how to install the package using a virgin R instance.
+
+```{r, eval=FALSE}
+## remotes helps us get packages hosted on github
+install.packages("remotes")
+## get cloud2trees
+remotes::install_github(repo = "georgewoolsey/cloud2trees", upgrade = F)
+```
+
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```

@@ -1,104 +1,4 @@
-# Data Overview
-
-```{r, include=F, warning=F, message=F, eval = F}
-######################################################################################################################
-######################################################################################################################
-# https://doi.org/10.5281/zenodo.6637599
-# Tallo database to build ITD segmentation ws functions by genus/forest type based on height-crown diameter?
-######################################################################################################################
-######################################################################################################################
-# https://doi.org/10.5281/zenodo.6637599
-# we developed the Tallo database, a collection of 498,838 georeferenced and taxonomically 
-# standardized records of individual trees for which stem diameter, height and/or crown radius 
-# have been measured. These data were collected at 61,856 globally distributed sites, spanning 
-# all major forested and non-forested biomes. The majority of trees in the database are identified
-# to species (88%), and collectively Tallo includes data for 5163 species distributed 
-# across 1453 genera and 187 plant families.
-
-######################################################################################################################
-######################################################################################################################
-# https://gdam-api-v2-782971006568.us-west1.run.app/docs#/Index/index
-# fastfuels api to get species?
-######################################################################################################################
-######################################################################################################################
-###########################################################
-###########################################################
-# here's the example py from the docs
-###########################################################
-###########################################################
-# import pandas as pd
-# import requests
-
-# # 1. Prepare your input data
-# input_df = pd.DataFrame({
-#     "Lat": [48.1234, 48.1240],
-#     "Lon": [-114.5678, -114.5680],
-#     "HT": [25.5, 18.2],
-#     "DIA": [None, 8.5]  # Missing fields will be imputed
-# })
-
-# # 2. Format the payload using orient="split"
-# payload = {
-#     "trees": input_df.to_dict(orient="split")
-# }
-
-# # 3. Send the request
-# response = requests.post("https://<API_URL>/v1/predict/batch", json=payload)
-
-# # 4. Reconstruct the output directly back into a Pandas DataFrame
-# response_data = response.json()
-# predictions_df = pd.DataFrame(**response_data["predictions"])
-
-# print(predictions_df.head())
-
-###########################################################
-###########################################################
-# here's the start of formatting data to send to api
-###########################################################
-###########################################################
-validation_trees %>% 
-  sf::st_transform(crs = sf::st_crs(4326)) %>% 
-  dplyr::mutate(
-    tree_lon = sf::st_coordinates(.)[,1]
-    , tree_lat = sf::st_coordinates(.)[,2]
-    , fastfuels_api = paste0(
-      # https://gdam-api-v2-782971006568.us-west1.run.app/docs#/Index/index
-      # fastfuels api to get species?
-      # {
-      #   "Lat": 48.1234,
-      #   "Lon": -114.5678,
-      #   "HT": 25.5
-      # }
-      "{"
-        , "\"Lat\":" , scales::number(tree_lat, accuracy = 0.000001)
-        , ",\"Lon\":" , scales::number(tree_lon, accuracy = 0.000001)
-        , ",\"HT\":" , scales::number(field_tree_height_m, accuracy = 0.01)
-      , "}"
-      
-    )
-  ) %>% 
-  dplyr::slice_sample(n=44) %>% 
-  dplyr::slice_head(n=7) %>% 
-  sf::st_drop_geometry() %>% 
-  dplyr::select(fastfuels_api)
-
-# {"Lat":39.125813,"Lon":-105.115625,"HT":19.05}    # 39.125813,-105.115625
-# {"Lat":39.125659,"Lon":-105.113507,"HT":18.90}    # 39.125659,-105.113507
-# {"Lat":39.125840,"Lon":-105.112728,"HT":20.73}    # 39.125840,-105.112728
-# {"Lat":39.126451,"Lon":-105.115426,"HT":2.44}   # 39.126451,-105.115426
-# {"Lat":39.126394,"Lon":-105.115221,"HT":2.13}   # 39.126394,-105.115221
-# {"Lat":39.124983,"Lon":-105.115187,"HT":15.54}    # 39.124983,-105.115187
-# {"Lat":39.125319,"Lon":-105.115390,"HT":3.35}   # 39.125319,-105.115390
-
-
-# {"Lat":39.127170,"Lon":-105.115781,"HT":20.12}
-# {"Lat":39.127175,"Lon":-105.115772,"HT":10.06}
-# {"Lat":39.127174,"Lon":-105.115760,"HT":7.01}"
-# {"Lat":39.127124,"Lon":-105.115732,"HT":11.28}
-# {"Lat":39.127110,"Lon":-105.115742,"HT":23.47}
-# {"Lat":39.127099,"Lon":-105.115714,"HT":11.89}
-# {"Lat":39.127073,"Lon":-105.115716,"HT":20.12}
-```
+# Data and Process Overview
 
 We compiled a collection of validation datasets across diverse forest conditions for this specific analysis project. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.
 
@@ -186,9 +86,21 @@ ref_trees_list <- chm_list
 ref_plots_list <- chm_list
 ```
 
+We're going to use this first study site and associated data to demonstrate the entire analysis process which includes:
+
+* [Reference Field Data](#01_fld_dta): load and attempt to standardize the field reference spatial tree inventory and polygon plot data
+* [Point Cloud Data](#02_ptcld_dta): process the raw point cloud data to generate the CHM used for individual tree detection
+* [Individual Tree Detection](#03_itd): Use the CHM for individual tree detection. This includes many steps.
+  - Utilize multiple window functions for ITD
+  - Evaluate detection accuracy with segmentation matching of the predicted crowns with the field reference points
+  - Select the best performing window function with the ITD result used for the remaining species method validation
+* [Species/Genera Prediction](#04_species): Predict species for the point cloud-generated tree list
+* [Tree-level Species/Genera Evaluation]: Evaluate the tree-level accuracy of the proposed classification method
+* [Site-level Species/Genera Evaluation]: Evaluate the site-level accuracy of the proposed classification method based on proportional distributions
+
 ## Eglin Air Force Base (Florida)
 
-### Field Data
+### Field Data{#01_fld_dta}
 
 Field data from this study site is from: 
 
@@ -488,7 +400,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-### Point Cloud Data
+### Point Cloud Data{#02_ptcld_dta}
 
 Andrew Hudak, & Benjamin Bright. (2026). *Airborne Lidar Data from the 2023 Department of Defense Wildland Fire Science Initiative Eglin Air Force Base Campaign*. WFSI Data Portal. [doi:10.60594/W4B017](https://doi.org/10.60594/W4B017)
 
@@ -755,7 +667,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-### Tree Detection
+### Tree Detection{#03_itd}
 
 `cloud2trees` implements a CHM-based individual tree detection method accessible via `cloud2trees::raster2trees()`. this method requires a window function used to set the search radius used to find local maxima in the CHM. These local maxima represent individual tree top points and are subsequently used to delineate individual tree crowns via a marker-controlled watershed segmentation
 
@@ -1335,6 +1247,13 @@ instance_match_fn <- function(
   pred_crowns
   , ref_points
 ){
+  # check
+  if(
+    !any( stringr::str_equal(names(pred_crowns),"treeID") ) ||
+    !any( stringr::str_equal(names(ref_points),"treeID") )
+  ){
+    stop("both reference and predicted data must have `treeID` column")
+  }
   
   if(nrow(ref_points)==0){return(NULL)}
   if(nrow(pred_crowns)==0 && nrow(ref_points)>0){
@@ -1377,6 +1296,8 @@ instance_match_fn <- function(
   ){
     pred_crowns <- pred_crowns %>% dplyr::mutate(xxx_match_col = as.numeric(dbh_cm))
     ref_points <- ref_points %>% dplyr::mutate(xxx_match_col = as.numeric(dbh_cm))
+  }else{
+    stop("both reference and predicted data must have `tree_height_m` or `dbh_cm` column")
   }
   # get rid of data without data
   pred_crowns <- pred_crowns %>% dplyr::filter(!is.na(xxx_match_col), xxx_match_col>0) %>% 
@@ -1515,7 +1436,7 @@ instance_match_fn <- function(
           , ref_treeID = treeID
         )
       , by = "ref_match_idx"
-    )
+    ) %>% 
     # add on treeID
     dplyr::left_join(
       pred_crowns %>% 
@@ -1525,7 +1446,7 @@ instance_match_fn <- function(
           pred_match_idx = xxx_id
           , pred_treeID = treeID
         )
-      , by = "ref_match_idx"
+      , by = "pred_match_idx"
     )
     
   # return_df %>% dplyr::glimpse()
@@ -1566,12 +1487,13 @@ instance_match_fn(
       plot_id == wfsi_eglinafb_plots$plot_id[1]
     )
 ) %>% 
+# dplyr::glimpse()
 dplyr::count(match_grp)
 ```
 
 remember, we have predictions for many different window functions for each plot. we need a function to iterate over each set of predictions (i.e. window function) for a single plot. this is where we'll filter the predictions to attempt to match the field data collection protocol (e.g. measure trees >= 10 cm DBH)
 
-```{r, fig.height=8.8}
+```{r}
 ws_iter_instance_match_fn <- function(
   plot_sf # needs plot_id # should be a single plot
   , ref_pts # needs plot_id
@@ -1621,14 +1543,14 @@ ws_iter_instance_match_fn <- function(
     ){
       pred_polys <- pred_polys %>% 
         dplyr::filter(
-          fia_est_dbh_cm_upper >= as.numeric(min_dbh_cm)
+          dplyr::coalesce(fia_est_dbh_cm_upper,0) >= as.numeric(min_dbh_cm)
         )
     }else if(
       any( stringr::str_equal(names(pred_polys),"dbh_cm") )
     ){
       pred_polys <- pred_polys %>% 
         dplyr::filter(
-          dbh_cm >= as.numeric(min_dbh_cm)
+          dplyr::coalesce(dbh_cm,0) >= as.numeric(min_dbh_cm)
         )
     }else{
       stop("`pred_polys` needs column named `dbh_cm`")
@@ -1640,7 +1562,7 @@ ws_iter_instance_match_fn <- function(
     ){
       ref_pts <- ref_pts %>% 
         dplyr::filter(
-          dbh_cm >= as.numeric(min_dbh_cm)
+          dplyr::coalesce(dbh_cm,0) >= as.numeric(min_dbh_cm)
         )
     }else{
       stop("`ref_pts` needs column named `dbh_cm`")
@@ -1654,7 +1576,7 @@ ws_iter_instance_match_fn <- function(
     ){
       pred_polys <- pred_polys %>% 
         dplyr::filter(
-          tree_height_m >= as.numeric(min_ht_m)
+          dplyr::coalesce(tree_height_m,0) >= as.numeric(min_ht_m)
         )
     }else{
       stop("`pred_polys` needs column named `tree_height_m`")
@@ -1666,7 +1588,7 @@ ws_iter_instance_match_fn <- function(
     ){
       ref_pts <- ref_pts %>% 
         dplyr::filter(
-          tree_height_m >= as.numeric(min_ht_m)
+          dplyr::coalesce(tree_height_m,0) >= as.numeric(min_ht_m)
         )
     }else{
       stop("`ref_pts` needs column named `tree_height_m`")
@@ -1744,7 +1666,11 @@ ws_iter_instance_match_fn <- function(
   
   return(instance_match_ans)
 }
+```
 
+let's test that for a single plot
+
+```{r, fig.height=8.8}
 ###################################
 ### test for one plot
 ### test for one plot
@@ -2040,27 +1966,39 @@ agg_ground_truth_match <- function(ground_truth_prediction_match_ans) {
 # )
 
 # map it over
-# ?purrr::pmap
-# A data frame is an important special case of .l. It will cause .f to be called once for each row.
-wfsi_eglinafb_agg_ground_truth_match_ans <- 
-  wfsi_eglinafb_ws_instance_match %>% 
-  dplyr::distinct(plot_id,ws_fn_nm) %>% 
-  purrr::pmap(function(plot_id, ws_fn_nm) {
-    # the unique row data
-    d <- dplyr::tibble(plot_id = plot_id, ws_fn_nm = ws_fn_nm)
-    # filter full set based on the data
-    j <- 
-      wfsi_eglinafb_ws_instance_match %>% 
-      dplyr::inner_join(
-        d   
-        , by = dplyr::join_by("plot_id","ws_fn_nm")
-      )
-    # agg_ground_truth_match
-    d %>% 
-      dplyr::bind_cols(agg_ground_truth_match(j))
-    
-  }) %>% 
-  list_rbind()
+
+# get the ans
+c2t_process_dir_temp <- 
+  project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::pull(c2t_process_dir)
+fnm_temp <- file.path(c2t_process_dir_temp,"agg_ground_truth_match_ans.csv")
+if(!file.exists(fnm_temp)){
+  # ?purrr::pmap
+  # A data frame is an important special case of .l. It will cause .f to be called once for each row.
+  wfsi_eglinafb_agg_ground_truth_match_ans <- 
+    wfsi_eglinafb_ws_instance_match %>% 
+    dplyr::distinct(plot_id,ws_fn_nm) %>% 
+    purrr::pmap(function(plot_id, ws_fn_nm) {
+      # the unique row data
+      d <- dplyr::tibble(plot_id = plot_id, ws_fn_nm = ws_fn_nm)
+      # filter full set based on the data
+      j <- 
+        wfsi_eglinafb_ws_instance_match %>% 
+        dplyr::inner_join(
+          d   
+          , by = dplyr::join_by("plot_id","ws_fn_nm")
+        )
+      # agg_ground_truth_match
+      d %>% 
+        dplyr::bind_cols(agg_ground_truth_match(j))
+      
+    }) %>% 
+    list_rbind()
+  readr::write_csv(wfsi_eglinafb_agg_ground_truth_match_ans, file = fnm_temp, append = F, progress = F)
+}else{
+  wfsi_eglinafb_agg_ground_truth_match_ans <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
+}
 # huh?
 # wfsi_eglinafb_agg_ground_truth_match_ans %>% dplyr::glimpse()
 ```
@@ -2200,436 +2138,32 @@ project_data_df <- project_data_df %>%
 # project_data_df %>% dplyr::glimpse()
 
 # let's also save the plot-level ITD predictions for this ws
-wfsi_eglinafb_ws_pred_trees %>% 
-  # have to match the filtering we used
-  dplyr::filter(
-    fia_est_dbh_cm_upper >= as.numeric(min_dbh_cm)
-  )
-  
-  
-  project_data_df %>% 
+# add to the ref trees list
+nm_temp <- project_data_df %>% 
   dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
-  dplyr::pull(best_ws_fn_nm)
-```
-
-
-
-```{r, include = F, eval = F}
-# xxx_treetops_sf %>% mapview::mapview(zcol="tree_height_m", layer.name="trees")
-  # nrow(xxx_treetops_sf)
-  xxx_treetops_sf <- 
-    sf::st_filter(
-      xxx_treetops_sf
-      , piles_workflow_ans %>% 
-        dplyr::filter(is_in_trtmnt_unit, inrange_th_votes>=5) %>% 
-        sf::st_union()
-      , .predicate = sf::st_disjoint
-    )
-  # nrow(xxx_treetops_sf)
-  warning(paste0("reference_prediction_match: ",nm,"....",Sys.time()),immediate. = T,call. = F)
-  ################### map it
-  xxx_gt_pred_match_map_ans <- validation_trees$plot %>% 
-    unique() %>% 
-    purrr::set_names() %>% 
-    purrr::map(function(plt_id) {
-      # reference_prediction_match
-      rp_match_ans_temp <- reference_prediction_match(
-        pred_data = 
-          xxx_treetops_sf %>% 
-            dplyr::filter(tree_height_m>=min_tree_ht_m) %>% 
-            sf::st_intersection(
-              validation_plots %>% 
-                dplyr::filter(plot==plt_id) %>%  
-                dplyr::mutate(plot_radius_m = plot_radius_m+1) %>% 
-                sf::st_transform(sf::st_crs(xxx_treetops_sf)) %>% 
-                sf::st_buffer(.$plot_radius_m) %>% 
-                dplyr::select(plot_area_m2)
-            ) %>% 
-            dplyr::left_join(
-              xxx_treetops_sf %>% 
-                # clip to study boundary
-                sf::st_intersection(
-                  validation_plots %>% 
-                    dplyr::filter(plot==plt_id) %>%  
-                    sf::st_transform(sf::st_crs(xxx_treetops_sf)) %>% 
-                    sf::st_buffer(.$plot_radius_m) %>% 
-                    dplyr::mutate(is_in_stand = T)
-                ) %>% 
-                sf::st_drop_geometry() %>% 
-                dplyr::select(treeID, is_in_stand)
-              , by = "treeID"
-            ) %>% 
-            dplyr::mutate(
-              is_in_stand = dplyr::coalesce(is_in_stand,F)
-            )
-        , ref_data = 
-          validation_trees %>% 
-            dplyr::filter(plot==plt_id) %>%
-            dplyr::rename(tree_height_m=height_m, dbh_cm=dbh_cm, tree_cbh_m=cbh_m) %>% 
-            sf::st_transform(sf::st_crs(xxx_treetops_sf))
-        , max_dist_m = 2 # round(median(validation_trees$crown_width_m)/2)
-        , max_height_error_m = 1.5 # round(sd(validation_trees$height_m)*1.1,1)
-      )
-      # # wha?
-      # rp_match_ans_temp$ref_data %>% dplyr::glimpse()
-      # rp_match_ans_temp$pred_data %>% dplyr::glimpse()
-      
-      gt_temp <- ground_truth_prediction_match(
-        reference_prediction_match_ans = rp_match_ans_temp
-        , comp_cols = c("tree_height_m", "dbh_cm") #, "tree_cbh_m")
-      )
-      
-      if(!is.null(rp_match_ans_temp$pred_data) && nrow(rp_match_ans_temp$pred_data)>0){
-        gt_temp <- gt_temp %>% 
-          # remove FP that were outside boundary since we included them to allow for edge reference trees to be matched
-          dplyr::left_join(
-            rp_match_ans_temp$pred_data %>% 
-              sf::st_drop_geometry() %>% 
-              dplyr::select(pred_match_idx, is_in_stand)
-            , by = "pred_match_idx"
-          ) %>% 
-          dplyr::filter(
-            !(!is_in_stand & match_grp=="commission")
-          ) 
-      }
-      # gt_temp %>% agg_ground_truth_match() %>% dplyr::glimpse()
-      return(gt_temp)
-  })
-  xxx_ground_truth_prediction_match_ans <- 
-    xxx_gt_pred_match_map_ans %>%
-    purrr::compact() %>% 
-    purrr::list_rbind(names_to = "plot")
-  ans <- xxx_ground_truth_prediction_match_ans %>% 
-    sf::st_drop_geometry() %>% 
-    agg_ground_truth_match()
-  ans %>% readr::write_csv(file.path("../data/testtest", paste0(nm,".csv")))
-  return(ans)
-}
-
-# testtest_ans <- 
-#   names(ws_functions) %>%
-#   # .[2:3] %>% 
-#   purrr::set_names() %>% 
-#   purrr::map(testtest_fn)
-# testtest_ans %>% 
-#   purrr::compact() %>% 
-#   purrr::list_rbind(names_to = "vws_function_nm") %>% 
-#   dplyr::glimpse()
-
-readr::write_csv(file.path("../data/testtest", paste0(nm,".csv")))
-
-p_temp <- 
-  testtest_ans %>% 
-  purrr::compact() %>% 
-  purrr::list_rbind(names_to = "vws_function_nm") %>% 
-  ggplot(aes(x=recall,y=precision,color=f_score,label=vws_function_nm)) +
-  geom_point() +
-  scale_color_viridis_c()
-p_temp
-plotly::ggplotly(p_temp)
-```
-
-for this project, we're going to set a minimum height to qualify as a "tree" which will be applied across study sites. Since many field-measured data do not include height measurements but included diameter limits for measurement, this height threshold will align with measuring only larger trees, ignoring seedlings, saplings, and shrubs.
-
-
-## CSFS SWE
-
-### Point Cloud Data
-
-UAS-lidar data was collected with a DJI Matrice M350 (DJI, Shenzhen, China) platform equipped with  a Zenmuse L2 lidar sensor.
-
-let's check out the raw ALS data
-
-```{r}
-# csfs_swe
-csfs_swe_las_f_temp <- "../data/csfs_swe/las"
-csfs_swe_las_ctg_temp <- lidR::readLAScatalog(csfs_swe_las_f_temp)
-csfs_swe_las_ctg_temp
-# csfs_swe_las_ctg_temp@data %>% dplyr::glimpse()
-```
-
-let's check out the lidar data coverage compared to the field plot data
-
-```{r}
-csfs_swe_las_ctg_temp@data$geometry %>% 
-  sf::st_union() %>% 
-  sf::st_as_sf() %>% 
-  dplyr::mutate(data = "UAS-lidar data extent") %>% 
-mapview::mapview(
- zcol = "data"
-  , layer.name="CSFS SWE: UAS-lidar data"
-  , popup=F
-)
-# mapview::mapview(
-#   csfs_swe_trees
-#   , zcol = "species"
-#   , layer.name="WFSI Eglin AFB: field trees"
-#   , popup=F
-# )
-# 40.59503,-105.9903
-```
-
-use `cloud2trees` to process the raw point cloud data to generate a CHM for use in tree detection
-
-```{r}
-################################################
-# input/output data str
-################################################
-# outdir
-c2t_output_dir_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
-  dplyr::pull(data_dir)
-c2t_process_dir_temp <- file.path(c2t_output_dir_temp, "point_cloud_processing_delivery")
-# timer file
-c2t_tracking_fnm_temp <- file.path(c2t_process_dir_temp, "processed_tracking_data.csv")
-# save to tracking df
-project_data_df <- project_data_df %>% 
-  dplyr::mutate(
-    c2t_process_dir = ifelse(data_dir==c2t_output_dir_temp, c2t_process_dir_temp, c2t_process_dir)
-    , c2t_tracking_fnm = ifelse(data_dir==c2t_output_dir_temp, c2t_tracking_fnm_temp, c2t_tracking_fnm)
-  )
-# project_data_df %>% print(n=nrow(project_data_df))
-
-################################################
-# use point cloud point density
-# to automatically set CHM and DTM res
-# make a fn to do this based on input LAScatalog
-################################################
-
-# get point cloud density and raster resolutions
-get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(csfs_swe_las_ctg_temp)
-# get_ptcld_density_chm_res_temp
-
-# fnm
-chm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("chm_",get_ptcld_density_chm_res_temp$chm_res_m,"m.tif") )
-dtm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("dtm_",get_ptcld_density_chm_res_temp$dtm_res_m,"m.tif") )
-# save to tracking df
-project_data_df <- project_data_df %>% 
-  dplyr::mutate(
-    , las_pts_m2 = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$pts_m2, las_pts_m2)
-    , chm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$chm_res_m, chm_res_m)
-    , chm_fnm = ifelse(data_dir==c2t_output_dir_temp, chm_fnm_temp, chm_fnm)
-    , dtm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$dtm_res_m, dtm_res_m)
-    , dtm_fnm = ifelse(data_dir==c2t_output_dir_temp, dtm_fnm_temp, dtm_fnm)
-  )
-
-# project_data_df %>% dplyr::filter(data_dir==c2t_output_dir_temp) %>% dplyr::glimpse()
-# project_data_df %>% print(n=nrow(project_data_df))
-
-##############################################################
-# cloud2trees::cloud2raster
-##############################################################
-if(
-  !file.exists(chm_fnm_temp)
-  || !file.exists(dtm_fnm_temp)
-){
-  # time it
-  st_temp <- Sys.time()
-  # run it
-  # cloud2trees
-  cloud2raster_ans <- cloud2trees::cloud2raster(
-    output_dir = c2t_output_dir_temp
-    , input_las_dir = csfs_swe_las_f_temp
-    , accuracy_level = 2
-    , keep_intrmdt = T
-    , dtm_res_m = get_ptcld_density_chm_res_temp$dtm_res_m # (1/sqrt(pts_m2_temp))*2
-    , chm_res_m = get_ptcld_density_chm_res_temp$chm_res_m # 1/sqrt(pts_m2_temp)
-    , min_height = 0 # effectively generates a DSM based on non-ground points
-  )
-  
-  # timer
-  mins_temp <- difftime(Sys.time(),st_temp,units = "mins") %>% as.numeric()
-  # save tracking
-  dplyr::tibble(
-    timer_cloud2raster_mins = mins_temp
-  ) %>% 
-    write.csv(
-      file = c2t_tracking_fnm_temp
-      , row.names = F, append = F
-    )
-}else{
-  dtm_temp <- terra::rast( dtm_fnm_temp )
-  chm_temp <- terra::rast( chm_fnm_temp )
-  
-  
-  cloud2raster_ans <- list(
-    "dtm_rast" = dtm_temp
-    , "chm_rast" = chm_temp
-  )
-}
-```
-
-```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
-remove(list = ls()[grep("_temp",ls())])
-gc()
-```
-
-
-## Penobscot Experimental Forest (Maine)
-
-### Field Data
-
-Field data from this study site is from: 
-
-* Kenefic, Laura S.; Allogio, Jeanette A.; Gerndt, Kathryn M.; Knapp, Rachel A.; Rogers, Nicole S.; Puhlick, Joshua J. 2025. Overstory tree and regeneration data from the "Silvicultural Effects on Composition, Structure, and Growth" study at Penobscot Experimental Forest. 3rd Edition. Fort Collins, CO: Forest Service Research Data Archive. [https://doi.org/10.2737/RDS-2012-0008-3](https://doi.org/10.2737/RDS-2012-0008-3)
-
->Data were collected on a series of permanent sample plots distributed across management units receiving various silvicultural treatments. Plot data are available in eight separate data sets. Overstory tree and sapling data include tree species, condition (e.g., merchantability status and cause of mortality), and diameter at breast height of living and dead trees, 1952 to 2023...Tree location data include the distance and azimuth from plot center of a subsample of trees, 2003 to 2023. Height and crown radius data include total height, height to crown base, and crown radius measurements for a subsample of live trees, 2003 to 2020 (heights) and 2003 to 2017 (radii)...Permanent sample plot location data include geospatial coordinates for permanent sample plots, 2018 and 2020...Future inventories are planned for this study indefinitely.
-
-> 1/5th Acre Plots (were used to measure) Trees ≥ 4.5 inches DBH (with a) 52.7-foot plot radius
-
-let's load in the plot data first to orient ourselves
-
-```{r}
-usfs_penobscotef_plots <- readr::read_csv(
-    "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_PlotLocationsData.csv"
-    , progress = F
-    , show_col_types = F
-  ) %>% 
-  dplyr::rename_with(~tolower(.x) %>% make.names()) %>% 
+  dplyr::pull(data_site_nm)
+pred_trees_list[[nm_temp]] <- 
+  wfsi_eglinafb_ws_pred_trees %>% 
+  # which ws
   dplyr::filter(
-    geodoubt == "N"
-    , active == 1
-    , !is.na(utm_east)
-    , !is.na(utm_north)
+    ws_fn_nm %in% (
+      project_data_df %>% 
+      dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+      dplyr::pull(best_ws_fn_nm)
+    )
   ) %>% 
-  dplyr::mutate(
-    plot_id = 
-      mu %>%
-        stringr::str_squish() %>% 
-        stringr::str_c("-", as.character(plot))
-  ) %>% 
-  # spatial that
-  sf::st_as_sf(coords = c("utm_east", "utm_north"), crs = 26919, remove = F) %>% 
-  dplyr::mutate(
-    plot_area_ac = 1/5
-    # 1 ha = 2.47105 acres
-    , plot_area_ha = plot_area_ac/2.47105
-    , plot_area_m2 = plot_area_ha*10000
-    , plot_radius_meters = sqrt(plot_area_m2 / pi)
-  ) %>% 
-  sf::st_buffer(.$plot_radius_meters)
-# huh?
-# usfs_penobscotef_plots %>% dplyr::count(projection)
-usfs_penobscotef_plots %>% dplyr::glimpse()
-# usfs_penobscotef_plots %>% sf::st_drop_geometry() %>% dplyr::count(mu,plot) %>% dplyr::filter(n>1)
-```
-
-we did a lot of data cleaning in there which we won't describe (you can read the code if you're interested). let's look at the plot locations...
-
-load in the trees
-
-```{r}
-usfs_penobscotef_trees <- 
-  readr::read_csv(
-    "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_TreeLocationData.csv"
-    , progress = F
-    , show_col_types = F
-  ) %>% 
-  dplyr::rename_with(~tolower(.x) %>% make.names()) %>% 
-  dplyr::left_join(
-    usfs_penobscotef_plots %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::select(mu,plot,plot_utm_north=utm_north,plot_utm_east=utm_east)
-    , by = dplyr::join_by(mu,plot)
-  ) %>% 
-  # convert from dist and azimuth to coords
-  dplyr::mutate(
-    # dist to m
-    dist_m = dist/3.280839895
-    # convert azimuth from degrees to radians
-    , az_rad = az * pi / 180
-    , tree_utm_east = plot_utm_east + (dist_m * sin(az_rad)),
-    , tree_utm_north = plot_utm_north + (dist_m * cos(az_rad))
-  ) %>% 
-  # filter
-  dplyr::filter(
-    !is.na(tree_utm_east)
-    , !is.na(tree_utm_north)
-  ) %>% 
-  # what if a tree has multiple locations? ... take the most recent
-  dplyr::arrange(mu,plot,treenum,desc(year),desc(month),desc(inv)) %>% 
-  dplyr::group_by(mu,plot,treenum) %>% 
-  dplyr::slice(1) %>% 
-  dplyr::ungroup() %>% 
-  dplyr::select(mu,plot,treenum,tidyselect::starts_with("tree_utm_")) %>% 
-  # spatial that
-  sf::st_as_sf(coords = c("tree_utm_east", "tree_utm_north"), crs = sf::st_crs(usfs_penobscotef_plots), remove = F)
-
-# read and attach tree information
-usfs_penobscotef_trees <- 
-  usfs_penobscotef_trees %>% 
+  # filter for trees used in instance matching 
+    # which included thresholds used for measuring field trees 
+    # and plot spatial alignment
   dplyr::inner_join(
-    readr::read_csv(
-        "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_TreeData.csv"
-        , progress = F
-        , show_col_types = F
-      ) %>% 
-      dplyr::rename_with(~tolower(.x) %>% make.names())
-    , by = dplyr::join_by(mu,plot,treenum)
-    , relationship = "one-to-many"
+    wfsi_eglinafb_ws_instance_match %>% 
+      dplyr::select(plot_id,ws_fn_nm,pred_treeID) %>% 
+      dplyr::filter(!is.na(pred_treeID)) %>% 
+      dplyr::rename(treeID=pred_treeID)
+    , by = dplyr::join_by(plot_id,ws_fn_nm,treeID)
   )
-# huh?
-usfs_penobscotef_trees %>% dplyr::glimpse()
-# only keep plots we have trees for
-usfs_penobscotef_plots <- usfs_penobscotef_plots %>% 
-  dplyr::inner_join(
-    usfs_penobscotef_trees %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::distinct(mu,plot)
-    , by = dplyr::join_by(mu,plot)
-  )
+# pred_trees_list
 ```
 
-let's check those field plots out to orient ourselves to the location
+### Species/Genera Prediction Method{#04_species}
 
-```{r}
-usfs_penobscotef_plots %>% 
-  mapview::mapview(
-    layer.name="USFS Penobscot EF: field plots"
-    , popup=F
-  )
-# usfs_penobscotef_plots %>% 
-#   sf::st_union() %>% 
-#   sf::st_bbox() %>% 
-#   sf::st_as_sfc() %>% 
-#   sf::st_centroid() %>% 
-#   sf::st_transform(crs=4326) %>% 
-#   sf::st_coordinates()
-# 44.85681,-68.62513
-```
-
-
-
-
-
-
-ForestGEO SCBI
-
-```{r}
-boundary_scbi_temp <- sf::st_read("../data/ForestGEO_SCBI/ForestGEO_SCBI_shapefiles/ForestGEO_grid_outline.shp") %>% 
-  sf::st_union() 
-boundary_scbi_temp %>% 
-  mapview::mapview(layer.name = "SCBI")
-boundary_scbi_temp %>% sf::st_centroid() %>% sf::st_transform(4326) %>% sf::st_coordinates()
-# 38.893480, -78.145380
-```
-
-
-
-
-
-
-The `cloud2trees` package can be installed by following the directions listed in the [README file on GitHub](https://github.com/georgewoolsey/cloud2trees). If one is still experiencing difficulties installing the package, see the [setup guide](https://georgewoolsey.github.io/cloud2trees/articles/cloud2trees-setup.html) which details how to install the package using a virgin R instance.
-
-```{r, eval=FALSE}
-## remotes helps us get packages hosted on github
-install.packages("remotes")
-## get cloud2trees
-remotes::install_github(repo = "georgewoolsey/cloud2trees", upgrade = F)
-```
-
-
-```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
-remove(list = ls()[grep("_temp",ls())])
-gc()
-```
