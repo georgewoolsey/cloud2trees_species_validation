@@ -2910,31 +2910,43 @@ rf_subsample_and_model_n_times <- function(
 # Model averaging can improve the robustness and accuracy of random forest models, especially when dealing with large datasets
 # predict_df must have predictor (x) columns used to develop model
 ################################################################################################################################################
-rf_model_avg_predictions <- function(mod_list, predict_df){
-  # get model predictions for each model
-  predicted_temp <-
-    1:length(mod_list) %>%
-      purrr::map(function(x){
-        predict(
-          mod_list[[x]]
-          , predict_df
-        ) %>%
-        dplyr::as_tibble() %>%
-        dplyr::pull(1) %>%
-        dplyr::as_tibble() %>%
-        dplyr::rename(value=1) %>%
-        dplyr::mutate(id=dplyr::row_number())
-      }) %>%
-      dplyr::bind_rows()
-  # model average
-  predicted_temp <- predicted_temp %>%
-    dplyr::group_by(id) %>%
-    dplyr::summarise(
-      predicted = mean(value, na.rm = T)
-    ) %>%
-    dplyr::ungroup() %>%
-    dplyr::arrange(id) %>%
-    dplyr::select(predicted)
+rf_model_avg_predictions <- function(mod_list, predict_df, levels = NULL){
+  mod_type_temp <- mod_list[[1]]$type
+  if(mod_type_temp == "classification") {
+    if(is.null(levels)){stop("this is a RF classifier and you need to provide `levels` based on training data")}
+    predicted_temp <- rf_model_vote_predictions(
+        mod_list = mod_list
+        , predict_df = predict_df
+        , levels = levels
+      )
+  }else{
+    # if (mod_type_temp == "regression") {
+    # get model predictions for each model
+    predicted_temp <-
+      1:length(mod_list) %>%
+        purrr::map(function(x){
+          predict(
+            mod_list[[x]]
+            , predict_df
+          ) %>%
+          dplyr::as_tibble() %>%
+          dplyr::pull(1) %>%
+          dplyr::as_tibble() %>%
+          dplyr::rename(value=1) %>%
+          dplyr::mutate(id=dplyr::row_number())
+        }) %>%
+        dplyr::bind_rows()
+    # model average
+    predicted_temp <- predicted_temp %>%
+      dplyr::group_by(id) %>%
+      dplyr::summarise(
+        predicted = mean(value, na.rm = T)
+      ) %>%
+      dplyr::ungroup() %>%
+      dplyr::arrange(id) %>%
+      dplyr::select(predicted)
+  }
+  
   # return
   return(predicted_temp)
 }
@@ -2945,7 +2957,8 @@ rf_model_avg_predictions <- function(mod_list, predict_df){
 # predict_df must have predictor (x) columns used to develop model
 ################################################################################################################################################
 # function to vote for class based on many models
-rf_model_vote_predictions <- function(mod_list, predict_df, levels){
+rf_model_vote_predictions <- function(mod_list, predict_df, levels=NULL){
+  if(is.null(levels)){stop("this is a RF classifier and you need to provide `levels` based on training data")}
   # get model predictions for each model
   predicted_temp <-
     1:length(mod_list) %>%
@@ -2958,18 +2971,19 @@ rf_model_vote_predictions <- function(mod_list, predict_df, levels){
         dplyr::pull(1) %>%
         dplyr::as_tibble() %>%
         dplyr::rename(value=1) %>%
+        # !!!!! need to restore the original factor levels impacted when we did `forcats::fct_drop(response)`
+        dplyr::mutate(value = factor(value, levels = levels)) %>% 
+        # dplyr::pull(value) %>% levels()
         dplyr::mutate(id=dplyr::row_number())
       }) %>%
       dplyr::bind_rows()
   # predicted_temp %>% dplyr::glimpse()
   
-  # !!!!! need to restore the original factor levels impacted when we did `forcats::fct_drop(response)`
-  xxxxxxxxx # something like this \
-  predicted_temp <- factor(predicted_temp, levels = levels) # levels = levels(training_data$y))
-
   # model vote
-  predicted_temp <- predicted_temp %>%
+  predicted_temp <-
+    predicted_temp %>%
     dplyr::count(id,value) %>% 
+    # dplyr::arrange(id,desc(n)) %>% print(n=33)
     dplyr::group_by(id) %>% 
     dplyr::slice_max(order_by = n, n = 1, with_ties = F) %>% 
     dplyr::ungroup() %>%
@@ -3020,85 +3034,25 @@ rf_spec_mod <- rf_subsample_and_model_n_times(
 # }
 
 
+# vote for class based on many models
+predicted_temp <- rf_model_avg_predictions(
+  mod_list = rf_spec_mod
+  , predict_df = 
+    pred_trees_list$WFSI_EglinAFB %>% 
+      sf::st_drop_geometry() %>%
+      sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(pred_trees_list$WFSI_EglinAFB), remove = F) %>% 
+      sf::st_transform(terra::crs(treemap_data_loader_ans$treemap_rast)) %>% 
+      dplyr::mutate(
+        x = sf::st_coordinates(.)[,1]
+        , y = sf::st_coordinates(.)[,2]
+      ) %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::select(x,y,tree_height_m)
+  , levels = levels(treemap_data_loader_ans$treemap_trees_spatial_df$species_symbol)
+)
+predicted_temp %>% dplyr::glimpse()
+predicted_temp %>% dplyr::count(predicted) %>% dplyr::arrange(desc(n)) %>% dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
 
-# xxx_temp <- randomForest::randomForest(
-#     x = treemap_data_loader_ans$treemap_trees_spatial_df %>% dplyr::select(x,y) %>% dplyr::slice(1:1111)
-#     , y = treemap_data_loader_ans$treemap_trees_spatial_df$tree_height_m[1:1111]
-#     , weights = treemap_data_loader_ans$treemap_trees_spatial_df$stability_weight[1:1111]
-#     , na.action = na.omit
-#     , ntree = 500
-#   )
-# 
-# 
-# # check the model type
-# (mod_type_temp <- xxx_temp$type)
-# (mod_type_temp <- rf_spec_mod[[1]]$type)
-# 
-# if (mod_type_temp == "classification") {
-#   print("The input y variable was treated as a FACTOR variable.")
-# } else if (mod_type_temp == "regression") {
-#   print("The input y variable was treated as a METRIC / NUMERIC variable.")
-# }
-
-
-
-# function to vote for class based on many models
-# rf_model_vote_predictions <- function(mod_list_temp, predict_df_temp, levels_temp){
-  # get model predictions for each model
-mod_list_temp <- rf_spec_mod
-predict_df_temp <-
-  pred_trees_list$WFSI_EglinAFB %>% 
-  sf::st_drop_geometry() %>%
-  sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(pred_trees_list$WFSI_EglinAFB), remove = F) %>% 
-  sf::st_transform(terra::crs(treemap_data_loader_ans$treemap_rast)) %>% 
-  dplyr::mutate(
-    x = sf::st_coordinates(.)[,1]
-    , y = sf::st_coordinates(.)[,2]
-  ) %>% 
-  sf::st_drop_geometry() %>% 
-  dplyr::select(x,y,tree_height_m)
-#   dplyr::select(x,y) %>% summary()
-# treemap_data_loader_ans$treemap_trees_spatial_df %>% 
-#   dplyr::select(x,y,tree_height_m) %>% 
-#   dplyr::select(x,y) %>% summary()
-
-levels_temp <- levels(treemap_data_loader_ans$treemap_trees_spatial_df$species_symbol)
-
-
-
-  predicted_temp <-
-    1:length(mod_list_temp) %>%
-      purrr::map(function(x){
-        predict(
-          mod_list_temp[[x]]
-          , predict_df_temp
-        ) %>%
-        dplyr::as_tibble() %>%
-        dplyr::pull(1) %>%
-        dplyr::as_tibble() %>%
-        dplyr::rename(value=1) %>%
-        # !!!!! need to restore the original factor levels impacted when we did `forcats::fct_drop(response)`
-        dplyr::mutate(value = factor(value, levels = levels_temp)) %>% 
-        # dplyr::pull(value) %>% levels()
-        dplyr::mutate(id=dplyr::row_number())
-      }) %>%
-      dplyr::bind_rows()
-  # predicted_temp %>% dplyr::glimpse()
-  
-  # model vote
-  # predicted_temp <- 
-    predicted_temp %>%
-    dplyr::count(id,value) %>% 
-    dplyr::arrange(id,desc(n)) %>% print(n=33)
-    dplyr::group_by(id) %>% 
-    dplyr::slice_max(order_by = n, n = 1, with_ties = F) %>% 
-    dplyr::ungroup() %>%
-    dplyr::arrange(id) %>%
-    dplyr::rename(predicted=value) %>% 
-    dplyr::select(predicted)
-  # return
-  return(predicted_temp)
-}
 
 
 # # model the missing values
