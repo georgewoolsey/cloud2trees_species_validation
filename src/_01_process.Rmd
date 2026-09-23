@@ -2188,8 +2188,6 @@ ultimately, if the proposed species/genera classification method achieves decent
 
 #### Training Data
 
-We'll start by reviewing the tree lists we'll used for training data which come from the TreeMap FIA imputed plots
-
 load in the TreeMap data and clip to our trees as in `cloud2trees::trees_dbh()`
 
 ```{r}
@@ -2506,10 +2504,15 @@ match_focal_cells_fn <- function(v, ...) {
 
 ```
 
-if we are going to treat the FIA measured trees as individual observations to use for training data without using the imputed plot ID from TreeMap and weight by the number of times that specific id is repeated in the area of interest, then we need to get a tree list with the trees replicated based on the number of times the plot id is replicated. in addition, the TreeMap data product is a raster of imputed plots for a given area at 30m resolution and we should not assume that the tree list of that "guessed" plot represent the actual trees present at that location with complete accuracy. Instead, we expect the TreeMap imputed plots to be more accurate as we look over a broader area with accuracy decreasing at smaller scales. That is, when we consider the tree composition of an entire forest stand we expect TreeMap to generally get the main species and forest type correct but for each 30m raster cell (i.e. the plot location that we get the X and Y coordinates for the tree list used for training from) we expect it to be less accurate with a cell potentially being a completely incorrect representation of the actual ground setting. As such, we we'll weight the individual tree records based on the stability of the imputed plot id's looking over a window surrounding the focal cell. Specifically, we'll calculate the proportion of surrounding cells (5x5) that share the same imputed plot id as the focal cell and use this weight as a measure of TreeMap's predicted stability to place less weight on plots that occur infrequently and more weight on plots that occur frequently.
+We did a few things in that function to return: 
+
+* `treemap_trees_df` : a list of trees associated with a TreeMap imputed plot. the column `tree_weight` is based off of a count of how many times a imputed plot id is replicated across the area of interest. the `regional_dbh_height_model_training_data.csv` file written to the point cloud processing directory when we execute cloud2trees::cloud2trees(..., estimate_tree_dbh = T) matches this data.
+* `treemap_rast` : The TreeMap raster data cropped to the area of interest with a buffer
+* `treemap_trees_spatial_df` : a *spatial* list of trees associated with a TreeMap imputed plot. A row is now unique by `x`, `y`, `tree_id` resulting in the number of rows per tree determined by the `tree_weight`.
+* `treemap_prop_rast` : A raster of the TreeMap imputed plot stability. We expect the TreeMap imputed plots to be more accurate as we look over a broader area with accuracy decreasing at smaller scales. That is, when we consider the tree composition of an entire forest stand we expect TreeMap to generally get the main species and forest type correct but for each 30m raster cell (i.e. the plot location that we get the X and Y coordinates for the tree list used for training from) we expect it to be less accurate with a cell potentially being a completely incorrect representation of the actual ground setting. As such, we we weight the individual tree records based on the stability of the imputed plot id's looking over a window surrounding the focal cell (`stability_weight` in `treemap_trees_spatial_df`). Specifically, we calculate the proportion of surrounding cells (5x5) that share the same imputed plot id as the focal cell and use this weight as a measure of TreeMap's predicted stability to place less weight on plots that occur infrequently and more weight on plots that occur frequently.
 
 ```{r}
-# test
+# test to get the treemap data for our aoi
 treemap_data_loader_ans <-
   pred_trees_list$WFSI_EglinAFB %>% 
   dplyr::ungroup() %>% 
@@ -2518,357 +2521,610 @@ treemap_data_loader_ans <-
   sf::st_as_sfc() %>% 
   treemap_data_loader()
 
-treemap_data_loader_ans$treemap_rast %>% terra::plot()
-treemap_data_loader_ans$treemap_prop_rast %>% terra::plot()
-treemap_data_loader_ans$treemap_trees_spatial_df %>% 
-  dplyr::slice_sample(n=11111) %>% 
-  ggplot2::ggplot(ggplot2::aes(x=x,y=y,color=species_symbol)) + 
-  ggplot2::geom_point() + 
-  ggplot2::scale_color_viridis_d() + 
-  ggplot2::theme_void()
-
-treemap_data_loader_ans$treemap_trees_spatial_df %>% 
-  sf::st_drop_geometry() %>% 
-  dplyr::count(species_symbol) %>% 
-  dplyr::mutate(
-    pct=n/sum(n)
-    , pct = scales::percent(pct,accuracy=0.1)
-  ) %>% 
-  dplyr::arrange(desc(n))
 ```
 
-what do these rasters look like?
-
-```{r, fig.height=8.8}
-xxxxxxxxx
-
-terra::plot(
-  c(
-    treemap_rast %>%
-      terra::catalyze() %>%
-      terra::subset(1) %>%
-      terra::as.factor()
-    , treemap_prop_rast_temp 
-      # `*`(100) %>%
-      # round() %>%
-      # terra::as.factor()
-  )
-  , nc = 1
-  , main = c("Imputed Plot ID", "Plot Stability %")
-  , axes = F
-  # , col = c(viridis::viridis(n=100),viridis::magma(n=100))
-  , fun = function() {
-   # This code executes on top of every single panel automatically
-   lines(
-     stand_boundary %>% sf::st_transform(terra::crs(treemap_rast)) %>% terra::vect()
-     , col = "red", lwd = 2
-    )
- }
-)
-```
-
-create the tree list with trees assigned the X and Y of the raster cell and for imputed plot id's the specific tree will appear multiple times based on the number of times the plot is replicated within the area of interest but each tree will have a different X,Y and stability weight based on the surrounding imputed plots 
+Check out the TreeMap raster of forest types for our area of interest defined using the spatial extent of the predicted trees
 
 ```{r}
-# add to tree list
-treemap_tree_list_df <-
-  treemap_rast %>% 
-  terra::catalyze() %>% 
-  terra::subset(1) %>% 
-  terra::as.data.frame(xy = T, cells = T) %>% 
-  dplyr::rename(tm_id=4) %>% 
-  # add on weights based on moving window stability of imputed plot
-  dplyr::left_join(
-    treemap_prop_rast_temp %>% 
-      terra::as.data.frame(xy = F, cells = T)
-    , by = "cell"
-  ) %>% 
-  dplyr::mutate(
-    tm_id = cloud2trees:::as_character_safe(tm_id)
-    # clean stability_weight
-    , stability_weight = ifelse(stability_weight>1,1,stability_weight) %>% dplyr::coalesce(0.01)
-  ) %>% 
-  # dplyr::glimpse()
-  # add on the tree data in which a row is unique by tm_id and the tree (which doesn't have an id so we'll fake one)
-  dplyr::inner_join(
-    treemap_trees_df %>% 
-      dplyr::ungroup() %>% 
-      dplyr::mutate(
-        tree_id = dplyr::row_number()
-        , tm_id = as.character(tm_id)
-      )
-    , by = "tm_id"
-    , relationship = "many-to-many"
-  ) %>% 
-  # a row is now unique by x,y,tree_id resulting in the number of rows per tree_id = tree_weight
-  dplyr::mutate(
-    # to factor
-    tm_id = forcats::fct_relevel(tm_id, levels(treemap_trees_df$tm_id) )
-    , species_symbol = factor(species_symbol)
-    # slightly jitter the tree x,y so that RF doesn't lock-in on grid pattern from raster
-    # jitter within the 30m cell +/- 15 m
-    , x = x + stats::runif(
-      dplyr::n()
-      , min = -(terra::res(treemap_rast)[1]/2)
-      , max = (terra::res(treemap_rast)[1]/2)
-    )
-    , y = y + stats::runif(
-      dplyr::n()
-      , min = -(terra::res(treemap_rast)[1]/2)
-      , max = (terra::res(treemap_rast)[1]/2)
-    )
-  )
-# dplyr::glimpse(treemap_tree_list_df)
-# treemap_tree_list_df %>% ggplot2::ggplot(ggplot2::aes(x=x,y=y,color=species_symbol)) + ggplot2::geom_point() + ggplot2::theme_void()
-# treemap_tree_list_df %>% ggplot2::ggplot(ggplot2::aes(x=x,y=y,color=stability_weight)) + ggplot2::geom_point() + ggplot2::theme_void()
-# treemap_tree_list_df %>% 
-#   ggplot2::ggplot(ggplot2::aes(x=x,y=y,color=factor(cell))) + 
-#   ggplot2::geom_point() + 
-#   ggplot2::scale_color_manual(values = sample(
-#       viridis::turbo(n=length(unique(treemap_tree_list_df$cell)))
-#     )
-#   ) + 
-#   ggplot2::theme_void() + 
-#   ggplot2::theme(legend.position = "none")
-
+treemap_data_loader_ans$treemap_rast %>% terra::plot(axes=F)
 ```
+
+here is the stability of those imputed TreeMap FIA plot id's
+
+```{r}
+treemap_data_loader_ans$treemap_prop_rast %>% terra::plot(col = viridis::mako(n=100), axes=F)
+```
+
+lets' review the spatial tree list we'll use for training data which comes from the TreeMap FIA imputed plots
 
 what's in the FIA tree list using the TreeMap imputed plots filtered for our area of interest?
 
 ```{r}
-treemap_tree_list_df %>% dplyr::glimpse()
+treemap_data_loader_ans$treemap_trees_spatial_df %>% dplyr::glimpse()
 ```
 
-this is essentially the same thing as `regional_dbh_height_model_training_data.csv` that we reviewed above, but we added the spatial x and y coordinates
-
-before we build the model we need to scale the x, y, and height data but we need to be sure to scale both the training and data to be predicted using the same scale so we use data on the same scale across both data. Centering and scaling the x, y, and height variables puts the center of the area of interest (weighted by number of trees) at the "zero" point and resolves the sign (i.e. +/-) conflicts of the coordinate system (i.e. UTMs) by making the signs represent relative direction (north vs south) rather than arbitrary coordinate origins. we also need to convert the tree species in the training data to factor from character data type.
+species distribution?
 
 ```{r}
-# scale fn
-my_scale_fn <- function(x, ref_mean, ref_sd) {
-  (x - ref_mean) / ref_sd
-}
-
-# ref values from training data
-train_stats_temp <- list(
-  x_mean = mean(treemap_tree_list_df$x, na.rm = T)
-  , x_sd   = sd(treemap_tree_list_df$x, na.rm = T)
-  , y_mean = mean(treemap_tree_list_df$y, na.rm = T)
-  , y_sd   = sd(treemap_tree_list_df$y, na.rm = T)
-  , h_mean = mean(treemap_tree_list_df$tree_height_m, na.rm = T)
-  , h_sd   = sd(treemap_tree_list_df$tree_height_m, na.rm = T)
-)
-# train_stats_temp
-
-# apply to training data
-treemap_tree_list_df <- 
-  treemap_tree_list_df %>% 
+treemap_data_loader_ans$treemap_trees_spatial_df %>%
+  sf::st_drop_geometry() %>%
+  dplyr::count(species_symbol) %>%
+  dplyr::arrange(desc(n)) %>% 
   dplyr::mutate(
-    x_z = my_scale_fn(x, train_stats_temp$x_mean, train_stats_temp$x_sd)
-    , y_z = my_scale_fn(y, train_stats_temp$y_mean, train_stats_temp$y_sd)
-    , ht_z = my_scale_fn(tree_height_m, train_stats_temp$h_mean, train_stats_temp$h_sd)
-  )
-# treemap_tree_list_df %>% dplyr::glimpse()
-# treemap_tree_list_df %>% dplyr::select(x_z,y_z,ht_z) %>% summary()
-# apply to prediction data
-# !!! use the train_stats_temp here, NOT the prediction data mean/sd
-# predicted_trees %>% purrr::list_rbind(names_to = "folder") %>% dplyr::glimpse()
-
-predicted_trees <-
-  predicted_trees %>% 
-  purrr::map(function(x){
-    orig_crs <- sf::st_crs(x)
-    # z val of x,y,ht
-    dta_temp <- 
-      x %>% 
-      sf::st_transform(terra::crs(treemap_rast)) %>% 
-      dplyr::mutate(
-        x = sf::st_coordinates(.)[,1]
-        , y = sf::st_coordinates(.)[,2]
-        , x_z = my_scale_fn(x, train_stats_temp$x_mean, train_stats_temp$x_sd)
-        , y_z = my_scale_fn(y, train_stats_temp$y_mean, train_stats_temp$y_sd)
-        , ht_z = my_scale_fn(tree_height_m, train_stats_temp$h_mean, train_stats_temp$h_sd)
-      )
-    # add tm_id
-    tmids_temp <- 
-      terra::extract(
-        x = treemap_rast %>% 
-          terra::catalyze() %>% 
-          terra::subset(1)
-        , y = dta_temp %>% 
-          terra::vect()
-      ) %>% 
-      dplyr::rename_with(tolower) %>% 
-      dplyr::mutate(
-        tm_id = cloud2trees:::as_character_safe(tm_id) %>% 
-          forcats::as_factor() %>% 
-          forcats::fct_expand( levels(treemap_trees_df$tm_id) ) %>% 
-          forcats::fct_relevel( levels(treemap_trees_df$tm_id) )
-      )
-    dta_temp$tm_id <- tmids_temp$tm_id
-    # orig_crs
-    dta_temp <- dta_temp %>% sf::st_transform(orig_crs)
-    return(dta_temp)
-  })
-# predicted_trees %>% purrr::list_rbind(names_to = "folder") %>% dplyr::glimpse()
-# predicted_trees[[1]] %>% ggplot2::ggplot() + ggplot2::geom_sf(mapping = ggplot2::aes(color=tm_id))
-
-# align the factors
-validation_trees <- 
-  validation_trees %>% 
-  dplyr::mutate(
-    species_symbol = 
-      species_symbol %>% 
-      forcats::as_factor() %>% 
-      forcats::fct_expand( levels(treemap_trees_df$species_symbol) ) %>% 
-      forcats::fct_relevel( levels(treemap_trees_df$species_symbol) )
-  )
-
-pal_species <- 
-  forcats::lvls_union(list(
-    validation_trees$species_symbol
-    , treemap_trees_df$species_symbol
-  )) %>% 
-  length() %>% 
-  # RColorBrewer::brewer.pal(name = "Set2") %>% 
-  viridis::turbo() %>% 
-  setNames(
-    forcats::lvls_union(list(
-      validation_trees$species_symbol
-      , treemap_trees_df$species_symbol
-    )) %>% 
-    as.character()
-  )
-# scales::show_col(pal_species)
+    percent=n/sum(n)
+    , percent = scales::percent(percent,accuracy=0.1)
+    , n = scales::comma(n,accuracy = 1)
+  ) %>%
+  kableExtra::kbl(
+    caption = "TreeMap Species Distribution over Study Area"
+  ) %>% 
+  kableExtra::kable_styling()
 ```
 
-let's quickly look at the training data species over the independent variables of height and x, y
+here is the spatial distribution of the species for a sample of the trees
 
-```{r,eval=T, fig.height = 10.5, fig.width = 8.7}
-# x,y
-plt1_temp <-
-  treemap_tree_list_df %>% 
-  dplyr::slice_sample(n = 1111) %>% 
-  dplyr::mutate(flab = "Y coord vs X coord") %>% 
+```{r}
+samp_temp <- treemap_data_loader_ans$treemap_trees_spatial_df %>%
+  dplyr::slice_sample(n=2222)
+samp_temp %>%
+  ggplot2::ggplot(ggplot2::aes(x=x,y=y,color=species_symbol)) +
+  ggplot2::geom_point(alpha = 0.6) +
+  ggplot2::scale_color_viridis_d(option = "turbo") +
+  ggplot2::theme_void()
+```
+
+that is difficult to read, let's actually print the species symbol
+
+```{r}
+samp_temp %>% 
   ggplot2::ggplot(
-    mapping = ggplot2::aes(x = x_z, y = y_z, fill = species_symbol, color = species_symbol, label = species_symbol)
+    mapping = ggplot2::aes(x = x, y = y, fill = species_symbol, color = species_symbol, label = species_symbol)
   ) +
-  ggplot2::geom_hline(yintercept = 0, color = "black") + 
-  ggplot2::geom_vline(xintercept = 0, color = "black") + 
-  # ggplot2::geom_text(size = 3) + 
-  ggrepel::geom_text_repel(
-    size = 1.8
-    , segment.color = NA
-    , box.padding = 0.1
-    , point.padding = 0
-    , force = 0.5
-    , max.overlaps = Inf
-  ) +
-  ggplot2::facet_wrap(facets = dplyr::vars(flab)) +
-  # ggplot2::scale_color_discrete(palette = "Set2") + 
-  ggplot2::scale_color_manual(values = pal_species) +
-  ggplot2::coord_equal() + 
+  # ggplot2::geom_hline(yintercept = median(treemap_data_loader_ans$treemap_trees_spatial_df$y) , color = "black") + 
+  # ggplot2::geom_vline(xintercept = median(treemap_data_loader_ans$treemap_trees_spatial_df$x), color = "black") + 
+  ggplot2::geom_text(size = 2.5) +
+  ggplot2::scale_color_viridis_d(option = "turbo") +
   ggplot2::labs(
     x = "x", y = "y"
   ) + 
-  ggplot2::theme_minimal() + 
+  ggplot2::theme_void() + 
   ggplot2::theme(
     legend.position = "none"
-    , strip.text = ggplot2::element_text(color = "black", size = 9, face = "bold")
-    , strip.background = ggplot2::element_rect(fill = "gray88", color = "gray88")
   )
-# plt1_temp
-
-# ht,x
-plt2_temp <-
-  treemap_tree_list_df %>% 
-  dplyr::slice_sample(n = 1111) %>% 
-  dplyr::mutate(flab = "Height vs X coord") %>% 
-  ggplot2::ggplot(
-    mapping = ggplot2::aes(x = x_z, y = ht_z, fill = species_symbol, color = species_symbol, label = species_symbol)
-  ) +
-  ggplot2::geom_hline(yintercept = 0, color = "black") + 
-  ggplot2::geom_vline(xintercept = 0, color = "black") + 
-  # ggplot2::geom_text(size = 1.8) + 
-  ggrepel::geom_text_repel(
-    size = 1.8
-    , segment.color = NA
-    , box.padding = 0.1
-    , point.padding = 0
-    , force = 0.5
-    , max.overlaps = Inf
-  ) +
-  ggplot2::facet_wrap(facets = dplyr::vars(flab)) +
-  # ggplot2::scale_color_discrete(palette = "Set2") + 
-  ggplot2::scale_color_manual(values = pal_species) +
-  ggplot2::coord_equal() + 
-  ggplot2::labs(
-    x = "x", y = "tree height (z)"
-  ) + 
-  ggplot2::theme_minimal() + 
-  ggplot2::theme(
-    legend.position = "none"
-    , strip.text = ggplot2::element_text(color = "black", size = 9, face = "bold")
-    , strip.background = ggplot2::element_rect(fill = "gray88", color = "gray88")
-  )
-# plt2_temp
-
-# ht,y
-plt3_temp <-
-  treemap_tree_list_df %>% 
-  dplyr::slice_sample(n = 1111) %>% 
-  dplyr::mutate(flab = "Height vs Y coord") %>% 
-  ggplot2::ggplot(
-    mapping = ggplot2::aes(x = y_z, y = ht_z, fill = species_symbol, color = species_symbol, label = species_symbol)
-  ) +
-  ggplot2::geom_hline(yintercept = 0, color = "black") + 
-  ggplot2::geom_vline(xintercept = 0, color = "black") + 
-  # ggplot2::geom_text(size = 1.8) + 
-  ggrepel::geom_text_repel(
-    size = 1.8
-    , segment.color = NA
-    , box.padding = 0.1
-    , point.padding = 0
-    , force = 0.5
-    , max.overlaps = Inf
-  ) +
-  ggplot2::facet_wrap(facets = dplyr::vars(flab)) +
-  # ggplot2::scale_color_discrete(palette = "Set2") + 
-  ggplot2::scale_color_manual(values = pal_species) +
-  ggplot2::coord_equal() + 
-  ggplot2::labs(
-    x = "y", y = "tree height (z)"
-  ) + 
-  ggplot2::theme_minimal() + 
-  ggplot2::theme(
-    legend.position = "none"
-    , strip.text = ggplot2::element_text(color = "black", size = 9, face = "bold")
-    , strip.background = ggplot2::element_rect(fill = "gray88", color = "gray88")
-  )
-# plt3_temp
-patchwork::wrap_plots(list(plt2_temp,plt3_temp,plt1_temp), ncol = 2)
-# ggplot2::ggsave(filename = "../data/spec_predictors_ex.jpg", height = 10.5, width = 9, dpi = "print")
 ```
+
+let's check out the `stability_weight` distribution which is unique for each raster cell in the data extent
+
+```{r}
+stab_temp <- 
+  # stability_weight should be unique by cell
+  treemap_data_loader_ans$treemap_trees_spatial_df %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::distinct(cell,stability_weight) %>% 
+  # add on forest type
+  dplyr::left_join(
+    treemap_data_loader_ans$treemap_rast %>% 
+      terra::as.data.frame(xy=T, cells = T)  %>% 
+      dplyr::select(cell, ForTypName) %>% 
+      dplyr::rename(f_type=ForTypName)
+  ) %>% 
+  dplyr::mutate(
+    f_type = f_type %>% 
+      forcats::fct_drop() %>% 
+      forcats::fct_reorder(stability_weight,.fun = "median") %>% 
+      as.ordered()
+  )
+stab_temp %>% 
+  # dplyr::glimpse()
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(y = f_type, x = stability_weight, fill = f_type)
+  ) +
+  ggplot2::geom_boxplot(
+    width = 0.4
+    , alpha=0.9
+    , outliers = F
+    , color = "black"
+  ) +
+  ggplot2::scale_fill_viridis_d(option = "magma",direction=-1,begin=0.1,end=0.5) +
+  ggplot2::labs(y="") +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "none"
+    , legend.direction  = "horizontal"
+  )
+```
+
+this essentially means that TreeMap is fairly confident that the study area includes `r paste0(levels(forcats::fct_rev(stab_temp$f_type))[1:2], collapse = " and ")`
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
+#### Predict Species
 
-### RF Predict Species
+let's implement a random forest model majority voting for species with the objective to reduce estimation time (compared to a Bayesian Sofmax model)
 
-implement that random forest model majority voting for species with the objective to reduce estimation time while improving or maintaining the species composition accuracy compared to the field data
+tree species will be our dependent variable and the most simple model will use tree height and tree location (X and Y coordinates) as independent variables. The training FIA tree list data (identified from the TreeMap imputed plots of the area of interest) includes tree height and we'll use the centroid of the TreeMap 30m raster cell to represent the individual tree X and Y location (i.e. each tree within the same cell will have the same coordinate). Considering the combined tree height and spatial location via a full interaction model (i.e. `height*x*y`) allows the model to capture how the species-height relationship varies across space.
 
-```{r, results=F, message=F, warning=F}
+we'll first update the `cloud2trees` internal function `rf_subsample_and_model_n_times` to allow for categorical response data
+
+```{r}
+####################################!!!!!!!!!!!!!! this is utils_rf.R in cloud2trees code
+####################################!!!!!!!!!!!!!! this is utils_rf.R in cloud2trees code
+####################################!!!!!!!!!!!!!! this is utils_rf.R in cloud2trees code
+rf_tune_subsample <- function(
+  predictors
+  , response
+  , threshold = 14444
+  , n_subsamples = 4
+  , ntree_try = 44
+  , step_factor = 1
+  , improve = 0.03
+) {
+  # set upper limit for ntreeTry
+  max_ntreeTry <- 122
+  # count the obs
+  n_obs <- nrow(predictors)
+  # set up list to store values from subsample runs
+  optimal_mtry_values <- numeric(as.numeric(n_subsamples))
+  # quiet the thing
+  quiet_tuneRF <- purrr::quietly(randomForest::tuneRF)
+  # if we don't need to subsample
+  if(
+    n_obs<=threshold
+  ){
+    # get rid of missing factor levels if not in there
+    # results in error: "Can't have empty classes in y." from randomForest::tuneRF
+    if(inherits(response,"factor")){
+      response <- forcats::fct_drop(response)  
+    }
+    
+    # Tune on the full data if below threshold
+    tune_result <- quiet_tuneRF(
+      # randomForest::tuneRF(
+      y = response
+      , x = predictors
+      , ntreeTry = max_ntreeTry # this is high for data with less obs
+      , stepFactor = step_factor
+      , improve = improve
+      , plot = F
+      , trace = F
+    )
+    # just get the result
+    tune_result <- tune_result$result
+    # Extract the optimal mtry value
+    optimal_mtry <- tune_result %>%
+      dplyr::as_tibble() %>%
+      dplyr::filter(OOBError==min(OOBError)) %>%
+      dplyr::filter(dplyr::row_number() == 1) %>%
+      dplyr::pull(mtry) %>%
+      as.numeric()
+  }else{
+    # number for subsample
+    sample_obs <- as.numeric(threshold)
+    # run tuning on subsamples
+    for (i in 1:n_subsamples) {
+      # subsample
+      subsample_indices <- sample(x = 1:n_obs, size = sample_obs, replace = F)
+      subsample_predictors <- predictors[subsample_indices, ]
+      subsample_response <- response[subsample_indices]
+      
+      # get rid of missing factor levels if not in there
+      # results in error: "Can't have empty classes in y." from randomForest::tuneRF
+      if(inherits(subsample_response,"factor")){
+        subsample_response <- forcats::fct_drop(subsample_response)  
+      }
+      
+      # tune on subsample
+      tune_result <- quiet_tuneRF(
+        # randomForest::tuneRF(
+        y = subsample_response
+        , x = subsample_predictors
+        , ntreeTry = min(as.numeric(ntree_try),max_ntreeTry)
+        , stepFactor = step_factor
+        , improve = improve
+        , plot = F
+        , trace = F
+      )
+      # just get the result
+      tune_result <- tune_result$result
+      # Extract the optimal mtry value
+      optimal_mtry_values[i] <- tune_result %>%
+        dplyr::as_tibble() %>%
+        dplyr::filter(OOBError==min(OOBError)) %>%
+        dplyr::filter(dplyr::row_number() == 1) %>%
+        dplyr::pull(mtry) %>%
+        as.numeric()
+    }
+    # Find most frequent optimal mtry
+    optimal_mtry <- table(optimal_mtry_values) %>%
+      sort(decreasing = TRUE) %>%
+      .[1] %>%
+      names() %>%
+      as.numeric()
+  }
+  # ensure that the mtry value is not greater than the number of predictors
+  optimal_mtry <- min(optimal_mtry, ncol(predictors))
+  # return
+  return(optimal_mtry)
+}
+
+################################################################################################################################################
+# function to combine tuning and modelling
+################################################################################################################################################
+rf_tune_model <- function(
+  predictors
+  , response
+  , tune_threshold = 14444
+  , tune_n_subsamples = 4
+  , tune_ntree_try = 44
+  , tune_step_factor = 1
+  , tune_improve = 0.03
+  , ntree = 500
+  , weights = NULL
+) {
+  ### tuning RF model
+  # implements steps to mitigate very long run-times when tuning random forests models
+  optimal_mtry <- rf_tune_subsample(
+    predictors = predictors
+    , response = response
+    , threshold = tune_threshold
+    , n_subsamples = tune_n_subsamples
+    , ntree_try = tune_ntree_try
+    , step_factor = tune_step_factor
+    , improve = tune_improve
+  )
+
+  ### Run a randomForest model
+  
+  # get rid of missing factor levels if not in there
+    # results in error: "Can't have empty classes in y." from randomForest::tuneRF
+    if(inherits(response,"factor")){
+      response <- forcats::fct_drop(response)  
+    }
+  
+  # quiet this
+  quiet_rf <- purrr::quietly(randomForest::randomForest)
+  # run it
+  mod <- quiet_rf(
+    y = response
+    , x = predictors
+    , mtry = optimal_mtry
+    , na.action = na.omit
+    , ntree = ntree
+    # # weights = A vector of length same as y that are positive weights (i.e. >0 for all obs)
+    #   # used only in sampling data to grow each tree (not used in any other calculation)
+    , weights = weights
+  )
+
+  # just get the result
+  mod <- mod$result
+  return(mod)
+}
+################################################################################################################################################
+# function to subsample, tune, and model
+################################################################################################################################################
+rf_subsample_and_model <- function(
+  predictors
+  , response
+  , tune_threshold = 14444
+  , tune_n_subsamples = 4
+  , tune_ntree_try = 44
+  , tune_step_factor = 1
+  , tune_improve = 0.03
+  , mod_n_subsample = 20000
+  , ntree = 500
+  , weights = NULL
+) {
+  if(length(response)<=mod_n_subsample){
+    mod <- rf_tune_model(
+        predictors = predictors
+        , response = response
+        , tune_threshold = tune_threshold
+        , tune_n_subsamples = tune_n_subsamples
+        , tune_ntree_try = tune_ntree_try
+        , tune_step_factor = tune_step_factor
+        , tune_improve = tune_improve
+        , ntree = ntree
+        , weights = weights
+      )
+  }else{
+    subsample_indices <- sample(x = 1:length(response), size = mod_n_subsample, replace = F)
+    subsample_y <- response[subsample_indices]
+    subsample_x <- predictors[subsample_indices,]
+    # weights
+    if(!is.null(weights) && !any(is.na(weights))){
+      subsample_w <- weights[subsample_indices]
+    }else{
+      subsample_w <- NULL
+    }
+    
+    mod <- rf_tune_model(
+        predictors = subsample_x
+        , response = subsample_y
+        , tune_threshold = tune_threshold
+        , tune_n_subsamples = tune_n_subsamples
+        , tune_ntree_try = tune_ntree_try
+        , tune_step_factor = tune_step_factor
+        , tune_improve = tune_improve
+        , ntree = ntree
+        , weights = subsample_w
+      )
+  }
+  return(mod)
+}
+################################################################################################################################################
+# function to subsample, tune, and model N TIMES
+# iterates the subsampling and model fitting process n_iterations times
+# stores the predictions from each model in a list
+################################################################################################################################################
+rf_subsample_and_model_n_times <- function(
+  predictors
+  , response
+  , tune_threshold = 14444
+  , tune_n_subsamples = 4
+  , tune_ntree_try = 44
+  , tune_step_factor = 1
+  , tune_improve = 0.03
+  , mod_n_subsample = 20000
+  , mod_n_times = 3
+  , ntree = 500
+  , weights = NULL
+) {
+  # set up blank list
+  mod_list <- list()
+  if(length(response)<=mod_n_subsample){
+    mod_list[[1]] <- rf_subsample_and_model(
+        predictors = predictors
+        , response = response
+        , tune_threshold = tune_threshold
+        , tune_n_subsamples = tune_n_subsamples
+        , tune_ntree_try = tune_ntree_try
+        , tune_step_factor = tune_step_factor
+        , tune_improve = tune_improve
+        , mod_n_subsample = mod_n_subsample
+        , ntree = ntree
+        , weights = weights
+      )
+  }else{
+    for (i in 1:mod_n_times) {
+      mod_list[[i]] <- rf_subsample_and_model(
+          predictors = predictors
+          , response = response
+          , tune_threshold = tune_threshold
+          , tune_n_subsamples = tune_n_subsamples
+          , tune_ntree_try = tune_ntree_try
+          , tune_step_factor = tune_step_factor
+          , tune_improve = tune_improve
+          , mod_n_subsample = mod_n_subsample
+          , ntree = ntree
+          , weights = weights
+        )
+    }
+  }
+  return(mod_list)
+}
+################################################################################################################################################
+# function to model average predictions using model list
+# Model averaging can improve the robustness and accuracy of random forest models, especially when dealing with large datasets
+# predict_df must have predictor (x) columns used to develop model
+################################################################################################################################################
+rf_model_avg_predictions <- function(mod_list, predict_df){
+  # get model predictions for each model
+  predicted_temp <-
+    1:length(mod_list) %>%
+      purrr::map(function(x){
+        predict(
+          mod_list[[x]]
+          , predict_df
+        ) %>%
+        dplyr::as_tibble() %>%
+        dplyr::pull(1) %>%
+        dplyr::as_tibble() %>%
+        dplyr::rename(value=1) %>%
+        dplyr::mutate(id=dplyr::row_number())
+      }) %>%
+      dplyr::bind_rows()
+  # model average
+  predicted_temp <- predicted_temp %>%
+    dplyr::group_by(id) %>%
+    dplyr::summarise(
+      predicted = mean(value, na.rm = T)
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::arrange(id) %>%
+    dplyr::select(predicted)
+  # return
+  return(predicted_temp)
+}
+################################################################################################################################################
+# !!!!! ADDED for factor dependent variable
+# function to model average predictions using model list
+# Model averaging can improve the robustness and accuracy of random forest models, especially when dealing with large datasets
+# predict_df must have predictor (x) columns used to develop model
+################################################################################################################################################
+# function to vote for class based on many models
+rf_model_vote_predictions <- function(mod_list, predict_df, levels){
+  # get model predictions for each model
+  predicted_temp <-
+    1:length(mod_list) %>%
+      purrr::map(function(x){
+        predict(
+          mod_list[[x]]
+          , predict_df
+        ) %>%
+        dplyr::as_tibble() %>%
+        dplyr::pull(1) %>%
+        dplyr::as_tibble() %>%
+        dplyr::rename(value=1) %>%
+        dplyr::mutate(id=dplyr::row_number())
+      }) %>%
+      dplyr::bind_rows()
+  # predicted_temp %>% dplyr::glimpse()
+  
+  # !!!!! need to restore the original factor levels impacted when we did `forcats::fct_drop(response)`
+  xxxxxxxxx # something like this \
+  predicted_temp <- factor(predicted_temp, levels = levels) # levels = levels(training_data$y))
+
+  # model vote
+  predicted_temp <- predicted_temp %>%
+    dplyr::count(id,value) %>% 
+    dplyr::group_by(id) %>% 
+    dplyr::slice_max(order_by = n, n = 1, with_ties = F) %>% 
+    dplyr::ungroup() %>%
+    dplyr::arrange(id) %>%
+    dplyr::rename(predicted=value) %>% 
+    dplyr::select(predicted)
+  # return
+  return(predicted_temp)
+}
+
+```
+
+let's estimate the RF using data subsampling and model averaging for a computationally efficient way to get estimates over broad areas with potentially large tree lists. Model averaging can improve the robustness and accuracy of random forest models, especially when dealing with large datasets.
+
+```{r}
 # treemap_tree_list_df %>% dplyr::glimpse()
 # set max FIA trees to use in each subsample
-mod_n_subsample_temp <- min(nrow(treemap_tree_list_df)-1,22222)
+mod_n_subsample_temp <- min(nrow(treemap_data_loader_ans$treemap_trees_spatial_df)-1,22222)
 # number of models to estimate with this subsample size
 # go for at least 50% of training data sampled
 # it's just that the individual model fits will be smaller
 ntimes_temp <-
-  ((nrow(treemap_tree_list_df)*0.5)/mod_n_subsample_temp) %>%
+  ((nrow(treemap_data_loader_ans$treemap_trees_spatial_df)*0.5)/mod_n_subsample_temp) %>%
+  ceiling() %>%
+  max(6) %>%
+  min(66)
+# ntimes_temp
+
+# estimate
+rf_spec_mod <- rf_subsample_and_model_n_times(
+  predictors = treemap_data_loader_ans$treemap_trees_spatial_df %>% dplyr::select(x,y,tree_height_m)
+  , response = treemap_data_loader_ans$treemap_trees_spatial_df$species_symbol
+  , weights = treemap_data_loader_ans$treemap_trees_spatial_df$stability_weight
+  , mod_n_subsample = mod_n_subsample_temp
+  , mod_n_times = ntimes_temp
+)
+
+# length(rf_spec_mod)
+# rf_spec_mod[[1]]
+# randomForest::varImpPlot(rf_spec_mod[[1]])
+
+# # write just the first model
+# if(
+#   !is.null(rf_spec_mod)
+#   && length(rf_spec_mod)>0
+# ){
+#   saveRDS(rf_spec_mod[[1]], file = file.path(normalizePath(outfolder), "hmd_height_model_estimates.rds"))
+# }
+
+
+
+# xxx_temp <- randomForest::randomForest(
+#     x = treemap_data_loader_ans$treemap_trees_spatial_df %>% dplyr::select(x,y) %>% dplyr::slice(1:1111)
+#     , y = treemap_data_loader_ans$treemap_trees_spatial_df$tree_height_m[1:1111]
+#     , weights = treemap_data_loader_ans$treemap_trees_spatial_df$stability_weight[1:1111]
+#     , na.action = na.omit
+#     , ntree = 500
+#   )
+# 
+# 
+# # check the model type
+# (mod_type_temp <- xxx_temp$type)
+# (mod_type_temp <- rf_spec_mod[[1]]$type)
+# 
+# if (mod_type_temp == "classification") {
+#   print("The input y variable was treated as a FACTOR variable.")
+# } else if (mod_type_temp == "regression") {
+#   print("The input y variable was treated as a METRIC / NUMERIC variable.")
+# }
+
+
+
+# function to vote for class based on many models
+# rf_model_vote_predictions <- function(mod_list_temp, predict_df_temp, levels_temp){
+  # get model predictions for each model
+mod_list_temp <- rf_spec_mod
+predict_df_temp <-
+  pred_trees_list$WFSI_EglinAFB %>% 
+  sf::st_drop_geometry() %>%
+  sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(pred_trees_list$WFSI_EglinAFB), remove = F) %>% 
+  sf::st_transform(terra::crs(treemap_data_loader_ans$treemap_rast)) %>% 
+  dplyr::mutate(
+    x = sf::st_coordinates(.)[,1]
+    , y = sf::st_coordinates(.)[,2]
+  ) %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(x,y,tree_height_m)
+#   dplyr::select(x,y) %>% summary()
+# treemap_data_loader_ans$treemap_trees_spatial_df %>% 
+#   dplyr::select(x,y,tree_height_m) %>% 
+#   dplyr::select(x,y) %>% summary()
+
+levels_temp <- levels(treemap_data_loader_ans$treemap_trees_spatial_df$species_symbol)
+
+
+
+  predicted_temp <-
+    1:length(mod_list_temp) %>%
+      purrr::map(function(x){
+        predict(
+          mod_list_temp[[x]]
+          , predict_df_temp
+        ) %>%
+        dplyr::as_tibble() %>%
+        dplyr::pull(1) %>%
+        dplyr::as_tibble() %>%
+        dplyr::rename(value=1) %>%
+        # !!!!! need to restore the original factor levels impacted when we did `forcats::fct_drop(response)`
+        dplyr::mutate(value = factor(value, levels = levels_temp)) %>% 
+        # dplyr::pull(value) %>% levels()
+        dplyr::mutate(id=dplyr::row_number())
+      }) %>%
+      dplyr::bind_rows()
+  # predicted_temp %>% dplyr::glimpse()
+  
+  # model vote
+  # predicted_temp <- 
+    predicted_temp %>%
+    dplyr::count(id,value) %>% 
+    dplyr::arrange(id,desc(n)) %>% print(n=33)
+    dplyr::group_by(id) %>% 
+    dplyr::slice_max(order_by = n, n = 1, with_ties = F) %>% 
+    dplyr::ungroup() %>%
+    dplyr::arrange(id) %>%
+    dplyr::rename(predicted=value) %>% 
+    dplyr::select(predicted)
+  # return
+  return(predicted_temp)
+}
+
+
+# # model the missing values
+#     predict_df <- trees_poly %>%
+#       dplyr::anti_join(hmd_df %>% dplyr::select(treeID), by = "treeID") %>%
+#       dplyr::select(treeID, tree_height_m) %>%
+#       make_spatial_predictors()
+#     # get predicted values
+#     predicted_temp <- rf_model_avg_predictions(mod_list = hmd_mod, predict_df = predict_df)
+#     # attach back to data
+#     predict_df <- predict_df %>%
+#       dplyr::mutate(predicted_zzz = predicted_temp$predicted)
+
+
+```
+
+
+```{r, results=F, message=F, warning=F}
+# treemap_tree_list_df %>% dplyr::glimpse()
+# set max FIA trees to use in each subsample
+mod_n_subsample_temp <- min(nrow(treemap_data_loader_ans$treemap_trees_spatial_df)-1,22222)
+# number of models to estimate with this subsample size
+# go for at least 50% of training data sampled
+# it's just that the individual model fits will be smaller
+ntimes_temp <-
+  ((nrow(treemap_data_loader_ans$treemap_trees_spatial_df)*0.5)/mod_n_subsample_temp) %>%
   ceiling() %>%
   max(6) %>%
   min(66)
@@ -2876,31 +3132,31 @@ ntimes_temp <-
 st_temp <- Sys.time()
 # estimate
 
-# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include case.weights arg
-# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include case.weights arg
-# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include case.weights arg
+# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include weights arg
+# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include weights arg
+# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include weights arg
 # rf_spec_mod <- cloud2trees:::rf_subsample_and_model_n_times(
-#   predictors = treemap_tree_list_df %>% dplyr::select(x,y,tree_height_m)
-#   , response = treemap_tree_list_df$species_symbol
+#   predictors = treemap_data_loader_ans$treemap_trees_spatial_df %>% dplyr::select(x,y,tree_height_m)
+#   , response = treemap_data_loader_ans$treemap_trees_spatial_df$species_symbol
 #   , mod_n_subsample = mod_n_subsample_temp
 #   , mod_n_times = ntimes_temp
 # )
-# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include case.weights arg
-# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include case.weights arg
-# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include case.weights arg
-
+# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include weights arg
+# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include weights arg
+# #### need to update cloud2trees:::rf_subsample_and_model_n_times to include weights arg
 # ?randomForest::tuneRF
 optimal_mtry_temp <- cloud2trees:::rf_tune_subsample(
-  predictors = treemap_tree_list_df %>% dplyr::select(x,y,tree_height_m)
-  , response = treemap_tree_list_df$species_symbol
+  predictors = treemap_data_loader_ans$treemap_trees_spatial_df %>% dplyr::select(x,y,tree_height_m)
+  , response = treemap_data_loader_ans$treemap_trees_spatial_df$species_symbol
 )
 ntimes_temp <- 1
-mod_n_subsample_temp <- nrow(treemap_tree_list_df)
+(mod_n_subsample_temp <- nrow(treemap_data_loader_ans$treemap_trees_spatial_df))
+
 rf_spec_mod <- list(
   randomForest::randomForest(
-    x = treemap_tree_list_df %>% dplyr::select(x,y,tree_height_m)
-    , y = treemap_tree_list_df$species_symbol
-    , case.weights = treemap_tree_list_df$stability_weight
+    x = treemap_data_loader_ans$treemap_trees_spatial_df %>% dplyr::select(x,y,tree_height_m)
+    , y = treemap_data_loader_ans$treemap_trees_spatial_df$species_symbol
+    , weights = treemap_data_loader_ans$treemap_trees_spatial_df$stability_weight
     , mtry = optimal_mtry_temp
     , na.action = na.omit
     , ntree = 500
