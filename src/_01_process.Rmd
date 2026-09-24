@@ -2456,6 +2456,47 @@ treemap_data_loader <- function(sf_poly, input_treemap_dir = NULL) {
         )
       )
     
+    ############################################################################
+    ### add max tree height in moving window to create relative height measurement
+    ############################################################################
+    # a template raster
+    rast_temp <- terra::subset(treemap_rast,1)
+    # replace cell values with maximum height from tree data
+    values(rast_temp) <-
+      dplyr::tibble(
+        cell = c(1:terra::ncell(rast_temp))
+      ) %>% 
+      # left join to leave all NA as NA
+      dplyr::left_join(
+        treemap_trees_spatial_df %>% 
+          sf::st_drop_geometry() %>% 
+          dplyr::group_by(cell) %>% 
+          dplyr::summarise(tree_height_m = max(tree_height_m,na.rm=F)) %>% 
+          dplyr::arrange(cell)  
+        , by = "cell"
+      ) %>% 
+      dplyr::pull(tree_height_m)
+    # rast_temp %>% terra::plot()
+      
+    # moving window with window size of 3
+    # rast_temp %>% terra::focal(w = 3, fun=max, na.rm=T) %>% terra::plot()
+    max_ht_df <- 
+      rast_temp %>% 
+      terra::focal(w = 3, fun=max, na.rm=T) %>% 
+      terra::as.data.frame(cells = T) %>% 
+      dplyr::rename(max_tree_height_m = 2)
+    
+    # add max ht to spatial tree data
+    treemap_trees_spatial_df <- 
+      treemap_trees_spatial_df %>% 
+      dplyr::left_join(max_ht_df, by = "cell") %>% 
+      dplyr::mutate(
+        rel_tree_height_m = tree_height_m/max_tree_height_m
+        , rel_tree_height_m = ifelse(rel_tree_height_m>1,1,rel_tree_height_m)
+      ) %>% 
+      # make spatial
+      sf::st_as_sf(coords = c("x", "y"), crs = terra::crs(treemap_rast), remove = F)
+    
     # dplyr::glimpse(treemap_trees_spatial_df)
     # treemap_trees_spatial_df %>% ggplot2::ggplot(ggplot2::aes(x=x,y=y,color=species_symbol)) + ggplot2::geom_point() + ggplot2::theme_void()
     # treemap_trees_spatial_df %>% ggplot2::ggplot(ggplot2::aes(x=x,y=y,color=stability_weight)) + ggplot2::geom_point() + ggplot2::theme_void()
@@ -2520,7 +2561,6 @@ treemap_data_loader_ans <-
   sf::st_bbox() %>% 
   sf::st_as_sfc() %>% 
   treemap_data_loader()
-
 ```
 
 Check out the TreeMap raster of forest types for our area of interest defined using the spatial extent of the predicted trees
@@ -2636,14 +2676,134 @@ stab_temp %>%
 
 this essentially means that TreeMap is fairly confident that the study area includes `r paste0(levels(forcats::fct_rev(stab_temp$f_type))[1:2], collapse = " and ")`
 
+lastly, we'll look at the relative height data for a sample of the data
+
+```{r}
+focal_cell_temp <- 
+  treemap_data_loader_ans$treemap_trees_spatial_df %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::filter(
+    stability_weight>=
+      quantile(treemap_data_loader_ans$treemap_trees_spatial_df$stability_weight,probs=0.9)
+  ) %>% 
+  dplyr::count(cell) %>% 
+  dplyr::slice_max(order_by = n, n = 10, with_ties = F) %>% 
+  dplyr::slice_sample(n=1) %>% 
+  dplyr::pull(cell)
+
+aoi_temp <- 
+  treemap_data_loader_ans$treemap_trees_spatial_df %>% 
+  dplyr::filter(cell == focal_cell_temp) %>% 
+  sf::st_union() %>% 
+  sf::st_centroid() %>% 
+  sf::st_buffer(terra::res(treemap_data_loader_ans$treemap_rast)[1]) %>% 
+  sf::st_bbox() %>% 
+  sf::st_as_sfc()
+
+treemap_data_loader_ans$treemap_trees_spatial_df %>% 
+  sf::st_intersection(aoi_temp) %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(x,y,tree_height_m,rel_tree_height_m) %>% 
+  # tidyr::pivot_longer(cols = -c(x,y)) %>% 
+  # dplyr::glimpse()
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x=x,y=y)
+  ) + 
+  ggplot2::geom_point(mapping = ggplot2::aes(color = rel_tree_height_m), size = 4) +
+  ggplot2::scale_color_distiller(palette = "Greys", direction = 1) +
+  ggnewscale::new_scale_color() +
+  ggplot2::geom_point(mapping = ggplot2::aes(color = tree_height_m), size = 1.8) +
+  ggplot2::scale_color_distiller(palette = "Oranges", direction = 1) +
+  ggplot2::theme_void()
+```
+
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
+```{r, include = F, eval = F}
+get_relative_height_fn <- function(df, radius=sqrt((30*30*3)/pi) ) {
+    # Use the X and Y coordinates of the reference to build the tree.
+    coords_temp <- 
+      df %>% 
+      sf::st_drop_geometry() %>% 
+      sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(df), remove = F) %>% 
+      dplyr::mutate(
+        X = sf::st_coordinates(.)[,1] %>% as.numeric()
+        , Y = sf::st_coordinates(.)[,2] %>% as.numeric()
+      ) %>% 
+      dplyr::select(X,Y) %>% 
+      sf::st_drop_geometry()
+    # coords_temp %>% dplyr::glimpse()
+    
+    # perform a fixed-radius search using RANN::nn2
+    # ?RANN::nn2
+    nn_ans_temp <- RANN::nn2(
+      # the point cloud xy data (builds the kd-tree on this)
+      data = coords_temp
+      # the seed point xy data (number of columns must be the same as data)
+      , query = coords_temp
+      # maximum number of neighbors to find per query
+      , k = nrow(coords_temp)
+      # the search radius (rcyl)
+      , radius = radius
+      , searchtype = "radius"
+    )
+    # nn_ans_temp %>% dplyr::glimpse()
+    # nn_ans_temp$nn.idx[1:19,2:22]
+    
+    # iterate through the results to compute metrics
+    w_ht <- 
+      1:nrow(df) %>% 
+      purrr::map(
+        function(i) {
+          # which seed?
+          which_seed <- df %>% dplyr::slice(i)
+          
+          # get indices of points in the current radius (0 means no point found)
+          # rad_pts <- nn_ans_temp$nn.idx[i, 2:ncol(nn_ans_temp$nn.idx)] # filter out self-idx in col 1
+          rad_pts <- nn_ans_temp$nn.idx[i, ] # DON'T filter out self-idx in col 1
+          rad_pts <- rad_pts[rad_pts > 0] 
+          
+          # if no other points, it's the tallest
+          if (dplyr::coalesce(length(rad_pts),0) < 2) {
+            return(
+              which_seed %>% dplyr::mutate(rel_tree_height_m = 1)
+            )
+          }
+          
+          # get ht values using the indices
+          ht_values <- df$tree_height_m[rad_pts]
+          
+          # relative ht
+          my_rel_ht <- which_seed$tree_height_m / max(ht_values,na.rm=T)
+          return(
+            which_seed %>% dplyr::mutate(rel_tree_height_m = my_rel_ht)
+          )
+        }
+      ) %>% 
+      dplyr::bind_rows()
+    
+    return(w_ht)
+}
+xxx_temp <- 
+  get_relative_height_fn(
+    df = pred_trees_list$WFSI_EglinAFB
+    # radius to roughly match area used for relative height from TreeMap training data
+    # 30*30*3*3 = 8100 square meters = size of 30 m raster cell with moving window of 3 in terra::focal()
+    # .... but we'll go a little smaller because we're confident in the ITD trees and heights 
+    # .... whereas we're not so confident in the FIA TreeMap data
+    , radius = sqrt((30*30*2*2)/pi) # a = pi*r^2 >> r = sqrt(a/pi)
+  )
+xxx_temp %>% dplyr::glimpse()
+xxx_temp %>% dplyr::select(rel_tree_height_m) %>% summary()
+```
+
+
 #### Predict Species
 
-let's implement a random forest model majority voting for species with the objective to reduce estimation time (compared to a Bayesian Sofmax model)
+let's implement a random forest model majority voting for species with the objective to reduce estimation time (compared to a Bayesian Softmax model)
 
 tree species will be our dependent variable and the most simple model will use tree height and tree location (X and Y coordinates) as independent variables. The training FIA tree list data (identified from the TreeMap imputed plots of the area of interest) includes tree height and we'll use the centroid of the TreeMap 30m raster cell to represent the individual tree X and Y location (i.e. each tree within the same cell will have the same coordinate). Considering the combined tree height and spatial location via a full interaction model (i.e. `height*x*y`) allows the model to capture how the species-height relationship varies across space.
 
@@ -3020,6 +3180,8 @@ rf_spec_mod <- rf_subsample_and_model_n_times(
   , mod_n_subsample = mod_n_subsample_temp
   , mod_n_times = ntimes_temp
 )
+
+treemap_data_loader_ans$treemap_trees_spatial_df %>%
 
 # length(rf_spec_mod)
 # rf_spec_mod[[1]]
