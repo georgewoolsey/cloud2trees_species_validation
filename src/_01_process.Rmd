@@ -3380,22 +3380,13 @@ pred_trees_list$WFSI_EglinAFB <-
 #   dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
 ```
 
-let's map predicted species in space for a single plot
+let's map predicted crowns in space colored by species for a single plot while also showing the field validation data species and the true positive matches (squares)
 
 ```{r, fig.height = 9.8, fig.width = 6.5}
-ref_trees_list$WFSI_EglinAFB %>%
-  dplyr::inner_join(
-    ref_plots_list$WFSI_EglinAFB %>% 
-      dplyr::slice(2) %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::select(plot_id)
-    , by = "plot_id"
-  )
-
 pred_trees_list$WFSI_EglinAFB %>%
   dplyr::inner_join(
     ref_plots_list$WFSI_EglinAFB %>% 
-      dplyr::slice(2) %>% 
+      dplyr::slice(4) %>% 
       sf::st_drop_geometry() %>% 
       dplyr::select(plot_id)
     , by = "plot_id"
@@ -3405,22 +3396,100 @@ pred_trees_list$WFSI_EglinAFB %>%
   # plt
   ggplot2::ggplot() +
     ggplot2::geom_sf(
-      data = ref_plots_list$WFSI_EglinAFB %>% dplyr::slice(2)
+      data = ref_plots_list$WFSI_EglinAFB %>% dplyr::slice(4)
       , fill = NA, color = "blue"
     ) +
     ggplot2::geom_sf(
-      mapping = ggplot2::aes(geometry = geom, fill = predicted_species_symbol)
+      mapping = ggplot2::aes(fill = predicted_species_symbol)
       , size = 0.6, alpha = 0.88
     ) +
-    ggplot2::scale_fill_viridis_d(option = "turbo") +
+    ggplot2::geom_sf(
+      data = 
+        ref_trees_list$WFSI_EglinAFB %>%
+        dplyr::inner_join(
+          ref_plots_list$WFSI_EglinAFB %>% 
+            dplyr::slice(4) %>% 
+            sf::st_drop_geometry() %>% 
+            dplyr::select(plot_id)
+          , by = "plot_id"
+        ) %>% 
+        dplyr::inner_join(
+          pred_ref_tree_match_list$WFSI_EglinAFB %>% 
+            dplyr::filter(match_grp=="true positive") %>% 
+            dplyr::select(ref_treeID)
+          , by = dplyr::join_by(treeID==ref_treeID)
+        )
+      , size = 7, shape = 15, color = "gray88"
+    ) +
+    ggplot2::geom_sf(
+      data = 
+        ref_trees_list$WFSI_EglinAFB %>%
+        dplyr::inner_join(
+          ref_plots_list$WFSI_EglinAFB %>% 
+            dplyr::slice(4) %>% 
+            sf::st_drop_geometry() %>% 
+            dplyr::select(plot_id)
+          , by = "plot_id"
+        )
+      , mapping = ggplot2::aes(color = species)
+      , size = 3
+    ) +
+    ggplot2::scale_fill_viridis_d(option = "turbo", begin = 0.3, end = 0.8) +
+    ggplot2::scale_color_viridis_d(option = "magma", begin = 0.3, end = 0.8) +
+    ggplot2::labs(color="reference", fill="predicted") +
     ggplot2::theme_void() +
     ggplot2::theme(
       legend.position = "top"
     ) +
     ggplot2::guides(
       fill = ggplot2::guide_legend(override.aes = list(shape = 15, linetype = 0, size = 6, alpha = 1))
+      , color = ggplot2::guide_legend(override.aes = list(shape = 15, linetype = 0, size = 6, alpha = 1, fill = NA))
     )
+
+
 ```
+
+that looks decent. however, we need to standardize the species code across data sources. what even is the difference between "PIPA2" and "PIPA"?
+
+let's get the species code lookup table from the [FIA DataMart](https://research.fs.usda.gov/products/dataandtools/fia-datamart) to standardize the species code, species symbol, common name, and scientific genus and species
+
+```{r}
+# holy smokes, no one knows what these numeric species codes are
+  # ....get reference species so a human can understand these
+url_temp <- "https://apps.fs.usda.gov/fia/datamart/CSV/FIADB_REFERENCE.zip"
+zip_temp <- "FIADB_REFERENCE.zip"
+# dir_temp <- file.path("../data", str_remove(basename(zip_temp), "\\.[^.]+$"))
+dir_temp <- file.path("c:/data/usfs/uas_lidar_n1/data", str_remove(basename(zip_temp), "\\.[^.]+$"))
+# dir.exists(dir_temp)
+# dl if needed
+if (!dir.exists(dir_temp)){
+  download.file(url = url_temp, destfile = zip_temp, mode = "wb")
+  unzip(zipfile = zip_temp, exdir = dir_temp)
+  file.remove(zip_temp)
+}
+# read
+fia_species_lookup <- readr::read_csv(file = file.path(dir_temp, "REF_SPECIES.csv"), progress = F, show_col_types = F) %>% 
+  dplyr::rename_with(.cols = dplyr::everything(), tolower) %>% 
+  dplyr::select(spcd, species_symbol, common_name, genus, species)
+# huh
+fia_species_lookup %>% dplyr::glimpse()
+```
+
+what is the correct "PIPA"?
+
+```{r}
+fia_species_lookup %>% 
+  dplyr::filter(tolower(species_symbol) %>% stringr::str_starts("pipa"))
+```
+
+i guess this field data stuff isn't always the "gold standard"...
+
+```{r}
+xxxxxxxxx
+ref_trees_list$WFSI_EglinAFB %>%
+```
+
+
 
 #### RF Predicted Species Composition Accuracy
 
