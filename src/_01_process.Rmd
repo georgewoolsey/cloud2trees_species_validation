@@ -152,6 +152,8 @@ wfsi_eglinafb_trees <-
     plot_id = stringr::str_c(unit,plot,sep = "_")
     # also, each tree needs a treeID
     , treeID = dplyr::row_number()
+    # also, we need a species_symbol to match with the FIADatabase
+    , species_symbol = toupper(species) %>% stringr::str_remove_all("\\s")
   )
 # huh?
 wfsi_eglinafb_trees %>% dplyr::glimpse()
@@ -3360,7 +3362,10 @@ get_species_symbol_predictions <- name <- function(treemap_data_loader_ans, pred
   
   # attach back to data
   predict_df <- predict_df %>%
-    dplyr::mutate(predicted_species_symbol = predicted_temp$predicted)
+    dplyr::mutate(
+      predicted_species_symbol = predicted_temp$predicted
+      , predicted_species_symbol = as.character(predicted_species_symbol)
+    )
   
   return(predict_df)
 }
@@ -3371,11 +3376,13 @@ pred_trees_list$WFSI_EglinAFB <-
   get_species_symbol_predictions(
     treemap_data_loader_ans = treemap_data_loader_ans
     , predict_df = pred_trees_list$WFSI_EglinAFB
-  ) 
+  ) %>% 
+  # for this project we'll just rename to maintain consistent across data sources
+  dplyr::rename(species_symbol=predicted_species_symbol)
 
 # pred_trees_list$WFSI_EglinAFB %>%
 #   sf::st_drop_geometry() %>%
-#   dplyr::count(predicted_species_symbol) %>%
+#   dplyr::count(species_symbol) %>%
 #   dplyr::arrange(desc(n)) %>%
 #   dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
 ```
@@ -3391,7 +3398,7 @@ pred_trees_list$WFSI_EglinAFB %>%
       dplyr::select(plot_id)
     , by = "plot_id"
   ) %>% 
-  dplyr::arrange(desc(predicted_species_symbol)) %>% 
+  dplyr::arrange(desc(species_symbol)) %>% 
   # plot it
   # plt
   ggplot2::ggplot() +
@@ -3400,7 +3407,7 @@ pred_trees_list$WFSI_EglinAFB %>%
       , fill = NA, color = "blue"
     ) +
     ggplot2::geom_sf(
-      mapping = ggplot2::aes(fill = predicted_species_symbol)
+      mapping = ggplot2::aes(fill = species_symbol)
       , size = 0.6, alpha = 0.88
     ) +
     ggplot2::geom_sf(
@@ -3475,20 +3482,467 @@ fia_species_lookup <- readr::read_csv(file = file.path(dir_temp, "REF_SPECIES.cs
 fia_species_lookup %>% dplyr::glimpse()
 ```
 
-what is the correct "PIPA"?
+what is the correct "PIPA2"?
 
 ```{r}
 fia_species_lookup %>% 
   dplyr::filter(tolower(species_symbol) %>% stringr::str_starts("pipa"))
 ```
 
-i guess this field data stuff isn't always the "gold standard"...
+Let's try to make a function that automatically maps a field-recorded species symbol which is not present in the FIA reference species table to the correct symbol. we'll use the TreeMap data of the area to make the mapping. This will be especially important when we move into more diverse forest types where manually mapping the species codes would be very cumbersome.
 
 ```{r}
-xxxxxxxxx
-ref_trees_list$WFSI_EglinAFB %>%
+clean_ref_species_fn <- function(
+  df_to_clean
+  , my_treemap_data_loader_ans
+) {
+
+  # species probs
+  species_probs <-
+    my_treemap_data_loader_ans$treemap_trees_df %>% 
+    dplyr::mutate(species_symbol = as.character(species_symbol)) %>% 
+    dplyr::group_by(species_symbol) %>% 
+    dplyr::summarise(n = sum(tree_weight)) %>% 
+    # just the first 4 characters to get match
+    dplyr::mutate(species_symbol4 = stringr::str_sub(species_symbol,1,4)) %>% 
+    dplyr::arrange(species_symbol4,desc(n),species_symbol) %>% 
+    dplyr::group_by(species_symbol4) %>% 
+    dplyr::mutate(is_prob_species = dplyr::row_number()==1) %>% #ties go to alphabetical by species_symbol
+    dplyr::ungroup()
+  
+  # match with df
+  ret_df <- 
+    df_to_clean %>% 
+    dplyr::left_join(
+      species_probs %>% 
+        dplyr::select(species_symbol) %>% 
+        dplyr::mutate(xxx_is_match = T)
+      , by = "species_symbol"
+    ) %>% 
+    # try it with 4
+    dplyr::left_join(
+      species_probs %>% 
+        dplyr::filter(is_prob_species) %>% 
+        dplyr::select(species_symbol,species_symbol4) %>% 
+        dplyr::mutate(xxx_is_match4 = T) %>% 
+        dplyr::rename(
+          xxx_new_species_symbol = species_symbol
+          , species_symbol = species_symbol4
+        )
+      , by = "species_symbol"
+    ) %>% 
+    # update species_symbol
+    dplyr::mutate(
+      xxx_is_match = dplyr::coalesce(xxx_is_match,F)
+      , xxx_is_match4 = dplyr::coalesce(xxx_is_match4,F)
+      , species_symbol = dplyr::case_when(
+        xxx_is_match ~ species_symbol
+        , xxx_is_match4 ~ xxx_new_species_symbol
+        , T ~ species_symbol
+      )
+    ) %>% 
+    dplyr::select(-c(xxx_is_match,xxx_is_match4,xxx_new_species_symbol))
+  
+  # some still don't match FIAdb
+  # just take the first one from the fiadb if not found based on the 4 characters
+  ret_df %>% 
+    dplyr::left_join(
+      fia_species_lookup %>% 
+        dplyr::select(species_symbol) %>% 
+        dplyr::mutate(species_symbol4 = stringr::str_sub(species_symbol,1,4)) %>% 
+        dplyr::slice_head(n = 1, by = species_symbol4) %>% 
+        dplyr::mutate(xxx_is_match4 = T) %>% 
+        dplyr::rename(
+          xxx_new_species_symbol = species_symbol
+          , species_symbol = species_symbol4
+        )
+      , by = "species_symbol"
+    ) %>% 
+    # update species_symbol
+    dplyr::mutate(
+      xxx_is_match4 = dplyr::coalesce(xxx_is_match4,F)
+      , species_symbol = dplyr::case_when(
+        xxx_is_match4 ~ xxx_new_species_symbol
+        , T ~ species_symbol
+      )
+    ) %>% 
+    dplyr::select(-c(xxx_is_match4,xxx_new_species_symbol))
+
+}
+# update the reference tree list
+ref_trees_list$WFSI_EglinAFB <- 
+  ref_trees_list$WFSI_EglinAFB %>% 
+  clean_ref_species_fn(
+    my_treemap_data_loader_ans = treemap_data_loader_ans
+  )
 ```
 
+what is the distribution of the cleaned reference field data species?
+
+```{r}
+ref_trees_list$WFSI_EglinAFB %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::count(species_symbol)
+```
+
+eh. there is one genus only observation. let's just use the most common of the same genus
+
+```{r}
+ref_trees_list$WFSI_EglinAFB <- ref_trees_list$WFSI_EglinAFB %>% 
+  dplyr::mutate(
+    species_symbol = dplyr::case_when(
+      species_symbol == "QU" ~ "QULA2"
+      , T ~ species_symbol
+    )
+  )
+```
+
+#### Tree-Level Accuracy
+
+we're going to use the tree-level prediction and reference data, including all TP, FP, and FN, predictions to perform confusion matrix accuracy evaluation of the species predictions. For missed trees (omissions; FN) and false detections (commissions; FP), we'll use "NONE" as the species in the confusion matrix to preserve the tree-level information.
+
+using the confusion matrix evaluation we'll calculate the following metrics: 
+
+* **Overall Accuracy**: Measures the global percentage of all correctly classified trees out of the entire dataset. provides an overall summary metric but can mask performance on uncommon species.
+* **User's Accuracy** (precision): Measures the reliability of specific predicted species. For example, if the method predicts a tree is a ponderosa pine, how often it is actually true.
+* **Producer's Accuracy** (recall): Measures how well the model successfully aligns with what was measured on the ground. For example, out of all real ponderosa pine trees measured in the field, what percentage did the method correctly identify.
+
+$$\text{Overall Accuracy} = \frac{\sum \text{Correctly Classified Species Samples}}{\text{Total Number of Samples}}$$
+
+
+
+$$\text{User's Accuracy (Species } i\text{)} = \frac{\text{Number of Correctly Classified Samples for Species } i}{\text{Total Number of Predicted Samples for Species } i}$$
+
+
+$$\text{Producer's Accuracy (Species } i\text{)} = \frac{\text{Number of Correctly Classified Samples for Species } i}{\text{Total Number of Reference Samples for Species } i}$$
+
+
+
+
+
+```{r}
+xxxx
+# function to do confusion matrix and accuracy metric calcs
+
+w_species <- 
+  # add species to matches
+  pred_ref_tree_match_list$WFSI_EglinAFB %>% 
+  ################## predicted ##################
+  dplyr::left_join(
+    pred_trees_list$WFSI_EglinAFB %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::select(treeID, species_symbol) %>% 
+      # add on species info
+      dplyr::left_join(
+        fia_species_lookup %>% 
+          dplyr::select(-spcd) %>% 
+          dplyr::rename_with(
+            .cols = -c(species_symbol)
+            , .fn = ~paste0("species_",.x,recycle0 = T)
+          )
+        , by = "species_symbol"
+      ) %>% 
+      dplyr::rename_with(
+        .cols = tidyselect::starts_with("species_")
+        , .fn = ~paste0("pred_",.x,recycle0 = T)
+      )
+    , by = dplyr::join_by(pred_treeID==treeID)
+  ) %>% 
+  ################## predicted ##################
+  ################## reference ##################
+  dplyr::left_join(
+    ref_trees_list$WFSI_EglinAFB %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::select(treeID, species_symbol) %>% 
+      # add on species info
+      dplyr::left_join(
+        fia_species_lookup %>% 
+          dplyr::select(-spcd) %>% 
+          dplyr::rename_with(
+            .cols = -c(species_symbol)
+            , .fn = ~paste0("species_",.x,recycle0 = T)
+          )
+        , by = "species_symbol"
+      ) %>% 
+      dplyr::rename_with(
+        .cols = tidyselect::starts_with("species_")
+        , .fn = ~paste0("ref_",.x,recycle0 = T)
+      )
+    , by = dplyr::join_by(ref_treeID==treeID)
+  ) %>% 
+  # clean up missing
+  dplyr::mutate(
+    dplyr::across(
+      tidyselect::starts_with("pred_species_") & !c("pred_species_symbol")
+      , .fns = ~dplyr::case_when(
+        is.na(pred_species_symbol) ~ "NONE"
+        , is.na(.x) ~ "UNKNOWN"
+        , T ~ .x
+      )
+    )
+    , dplyr::across(
+      tidyselect::starts_with("ref_species_") & !c("ref_species_symbol")
+      , .fns = ~dplyr::case_when(
+        is.na(ref_species_symbol) ~ "NONE"
+        , is.na(.x) ~ "UNKNOWN"
+        , T ~ .x
+      )
+    )
+    , pred_species_symbol = dplyr::case_when(
+        is.na(pred_species_symbol) ~ "NONE"
+        , is.na(pred_species_symbol) ~ "UNKNOWN"
+        , T ~ pred_species_symbol
+      )
+    , ref_species_symbol = dplyr::case_when(
+        is.na(ref_species_symbol) ~ "NONE"
+        , is.na(ref_species_symbol) ~ "UNKNOWN"
+        , T ~ ref_species_symbol
+      )
+  )
+  
+# w_species %>% dplyr::glimpse()
+# w_species %>% dplyr::count(pred_species_genus,ref_species_genus)
+
+##############################################
+# pivot for confusion matrix
+##############################################
+cm_df <- 
+  w_species %>% 
+  dplyr::count(pred_species_symbol,ref_species_symbol) %>% 
+  tidyr::pivot_wider(
+    names_from = pred_species_symbol
+    , values_from = n
+    , values_fill = 0
+  )
+# cm_df %>% dplyr::glimpse()
+
+##############################################
+# calc accuracy metrics
+##############################################
+
+
+# combine total counts
+# metrics_table <- 
+  w_species %>% 
+  dplyr::filter(ref_species_symbol != "NONE") %>% 
+  dplyr::count(ref_species_symbol, name = "ref_total") %>% 
+  # add pred counts
+  dplyr::left_join(
+    w_species %>% dplyr::count(pred_species_symbol, name = "pred_total")
+    , by = dplyr::join_by(ref_species_symbol == pred_species_symbol)
+  ) %>% 
+  # add match counts
+  dplyr::left_join(
+    w_species %>% 
+      dplyr::filter(ref_species_symbol == pred_species_symbol & ref_species_symbol != "NONE") %>% 
+      dplyr::count(ref_species_symbol, name = "match_total")
+    , by = dplyr::join_by(ref_species_symbol)
+  ) %>% 
+  dplyr::mutate(
+    dplyr::across(
+      dplyr::where(is.numeric)
+      , ~ dplyr::coalesce(.x,0)
+    )
+    # , users_accuracy = match_total / pred_total
+    # , producers_accuracy = match_total / ref_total
+  ) %>% 
+  dplyr::rename(species_symbol = ref_species_symbol)
+
+# 4. Calculate global overall accuracy (OA)
+total_n <- nrow(cleaned_data)
+total_correct <- cleaned_data |> 
+  dplyr::filter(ref_species_symbol == pred_species_symbol & ref_species_symbol != "NONE") |> 
+  nrow()
+
+overall_accuracy <- (total_correct / total_n) * 100
+
+# View Class-Level Metrics
+print(metrics_table)
+
+# View Global Metric
+cat("Overall Accuracy:", round(overall_accuracy, 2), "%\n")
+
+
+```
+
+
+
+```{r}
+# 1. Establish the sample tree dataset
+tree_data <- tibble::tibble(
+  match_grp           = c("TP", "TP", "FP", "FN", "TP", "FP", "FN"),
+  pred_tree_id        = c("P01", "P02", "P03", NA, "P04", "P05", NA),
+  ref_tree_id         = c("R01", "R02", NA, "R03", "R04", NA, "R05"),
+  pred_species_symbol = c("PIPO", "PSME", "PIPO", NA, "PSME", "ABCO", NA),
+  ref_species_symbol  = c("PIPO", "PIPO", NA, "PSME", "PSME", NA, "ABCO")
+)
+
+# 2. Harmonize NA fields and create the matrix layout completely within tidyverse
+processed_trees <- tree_data |>
+  dplyr::mutate(
+    Target_Predicted = dplyr::coalesce(pred_species_symbol, "NONE"),
+    Target_Reference = dplyr::coalesce(ref_species_symbol, "NONE")
+  )
+
+# Calculate discrete cell intersection counts
+matrix_counts <- processed_trees |>
+  dplyr::count(Target_Predicted, Target_Reference)
+
+# Pivot wider to build a square confusion matrix layout
+wide_matrix <- matrix_counts |>
+  tidyr::pivot_wider(
+    names_from  = Target_Reference, 
+    values_from = n, 
+    values_fill = 0
+  )
+
+# Append explicit Row and Column summaries using tidyverse vector operations
+cf_matrix_with_totals <- wide_matrix |>
+  # Compute row totals
+  dplyr::rowwise() |>
+  dplyr::mutate(Total = sum(dplyr::c_across(where(is.numeric)))) |>
+  dplyr::ungroup() |>
+  # Bind a final summary row containing column totals
+  dplyr::bind_rows(
+    wide_matrix |>
+      dplyr::summarise(dplyr::across(where(is.numeric), sum)) |>
+      dplyr::mutate(
+        Target_Predicted = "Total",
+        Total            = sum(dplyr::c_across(where(is.numeric)))
+      )
+  )
+
+# Display the pure Tidyverse-constructed matrix via kableExtra
+cf_matrix_with_totals |>
+  knitr::kable(format = "html", caption = "Tidyverse Confusion Matrix (Including Background)") |>
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+
+
+# Extract absolute species list (excluding summary tags)
+species_list <- setdiff(cf_matrix_with_totals$Target_Predicted, c("NONE", "Total"))
+
+# Convert wide matrix structure into a long format to cleanly extract accuracy pairs
+metrics_long <- cf_matrix_with_totals |>
+  dplyr::filter(Target_Predicted != "Total") |>
+  tidyr::pivot_longer(
+    cols      = -Target_Predicted, 
+    names_to  = "Target_Reference", 
+    values_to = "Count"
+  )
+
+# 1. Isolate True Positives and calculate Overall Accuracy
+true_positives_sum <- metrics_long |>
+  dplyr::filter(Target_Predicted == Target_Reference, Target_Predicted != "NONE") |>
+  dplyr::summarise(total_tp = sum(Count)) |>
+  dplyr::pull(total_tp)
+
+grand_total_items <- metrics_long |>
+  dplyr::filter(Target_Predicted == "NONE" | Target_Reference == "NONE") |>
+  dplyr::summarise(grand_total = sum(Count)) |>
+  # Include true positives to get the denominator
+  dplyr::mutate(grand_total = grand_total + true_positives_sum) |>
+  dplyr::pull(grand_total)
+
+overall_accuracy <- true_positives_sum / grand_total_items
+
+# 2. Extract User's Accuracy (Precision) per unique species group
+users_accuracy_table <- metrics_long |>
+  # Focus strictly on true classifications vs total predicted per row
+  dplyr::filter(Target_Predicted %in% species_list) |>
+  dplyr::group_by(Target_Predicted) |>
+  dplyr::summarise(
+    True_Positives  = sum(Count[Target_Reference == Target_Predicted]),
+    Total_Predicted = sum(Count[Target_Reference != "Total"]), # Exclude the Total column column
+    Users_Accuracy  = True_Positives / Total_Predicted,
+    .groups         = "drop"
+  ) |>
+  dplyr::rename(Species = Target_Predicted)
+
+# Output summary layout
+users_accuracy_table |>
+  knitr::kable(format = "html", digits = 3, caption = "User's Accuracy (Precision) Table") |>
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+
+
+# Ensure all possible combinations are visually represented in the plot
+complete_tile_data <- processed_trees |>
+  dplyr::count(Target_Predicted, Target_Reference) |>
+  tidyr::complete(Target_Predicted, Target_Reference, fill = list(n = 0))
+
+ggplot2::ggplot(complete_tile_data, ggplot2::aes(x = Target_Reference, y = Target_Predicted, fill = n)) +
+  ggplot2::geom_tile(color = "white", linewidth = 0.6) +
+  ggplot2::geom_text(ggplot2::aes(label = n), color = "black", size = 5, fontface = "bold") +
+  ggplot2::scale_fill_gradient(low = "#fdf8f7", high = "#b2182b", name = "Tree Match N") +
+  ggplot2::labs(
+    title = "Tree Class Validation Matrix",
+    subtitle = paste0("Overall Target Accuracy: ", round(overall_accuracy * 100, 1), "%"),
+    x = "Reference Field Truth Status",
+    y = "Model Output Prediction Status"
+  ) +
+  ggplot2::theme_minimal(base_size = 12) +
+  ggplot2::theme(
+    panel.grid = ggplot2::element_blank(),
+    axis.text  = ggplot2::element_text(face = "bold", size = 11)
+  )
+
+```
+
+
+#### Aggregate Community-Level Accuracy
+
+we shift away from individual item matching and use the Bray-Curtis Dissimilarity Index. This metric compares the total abundance (counts) of each species predicted by the model against the reference counts within a defined area or site.
+
+What it means for this dataset: Even though our individual-level classification accuracy was quite low (~42% Overall Accuracy due to spatial mix-ups and structural misses), the model achieved a 94.74% aggregate composition accuracy. It predicted 4 Douglas-firs and 6 Ponderosa Pines, while the ground truth had 4 Douglas-firs and 5 Ponderosa Pines.Real-World Ecological Application: This aggregate evaluation is highly valuable for large-scale timber cruising, carbon credit stock assessments, and landscape ecology. If a forestry manager only needs to know the total volume, fuel loading, or biomass ratios of species across a 100-acre watershed to write a wildfire management plan, they don't care if individual tree coordinates are slightly off. They care about aggregate community structure, making Bray-Curtis the more relevant metric.
+
+```{r}
+# Load the core tidyverse package
+library(tidyverse)
+
+# 1. Reuse our raw tree matching data (with FP, TP, and FN records)
+tree_data <- tibble::tibble(
+  match_grp = c("TP", "TP", "TP", "TP", "TP", "TP", "TP", "FN", "FN", "FP", "FP", "FP"),
+  ref_species_symbol = c("DF", "DF", "PP", "PP", "PP", "PP", "DF", "DF", "PP", NA, NA, NA),
+  pred_species_symbol = c("DF", "DF", "PP", "PP", "PP", "DF", "PP", NA, NA, "DF", "PP", "PP")
+)
+
+# 2. Aggregate counts to the community level (Excluding "NONE" ghost/missed categories)
+# Instead of tracking pairs, we find the total community makeup for each source.
+ref_community <- tree_data |> 
+  dplyr::filter(!is.na(ref_species_symbol)) |> 
+  dplyr::count(species = ref_species_symbol, name = "reference_count")
+
+pred_community <- tree_data |> 
+  dplyr::filter(!is.na(pred_species_symbol)) |> 
+  dplyr::count(species = pred_species_symbol, name = "predicted_count")
+
+# 3. Combine communities and compute Bray-Curtis Metrics
+community_evaluation <- dplyr::full_join(
+  ref_community, 
+  pred_community, 
+  by = "species"
+) |> 
+  # Replace NA with 0 if a species was entirely missed by one method
+  dplyr::mutate(
+    reference_count = tidyr::replace_na(reference_count, 0),
+    predicted_count = tidyr::replace_na(predicted_count, 0),
+    # Calculate components for Bray-Curtis
+    abs_difference = abs(reference_count - predicted_count),
+    sum_abundance = reference_count + predicted_count
+  )
+
+# 4. Extract global aggregate metrics
+total_abs_diff <- sum(community_evaluation$abs_difference)
+total_abundance <- sum(community_evaluation$sum_abundance)
+
+bray_curtis_dissimilarity <- total_abs_diff / total_abundance
+bray_curtis_similarity <- 1 - bray_curtis_dissimilarity
+
+# Print summary table and index results
+print(community_evaluation)
+cat("Bray-Curtis Dissimilarity Index :", round(bray_curtis_dissimilarity, 4), "\n")
+cat("Aggregate Composition Accuracy  :", round(bray_curtis_similarity * 100, 2), "%\n")
+
+```
 
 
 #### RF Predicted Species Composition Accuracy
