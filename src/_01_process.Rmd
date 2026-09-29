@@ -1244,6 +1244,599 @@ gc()
 now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial intersection of these points with the predicted crowns. if multiple tree points fall within a single crown, we'll select the tree that is closest in terms of size based on whatever field data is available (height or DBH). One predicted tree will only be matched with one field reference tree and vice-versa.
 
 ```{r}
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+# check df function
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+validate_df_fn <- function(data, required_cols = c("tree_height_m"), check_numeric = F) {
+  # check data
+  if(!inherits(data,"sf") && !inherits(data,"sfc")){stop("all input data requires POINT sf data")}
+  if(
+    !all( sf::st_is(data, c("POINT")) )
+  ){
+    stop("all input data requires POINT sf data")
+  }
+  # names
+  # uses base::setdiff and base::names
+  missing_cols <- setdiff(required_cols, names(data))
+  
+  if(length(missing_cols) > 0){
+    stop("all input data requires columns: ", paste(missing_cols, collapse = ", "))
+  }
+  
+  # numeric
+  if(check_numeric){
+    non_numeric <- data %>%
+      sf::st_drop_geometry() %>% 
+      dplyr::select(dplyr::all_of(required_cols)) %>%
+      dplyr::summarise(dplyr::across(dplyr::everything(), ~ !is.numeric(.x))) %>%
+      tidyr::pivot_longer(dplyr::everything()) %>%
+      dplyr::filter(value == TRUE)
+
+    if (nrow(non_numeric) > 0) {
+      stop("columns must be numeric: ", paste(non_numeric$name, collapse = ", "))
+    }
+  }
+  
+  # is.na() catches both NA and NaN; is.infinite() catches Inf
+  invalid_dta <- data %>%
+    sf::st_drop_geometry() %>% 
+    dplyr::summarise(
+      dplyr::across(
+        dplyr::all_of(required_cols)
+        , ~ sum(is.na(.x) | is.infinite(.x))
+      )
+    ) %>%
+    tidyr::pivot_longer(
+      cols = dplyr::everything()
+      , names_to = "column"
+      , values_to = "count"
+    ) %>%
+    dplyr::filter(count > 0)
+
+  if (nrow(invalid_dta) > 0) {
+    bad_cols <- paste(invalid_dta$column, collapse = ", ")
+    stop("invalid values (NA, NaN, or Inf) found in: ", bad_cols)
+  }
+  return(TRUE)
+}
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+# match function
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+reference_prediction_match <- function(
+  pred_data
+  , ref_data
+  , max_dist_m
+  , max_error_pct
+) {
+  #######################################################################
+  # threshold checks
+  #######################################################################
+  if(
+    any(is.na(max_dist_m)) || 
+    any(is.null(max_dist_m)) || 
+    !inherits(as.numeric(max_dist_m),"numeric")
+  ){
+    stop("`max_dist_m` must be numeric and not missing")
+  }else{max_dist_m <- as.numeric(max_dist_m)[1]}
+  if(
+    any(is.na(max_error_pct)) || 
+    any(is.null(max_error_pct)) || 
+    !inherits(as.numeric(max_error_pct),"numeric")
+  ){
+    stop("`max_error_pct` must be numeric and not missing")
+  }else{max_error_pct <- as.numeric(max_error_pct)[1]}
+  #######################################################################
+  # data checks
+  #######################################################################
+  # set up matching col based on what data is available
+  if(
+    any( stringr::str_equal(names(pred_data),"tree_height_m") ) &&
+    any( stringr::str_equal(names(ref_data),"tree_height_m") )
+  ){
+    pred_data <- pred_data %>% dplyr::mutate(tree_height_m = as.numeric(tree_height_m))
+    ref_data <- ref_data %>% dplyr::mutate(tree_height_m = as.numeric(tree_height_m))
+  }else if(
+    any( stringr::str_equal(names(pred_data),"dbh_cm") ) &&
+    any( stringr::str_equal(names(ref_data),"dbh_cm") )
+  ){
+    pred_data <- pred_data %>% dplyr::mutate(tree_height_m = as.numeric(dbh_cm))
+    ref_data <- ref_data %>% dplyr::mutate(tree_height_m = as.numeric(dbh_cm))
+  }else{
+    stop("both reference and predicted data must have `tree_height_m` or `dbh_cm` column")
+  }
+  
+  if(
+    !any( stringr::str_equal(names(pred_data),"treeID") ) ||
+    !any( stringr::str_equal(names(ref_data),"treeID") )
+  ){
+    stop("both reference and predicted data must have `treeID` column")
+  }
+  
+  if(nrow(pred_data)==0 | nrow(ref_data)==0){
+    warning("no data so...?????")
+    # return(NULL)
+    
+    if(nrow(pred_data)!=0){
+      pred_data <- cloud2trees:::check_spatial_points(pred_data)
+      validate_df_fn(data = pred_data, required_cols = c("tree_height_m"), check_numeric = T)
+      # sort to start with largest
+      pred_data <- pred_data %>% 
+        dplyr::arrange(desc(tree_height_m)) %>% 
+        dplyr::mutate(pred_match_idx = dplyr::row_number()) %>% 
+        # add columns
+        dplyr::mutate(
+          ref_match_idx = as.numeric(NA)
+          , pred_match_height_diff_m= as.numeric(NA)
+          , pred_match_dist_m = as.numeric(NA)
+          , ref_tree_height_m = as.numeric(NA)
+        )
+    }else{pred_data <- NULL}
+    
+    if(nrow(ref_data)!=0){
+      ref_data <- cloud2trees:::check_spatial_points(ref_data)
+      validate_df_fn(data = ref_data, required_cols = c("tree_height_m"), check_numeric = T)
+      # sort to start with largest
+      ref_data <- ref_data %>% 
+        dplyr::arrange(desc(tree_height_m)) %>% 
+        dplyr::mutate(ref_match_idx = dplyr::row_number()) %>% 
+        # add columns
+        dplyr::mutate(
+          pred_match_idx = 0
+          , pred_match_height_diff_m = as.numeric(NA)
+          , pred_tree_height_m = as.numeric(NA)
+          , pred_match_dist_m = as.numeric(NA)
+        )
+    }else{ref_data <- NULL}
+    # return
+    return(list(
+      ref_data = ref_data
+      , pred_data = pred_data
+    ))
+  }
+  pred_data <- cloud2trees:::check_spatial_points(pred_data)
+  validate_df_fn(data = pred_data, required_cols = c("tree_height_m"), check_numeric = T)
+  ref_data <- cloud2trees:::check_spatial_points(ref_data)
+  validate_df_fn(data = ref_data, required_cols = c("tree_height_m"), check_numeric = T)
+  
+  # proj
+  if(!identical(
+    sf::st_crs(pred_data, parameters = T)[["epsg"]]
+    , sf::st_crs(ref_data, parameters = T)[["epsg"]]
+  )){stop("data must have same projection. see `sf::st_crs()`")}
+  # sort to start with largest
+  pred_data <- pred_data %>% 
+    dplyr::arrange(desc(tree_height_m)) %>% 
+    dplyr::mutate(pred_match_idx = dplyr::row_number())
+  ref_data <- ref_data %>% 
+    dplyr::arrange(desc(tree_height_m)) %>% 
+    dplyr::mutate(ref_match_idx = dplyr::row_number())
+  #######################################################################
+  # build a 2D kd-tree
+  #######################################################################
+    # Use the X and Y coordinates of the predicted to build the tree.
+    pred_coords_temp <- 
+      pred_data %>% 
+      dplyr::mutate(
+        X = sf::st_coordinates(.)[,1] %>% as.numeric()
+        , Y = sf::st_coordinates(.)[,2] %>% as.numeric()
+      ) %>% 
+      dplyr::select(X,Y) %>% 
+      sf::st_drop_geometry()
+    # Use the X and Y coordinates of the reference to build the tree.
+    ref_coords_temp <- 
+      ref_data %>% 
+      dplyr::mutate(
+        X = sf::st_coordinates(.)[,1] %>% as.numeric()
+        , Y = sf::st_coordinates(.)[,2] %>% as.numeric()
+      ) %>% 
+      dplyr::select(X,Y) %>% 
+      sf::st_drop_geometry()
+    
+    # perform a fixed-radius search using RANN::nn2
+    nn_ans_temp <- RANN::nn2(
+      # the point cloud xy data (builds the kd-tree on this)
+      data = pred_coords_temp
+      # the seed point xy data (number of columns must be the same as data)
+      , query = ref_coords_temp
+      # maximum number of neighbors to find per query
+      , k = min(nrow(pred_coords_temp),nrow(ref_coords_temp))
+      # the search radius (rcyl)
+      , radius = max_dist_m
+      , searchtype = "radius"
+    )
+    # huh?
+    # nn_ans_temp %>% class()
+    # nn_ans_temp %>% names()
+    # nn_ans_temp$nn.idx %>% nrow()
+    # nrow(ref_coords_temp)
+    # nn_ans_temp$nn.idx %>% ncol()
+    # nrow(pred_coords_temp)
+    # nn_ans_temp$nn.dists %>% nrow()
+    # nrow(ref_coords_temp)
+    # nn_ans_temp$nn.dists %>% ncol()
+    # nrow(pred_coords_temp)
+    # nn_ans_temp$nn.dists[1:11,] %>% dplyr::as_tibble() %>% dplyr::glimpse()
+  #######################################################################  
+  # iterate through the kd-tree to make matches
+  #######################################################################
+    if(nrow(ref_coords_temp)!=nrow(ref_data)){stop("bad kd-tree")}
+    # add pred match tracker
+    ref_data$pred_match_idx <- 0
+    ref_data$pred_match_height_diff_m <- as.numeric(NA)
+    ref_data$pred_tree_height_m <- as.numeric(NA)
+    ref_data$pred_match_dist_m <- as.numeric(NA)
+    for(i in 1:nrow(ref_coords_temp)){
+      # get indices of points in the current cylinder (0 means no point found)
+      nn_idx_pts <- nn_ans_temp$nn.idx[i, ]
+      cyl_pts <- nn_idx_pts[nn_idx_pts > 0] 
+      # remove already matched
+      cyl_pts <- cyl_pts[!(cyl_pts %in% ref_data$pred_match_idx)] 
+      # if available matches
+      if(dplyr::coalesce(length(cyl_pts),0) >= 1) {
+        # get heights
+        # ref_data %>% dplyr::select(field_tree_id, tree_height_m) %>% dplyr::glimpse()
+        # ref_data$tree_height_m[i]
+        # pred_data$tree_height_m[cyl_pts]
+        ht_diffs <- abs(ref_data$tree_height_m[i]-pred_data$tree_height_m[cyl_pts])/ref_data$tree_height_m[i]
+        # get the minimum value among elements below the threshold
+        min_val <- min(ht_diffs[ht_diffs <= max_error_pct], na.rm = T)
+        # if not none within threshold
+        if(!is.infinite(min_val)){
+          # the index of that value in the original full vector
+          cyl_idx <- which(ht_diffs == min_val)[1] # if multiple matches, takes the nearest
+          match_idx <- cyl_pts[cyl_idx]
+          # distance
+          nn_dist_idx <- which(nn_idx_pts == match_idx)
+          nn_dist <- nn_ans_temp$nn.dists[i,nn_dist_idx]
+          # update match
+          ref_data$pred_match_height_diff_m[i] <- min_val
+          ref_data$pred_tree_height_m[i] <- pred_data$tree_height_m[match_idx]
+          ref_data$pred_match_idx[i] <- match_idx
+          ref_data$pred_match_dist_m[i] <- nn_dist
+          
+        }
+      }
+    }
+  #######################################################################
+  # add ref id to pred and return
+  #######################################################################
+  # pred_data %>% dplyr::glimpse()
+  # ref_data %>% dplyr::glimpse()
+  pred_data <- pred_data %>% 
+    # get rid of columns we'll create
+    dplyr::select( -dplyr::any_of(c(
+      "hey_xxxxxxxxxx"
+      , "pred_match_height_diff_m"
+      , "pred_match_dist_m"
+      , "ref_tree_height_m"
+      , "ref_match_idx"
+    ))) %>% 
+    dplyr::left_join(
+      ref_data %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::select(ref_match_idx, pred_match_idx, pred_match_height_diff_m, pred_match_dist_m, tree_height_m) %>% 
+        dplyr::rename(ref_tree_height_m=tree_height_m)
+      , by = "pred_match_idx"
+    )
+  return(list(
+    ref_data = ref_data
+    , pred_data = pred_data
+  ))
+}
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+# combine match to classify reference/predictions
+###############################################################
+###############################################################
+###############################################################
+###############################################################
+ground_truth_prediction_match <- function(
+  reference_prediction_match_ans
+  , comp_cols = c("tree_height_m")
+) {
+  # check for missing both missing
+  if(
+    is.null(reference_prediction_match_ans$ref_data)
+    && is.null(reference_prediction_match_ans$pred_data)
+  ){
+    warning("no data so...?????")
+    return(NULL)
+  }
+  
+  # if reference but no predictions...they are all omissions (FN)
+  if(is.null(reference_prediction_match_ans$pred_data)){
+    return_df <-
+      reference_prediction_match_ans$ref_data %>%
+      dplyr::filter(pred_match_idx==0 | is.na(pred_match_idx)) %>% 
+      dplyr::rename(ref_treeID=treeID) %>% 
+      dplyr::mutate(pred_treeID=as.character(NA)) %>% 
+      dplyr::select(dplyr::all_of(c(
+        "ref_match_idx"
+        , "ref_treeID"
+        , "pred_match_idx"
+        , "pred_treeID"
+        , "pred_match_dist_m"
+        # , "pred_tree_height_m"
+        # , "tree_height_m"
+        , comp_cols
+      ))) %>% 
+      dplyr::rename_with(
+        .cols = dplyr::all_of(comp_cols)
+        , .fn = ~paste0("ref_", .x, recycle0 = T)
+      ) %>% 
+      sf::st_set_geometry("ref_geometry") %>% 
+      dplyr::mutate(match_grp = "omission")
+    # make match_grp factor
+    return_df <- return_df %>% 
+      dplyr::mutate(
+        match_grp = factor(
+          match_grp
+          , ordered = T
+          , levels = c(
+            "true positive"
+            , "commission"
+            , "omission"
+          )
+        ) %>% forcats::fct_rev()
+      )
+    return(return_df)
+  }
+  
+  # if predictions but no reference...they are all commissions (FP)
+  if(is.null(reference_prediction_match_ans$ref_data)){
+    return_df <-
+      reference_prediction_match_ans$pred_data %>%
+      dplyr::filter(ref_match_idx==0 | is.na(ref_match_idx)) %>% 
+      dplyr::rename(pred_treeID=treeID) %>% 
+      dplyr::mutate(ref_treeID=as.character(NA)) %>% 
+      dplyr::select(dplyr::all_of(c(
+        "ref_match_idx"
+        , "ref_treeID"
+        , "pred_match_idx"
+        , "pred_treeID"
+        , "pred_match_dist_m"
+        # , "pred_tree_height_m"
+        # , "tree_height_m"
+        , comp_cols
+      ))) %>% 
+      dplyr::rename_with(
+        .cols = dplyr::all_of(comp_cols)
+        , .fn = ~paste0("pred_", .x, recycle0 = T)
+      ) %>% 
+      dplyr::mutate(pred_geometry = sf::st_geometry(.)) %>%
+      sf::st_drop_geometry() %>% 
+      dplyr::mutate(match_grp = "commission")
+    # make match_grp factor
+    return_df <- return_df %>% 
+      dplyr::mutate(
+        match_grp = factor(
+          match_grp
+          , ordered = T
+          , levels = c(
+            "true positive"
+            , "commission"
+            , "omission"
+          )
+        ) %>% forcats::fct_rev()
+      )
+    return(return_df)
+  }
+  
+  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
+  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
+  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
+  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
+  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
+  # check for comparison cols
+  comp_cols <- 
+    comp_cols %>% 
+    # remove whitespace
+    stringr::str_trim() %>% 
+    # keep only those with a value
+    stringr::str_subset(".")
+  if(inherits(comp_cols, "character") && length(comp_cols) > 0){
+    validate_df_fn(data = reference_prediction_match_ans$ref_data, required_cols = comp_cols, check_numeric = T)
+    validate_df_fn(data = reference_prediction_match_ans$pred_data, required_cols = comp_cols, check_numeric = T)
+  }
+  # tp matches
+  return_df <-
+    reference_prediction_match_ans$ref_data %>%
+    dplyr::filter(pred_match_idx!=0 & !is.na(pred_match_idx)) %>% 
+    dplyr::select(dplyr::all_of(c(
+      "ref_match_idx"
+      , "pred_match_idx"
+      , "pred_match_dist_m"
+      # , "pred_tree_height_m"
+      # , "tree_height_m"
+      , comp_cols
+    ))) %>% 
+    dplyr::rename_with(
+      .cols = dplyr::all_of(comp_cols)
+      , .fn = ~paste0("ref_", .x, recycle0 = T)
+    ) %>% 
+    sf::st_set_geometry("ref_geometry") %>% 
+    # add on pred geom
+    dplyr::inner_join(
+      reference_prediction_match_ans$pred_data %>% 
+        dplyr::select(dplyr::all_of(c(
+          "ref_match_idx"
+          , comp_cols
+        ))) %>% 
+        dplyr::rename_with(
+          .cols = dplyr::all_of(comp_cols)
+          , .fn = ~paste0("pred_", .x, recycle0 = T)
+        ) %>% 
+        dplyr::mutate(pred_geometry = sf::st_geometry(.)) %>%
+        sf::st_drop_geometry()
+      , by = "ref_match_idx"
+    ) %>% 
+    dplyr::mutate(match_grp = "true positive")
+  
+  # add omissions
+  return_df <-
+    return_df %>% 
+    dplyr::bind_rows(
+      reference_prediction_match_ans$ref_data %>%
+        dplyr::filter(pred_match_idx==0 | is.na(pred_match_idx)) %>% 
+        dplyr::select(dplyr::all_of(c(
+          "ref_match_idx"
+          , "pred_match_idx"
+          , "pred_match_dist_m"
+          # , "pred_tree_height_m"
+          # , "tree_height_m"
+          , comp_cols
+        ))) %>% 
+        dplyr::rename_with(
+          .cols = dplyr::all_of(comp_cols)
+          , .fn = ~paste0("ref_", .x, recycle0 = T)
+        ) %>% 
+        sf::st_set_geometry("ref_geometry") %>% 
+        dplyr::mutate(match_grp = "omission")
+    )
+    
+  # add commissions
+  return_df <-
+    return_df %>% 
+    dplyr::bind_rows(
+      reference_prediction_match_ans$pred_data %>%
+        dplyr::filter(ref_match_idx==0 | is.na(ref_match_idx)) %>% 
+        dplyr::select(dplyr::all_of(c(
+          "ref_match_idx"
+          , "pred_match_idx"
+          , "pred_match_dist_m"
+          # , "pred_tree_height_m"
+          # , "tree_height_m"
+          , comp_cols
+        ))) %>% 
+        dplyr::rename_with(
+          .cols = dplyr::all_of(comp_cols)
+          , .fn = ~paste0("pred_", .x, recycle0 = T)
+        ) %>% 
+        dplyr::mutate(pred_geometry = sf::st_geometry(.)) %>%
+        sf::st_drop_geometry() %>% 
+        dplyr::mutate(match_grp = "commission")
+    )
+  
+  # make match_grp factor
+  return_df <- return_df %>% 
+    dplyr::mutate(
+      match_grp = factor(
+        match_grp
+        , ordered = T
+        , levels = c(
+          "true positive"
+          , "commission"
+          , "omission"
+        )
+      ) %>% forcats::fct_rev()
+    )
+  
+  
+  if(inherits(comp_cols, "character") && length(comp_cols) > 0){
+    # add a tiny value (eps) to the denominator for pct_diff_ 
+    # calcs to prevent division by zero...where pct_diff_ is used for MAPE summary
+    eps <- 1e-5
+    return_df <- 
+      return_df %>% 
+      dplyr::mutate(
+        # 'diff_' columns are calculated as the predicted value minus the actual value
+        dplyr::across(
+          .cols = paste0(
+            "ref_"
+            , comp_cols # c("tree_height_m", "dbh_cm")
+            , recycle0 = T
+          )
+          , .fns = ~ base::get(stringr::str_replace(dplyr::cur_column(), "^ref_", "pred_")) - .x
+          , .names = "diff_{stringr::str_remove(.col, '^ref_')}"
+        )
+        # 'pct_diff_' columns are calculated as the actual value minus the predicted value divided by the actual value
+        , dplyr::across(
+          .cols = paste0(
+            "ref_"
+            , comp_cols # c("tree_height_m", "dbh_cm")
+            , recycle0 = T
+          )
+          # 
+          , .fns = ~ (.x-base::get(stringr::str_replace(dplyr::cur_column(), "^ref_", "pred_")))/(.x + eps)
+          , .names = "pct_diff_{stringr::str_remove(.col, '^ref_')}"
+        )
+      ) 
+  }
+  
+  # add treeID
+  return_df <- 
+    return_df %>% 
+    dplyr::left_join(
+      reference_prediction_match_ans$pred_data %>%
+        sf::st_drop_geometry() %>% 
+        dplyr::distinct(pred_match_idx,treeID) %>% 
+        dplyr::rename(pred_treeID=treeID)
+      , by = "pred_match_idx"
+    ) %>% 
+    dplyr::left_join(
+      reference_prediction_match_ans$ref_data %>%
+        sf::st_drop_geometry() %>% 
+        dplyr::distinct(ref_match_idx,treeID) %>% 
+        dplyr::rename(ref_treeID=treeID)
+      , by = "ref_match_idx"
+    ) %>% 
+    dplyr::relocate(ref_treeID, .after = ref_match_idx) %>% 
+    dplyr::relocate(pred_treeID, .after = pred_match_idx)
+  
+  
+  # return
+  if(nrow(return_df)==0){
+    warning("no records found for ground truth to predition matching")
+    return(NULL)
+  }else{
+    return(return_df)
+  }
+  
+}
+
+
+###################################
+### test for one plot
+### test for one plot
+### test for one plot
+###################################
+reference_prediction_match(
+  pred_data = 
+    wfsi_eglinafb_ws_pred_trees %>% 
+    dplyr::filter(
+      plot_id == wfsi_eglinafb_plots$plot_id[1]
+      , ws_fn_nm==wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1]
+    )
+  , ref_data = 
+    wfsi_eglinafb_trees %>% 
+    dplyr::filter(
+      plot_id == wfsi_eglinafb_plots$plot_id[1]
+    )
+  , max_dist_m = 2
+  , max_error_pct = 0.8
+) %>% 
+ground_truth_prediction_match() %>% 
+dplyr::glimpse()
+dplyr::count(match_grp)
+
+```
+
+
+```{r}
 # instance matching function for points reference and polys predictions
 # matches a single set of predictions with a single reference set
 instance_match_fn <- function(
@@ -3743,12 +4336,12 @@ cm_df <-
       dplyr::where(is.numeric)
       , ~ dplyr::coalesce(.x,0)
     )
-    # , users_accuracy = match_total / pred_total
-    # , producers_accuracy = match_total / ref_total
+    , users_accuracy = match_total / pred_total
+    , producers_accuracy = match_total / ref_total
   ) %>% 
   dplyr::rename(species_symbol = ref_species_symbol)
 
-# 4. Calculate global overall accuracy (OA)
+# overall accuracy
 total_n <- nrow(cleaned_data)
 total_correct <- cleaned_data |> 
   dplyr::filter(ref_species_symbol == pred_species_symbol & ref_species_symbol != "NONE") |> 
