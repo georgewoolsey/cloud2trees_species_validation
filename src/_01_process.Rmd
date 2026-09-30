@@ -151,7 +151,7 @@ wfsi_eglinafb_trees <-
   dplyr::mutate(
     plot_id = stringr::str_c(unit,plot,sep = "_")
     # also, each tree needs a treeID
-    , treeID = dplyr::row_number()
+    , treeID = dplyr::row_number() %>% as.character()
     # also, we need a species_symbol to match with the FIADatabase
     , species_symbol = toupper(species) %>% stringr::str_remove_all("\\s")
   )
@@ -1111,7 +1111,7 @@ if(!file.exists(fnm_temp)){
     wfsi_eglinafb_ws_pred_trees %>% 
     dplyr::rename(xxxtreeID=treeID) %>% 
     dplyr::mutate(
-      treeID = dplyr::row_number()
+      treeID = dplyr::row_number() %>% as.character()
     ) %>% 
     cloud2trees::trees_dbh()
   # wfsi_eglinafb_ws_pred_trees_dbh_temp %>% dplyr::glimpse()
@@ -1125,7 +1125,7 @@ if(!file.exists(fnm_temp)){
       wfsi_eglinafb_ws_pred_trees_dbh_temp %>% 
         sf::st_drop_geometry() %>% 
         dplyr::mutate(
-          join_id = as.numeric(treeID)
+          join_id = as.character(treeID)
         ) %>% 
         dplyr::select(
           join_id, tidyselect::starts_with("fia_est_dbh"), dbh_cm
@@ -1158,6 +1158,7 @@ wfsi_eglinafb_ws_pred_trees <- wfsi_eglinafb_ws_pred_trees %>%
       stringr::str_squish() %>% 
       as.factor() %>% 
       forcats::fct_inorder(ordered = T)
+    , treeID = as.character(treeID)
   )
 # wfsi_eglinafb_ws_pred_trees %>% dplyr::glimpse()
 # wfsi_eglinafb_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_type)
@@ -1241,9 +1242,9 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial intersection of these points with the predicted crowns. if multiple tree points fall within a single crown, we'll select the tree that is closest in terms of size based on whatever field data is available (height or DBH). One predicted tree will only be matched with one field reference tree and vice-versa.
+now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial distance mathing of these points with the predicted tree top points using a 2 m search radius. if multiple tree points fall within a the search radius, we'll select the tree that is closest in terms of size based on whatever field data is available (height or DBH). One predicted tree will only be matched with one field reference tree and vice-versa.
 
-```{r}
+```{r, include=F, eval=F}
 ###############################################################
 ###############################################################
 ###############################################################
@@ -1807,36 +1808,63 @@ ground_truth_prediction_match <- function(
   }
   
 }
+```
 
-
+```{r, include=FALSE, eval=F}
 ###################################
 ### test for one plot
 ### test for one plot
 ### test for one plot
 ###################################
-reference_prediction_match(
+xxx_temp <- 
+  reference_prediction_match(
   pred_data = 
     wfsi_eglinafb_ws_pred_trees %>% 
     dplyr::filter(
       plot_id == wfsi_eglinafb_plots$plot_id[1]
-      , ws_fn_nm==wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1]
+      , ws_fn_nm== wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1]
     )
   , ref_data = 
     wfsi_eglinafb_trees %>% 
     dplyr::filter(
       plot_id == wfsi_eglinafb_plots$plot_id[1]
     )
-  , max_dist_m = 2
-  , max_error_pct = 0.8
+  , max_dist_m = 3
+  , max_error_pct = 0.5
 ) %>% 
-ground_truth_prediction_match() %>% 
-dplyr::glimpse()
-dplyr::count(match_grp)
+ground_truth_prediction_match() 
+
+xxx_temp %>% dplyr::glimpse()
+xxx_temp %>% sf::st_drop_geometry() %>% dplyr::count(match_grp)
+
+
+ggplot2::ggplot() +
+  ggplot2::geom_sf(
+    data = xxx_temp %>% dplyr::filter(match_grp %in% c("true positive","omission"))
+    , mapping = ggplot2::aes(geometry = ref_geometry, color = match_grp)
+    , size = 3, alpha = 0.8
+  ) +
+  ggplot2::geom_sf(
+    data = xxx_temp %>% dplyr::filter(match_grp=="commission")
+    , mapping = ggplot2::aes(geometry = pred_geometry, color = match_grp)
+    , size = 3, alpha = 0.8
+  ) +
+  # ggplot2::scale_color_manual(values = pal_match_grp) +
+  ggplot2::theme_void() +
+  ggplot2::theme(legend.position = "top", legend.title = ggplot2::element_blank()) 
 
 ```
 
-
 ```{r}
+###########################################################################################
+###########################################################################################
+## this is for matching predicted crowns to reference points
+## this is for matching predicted crowns to reference points
+## this is for matching predicted crowns to reference points
+## this is for matching predicted crowns to reference points
+###########################################################################################
+###########################################################################################
+
 # instance matching function for points reference and polys predictions
 # matches a single set of predictions with a single reference set
 instance_match_fn <- function(
@@ -2222,11 +2250,25 @@ ws_iter_instance_match_fn <- function(
           ws_fn_nm == nm
         )
       # instance match
-      im <- 
+      ###########################################################################################
+      ## this is for matching predicted crowns to reference points
+      ###########################################################################################
+      im <-
         instance_match_fn(
           pred_crowns = these_pred_polys
           , ref_points = ref_pts
         )
+      # ###########################################################################################
+      # ## this is for matching predicted points to reference points
+      # ###########################################################################################
+      # im <- 
+      #   reference_prediction_match(
+      #     pred_data = these_pred_polys
+      #     , ref_data = ref_pts
+      #     , max_dist_m = 2
+      #     , max_error_pct = 0.5
+      #   ) %>% 
+      #   ground_truth_prediction_match()
       # remove commission points outside plot boundary?
       # remove commission points outside plot boundary?
       # get rid of commissions outside of plot
@@ -2882,7 +2924,7 @@ if(!file.exists(fnm_temp)){
     # this is because we did tree detection by plot
     dplyr::rename(xxxtreeID=treeID) %>% 
     dplyr::mutate(
-      treeID = dplyr::row_number()
+      treeID = dplyr::row_number() %>% as.character()
     ) %>% 
     cloud2trees::trees_dbh()
   # pred_trees_temp_dbh_temp %>% dplyr::glimpse()
@@ -4178,13 +4220,13 @@ ref_trees_list$WFSI_EglinAFB %>%
   dplyr::count(species_symbol)
 ```
 
-eh. there is one genus only observation. let's just use the most common of the same genus
+eh. there is one genus only observation and many "HDWD" observations (which i assume is "hard wood"). let's just use the most common of the same genus
 
 ```{r}
 ref_trees_list$WFSI_EglinAFB <- ref_trees_list$WFSI_EglinAFB %>% 
   dplyr::mutate(
     species_symbol = dplyr::case_when(
-      species_symbol == "QU" ~ "QULA2"
+      species_symbol %in% c("QU","HDWD") ~ "QULA2"
       , T ~ species_symbol
     )
   )
@@ -4196,25 +4238,23 @@ we're going to use the tree-level prediction and reference data, including all T
 
 using the confusion matrix evaluation we'll calculate the following metrics: 
 
-* **Overall Accuracy**: Measures the global percentage of all correctly classified trees out of the entire dataset. provides an overall summary metric but can mask performance on uncommon species.
+* **Overall Accuracy**: Measures the global percentage of all correctly classified trees out of the entire dataset of true positive (TP), false positive (FP), and false negative (FN) observations. Provides an overall summary metric but can mask performance on uncommon species.
 * **User's Accuracy** (precision): Measures the reliability of specific predicted species. For example, if the method predicts a tree is a ponderosa pine, how often it is actually true.
 * **Producer's Accuracy** (recall): Measures how well the model successfully aligns with what was measured on the ground. For example, out of all real ponderosa pine trees measured in the field, what percentage did the method correctly identify.
 
-$$\text{Overall Accuracy} = \frac{\sum \text{Correctly Classified Species Samples}}{\text{Total Number of Samples}}$$
+(\(TP + FP + FN\))
+
+$$\text{Overall Accuracy} = \frac{\text{Number of Correctly Classified Species Observations}}{\text{TP} + \text{FP} + \text{FN}}$$
 
 
 
-$$\text{User's Accuracy (Species } i\text{)} = \frac{\text{Number of Correctly Classified Samples for Species } i}{\text{Total Number of Predicted Samples for Species } i}$$
+$$\text{User's Accuracy (Species } i\text{)} = \frac{\text{Number of Correctly Classified Observations for Species } i}{\text{Total Number of Predicted Observations for Species } i}$$
 
 
-$$\text{Producer's Accuracy (Species } i\text{)} = \frac{\text{Number of Correctly Classified Samples for Species } i}{\text{Total Number of Reference Samples for Species } i}$$
-
-
-
+$$\text{Producer's Accuracy (Species } i\text{)} = \frac{\text{Number of Correctly Classified Observations for Species } i}{\text{Total Number of Reference Observations for Species } i}$$
 
 
 ```{r}
-xxxx
 # function to do confusion matrix and accuracy metric calcs
 
 w_species <- 
@@ -4299,64 +4339,210 @@ w_species <-
 ##############################################
 # pivot for confusion matrix
 ##############################################
-cm_df <- 
+
+cm_df <-
   w_species %>% 
   dplyr::count(pred_species_symbol,ref_species_symbol) %>% 
+  # make sure matrix diagonal is available
+  dplyr::full_join(
+    w_species %>% 
+      dplyr::distinct(ref_species_symbol) %>% 
+      dplyr::mutate(pred_species_symbol=ref_species_symbol)
+    , by = dplyr::join_by(ref_species_symbol,pred_species_symbol)
+  ) %>% 
+  dplyr::mutate(n=dplyr::coalesce(n,0)) %>% 
   tidyr::pivot_wider(
     names_from = pred_species_symbol
     , values_from = n
     , values_fill = 0
-  )
+  ) %>% 
+  # again make sure matrix diagonal is available
+  dplyr::bind_rows(
+    dplyr::tibble(
+      ref_species_symbol = 
+        base::setdiff(
+          unique(w_species$pred_species_symbol)
+          , unique(w_species$ref_species_symbol)
+        )
+    )
+  ) %>% 
+  dplyr::mutate(
+    dplyr::across(
+      .cols = dplyr::where(is.numeric)
+      , .fns = ~dplyr::coalesce(.x,0)
+    )
+  ) %>% 
+  dplyr::relocate(NONE, .after = dplyr::last_col()) %>% 
+  dplyr::mutate(sorter = ref_species_symbol=="NONE") %>% 
+  dplyr::arrange(sorter, ref_species_symbol) %>%
+  dplyr::select(-sorter)
+# rearrange columns for matrix diagonal
+cm_df <- 
+  cm_df %>% 
+  dplyr::select(
+    ref_species_symbol
+    , dplyr::all_of(
+      sort(unique(cm_df$ref_species_symbol))
+    )
+    , base::setdiff(names(cm_df %>% dplyr::select(-ref_species_symbol)),unique(cm_df$ref_species_symbol))
+  ) %>% 
+  dplyr::relocate(NONE, .after = dplyr::last_col())
+
+
 # cm_df %>% dplyr::glimpse()
+# cm_df
 
 ##############################################
 # calc accuracy metrics
 ##############################################
 
+#######################
+# overall (OA)
+#######################
 
+# all tp, fp, fn
+overall_n <- nrow(w_species) %>% dplyr::coalesce(0)
+# matching but excludes NONE and NONE
+correct_n <- 
+  w_species %>% 
+  dplyr::filter(
+    pred_species_symbol == ref_species_symbol
+    , pred_species_symbol != "NONE"
+  ) %>% 
+  nrow() %>% 
+  dplyr::coalesce(0)
+
+overall_accuracy <- ifelse(
+  overall_n == 0, NA
+  , (correct_n / overall_n)
+)
+# overall_accuracy
+
+#######################
+# UA and PA
+#######################
 # combine total counts
-# metrics_table <- 
+tp_by_species <- 
+  w_species %>% 
+  dplyr::filter(
+    pred_species_symbol == ref_species_symbol
+    , pred_species_symbol != "NONE"
+  ) %>% 
+  dplyr::count(species_symbol = pred_species_symbol, name = "correct_n")
+
+# tot pred by species (denominator for UA)
+pred_tot <- 
+  w_species %>% 
+  dplyr::filter(pred_species_symbol != "NONE") %>% 
+  dplyr::count(species_symbol = pred_species_symbol, name = "tot_pred_n")
+
+# tot ref by species (denominator for PA)
+ref_tot <- 
   w_species %>% 
   dplyr::filter(ref_species_symbol != "NONE") %>% 
-  dplyr::count(ref_species_symbol, name = "ref_total") %>% 
-  # add pred counts
-  dplyr::left_join(
-    w_species %>% dplyr::count(pred_species_symbol, name = "pred_total")
-    , by = dplyr::join_by(ref_species_symbol == pred_species_symbol)
-  ) %>% 
-  # add match counts
-  dplyr::left_join(
-    w_species %>% 
-      dplyr::filter(ref_species_symbol == pred_species_symbol & ref_species_symbol != "NONE") %>% 
-      dplyr::count(ref_species_symbol, name = "match_total")
-    , by = dplyr::join_by(ref_species_symbol)
-  ) %>% 
+  dplyr::count(species_symbol = ref_species_symbol, name = "tot_ref_n")
+
+# bring together
+species_accuracy_df <-
+  pred_tot %>% 
+  # full_join makes all combination
+  dplyr::full_join(ref_tot, by = "species_symbol") %>% 
+  dplyr::left_join(tp_by_species, by = "species_symbol") %>% 
+  # clean up
   dplyr::mutate(
     dplyr::across(
-      dplyr::where(is.numeric)
-      , ~ dplyr::coalesce(.x,0)
+      c(correct_n, tot_pred_n, tot_ref_n)
+      , ~dplyr::coalesce(.x, 0)
     )
-    , users_accuracy = match_total / pred_total
-    , producers_accuracy = match_total / ref_total
+    # handle 0 in denominator
+    , users_accuracy = dplyr::case_when(
+      tot_pred_n == 0 & tot_ref_n == 0 ~ 1
+      , tot_pred_n == 0 ~ as.numeric(NA)
+      , T ~ correct_n / tot_pred_n
+    )
+    , producers_accuracy = dplyr::case_when(
+      tot_pred_n == 0 & tot_ref_n == 0 ~ 1
+      , tot_ref_n == 0 ~ as.numeric(NA)
+      , T ~ correct_n / tot_ref_n
+    )
+  )
+
+# species_accuracy_df
+# cm_df
+
+
+
+# make a kableExtra table
+cm_df %>% 
+  dplyr::left_join(
+    species_accuracy_df %>% 
+      dplyr::select(species_symbol,tot_ref_n,producers_accuracy)
+    , by = dplyr::join_by(ref_species_symbol==species_symbol)
   ) %>% 
-  dplyr::rename(species_symbol = ref_species_symbol)
-
-# overall accuracy
-total_n <- nrow(cleaned_data)
-total_correct <- cleaned_data |> 
-  dplyr::filter(ref_species_symbol == pred_species_symbol & ref_species_symbol != "NONE") |> 
-  nrow()
-
-overall_accuracy <- (total_correct / total_n) * 100
-
-# View Class-Level Metrics
-print(metrics_table)
-
-# View Global Metric
-cat("Overall Accuracy:", round(overall_accuracy, 2), "%\n")
-
+  # add on column totals
+  dplyr::bind_rows(
+    cm_df %>% 
+      dplyr::distinct(ref_species_symbol) %>% 
+      dplyr::left_join(
+        species_accuracy_df %>% 
+          dplyr::select(species_symbol,tot_pred_n)
+        , by = dplyr::join_by(ref_species_symbol==species_symbol)
+      ) %>% 
+      tidyr::pivot_wider(names_from = ref_species_symbol, values_from = c(tot_pred_n)) %>% 
+      dplyr::mutate(ref_species_symbol = "Total Predicted") %>% 
+      dplyr::relocate(ref_species_symbol) %>% 
+      dplyr::mutate(NONE = (w_species %>% dplyr::filter(pred_species_symbol=="NONE") %>% nrow()))
+  ) 
+  
+  # add on PA
+  dplyr::bind_rows(
+    cm_df %>% 
+      dplyr::distinct(ref_species_symbol) %>% 
+      dplyr::left_join(
+        species_accuracy_df %>% 
+          dplyr::select(species_symbol,users_accuracy)
+        , by = dplyr::join_by(ref_species_symbol==species_symbol)
+      ) %>% 
+      tidyr::pivot_wider(names_from = ref_species_symbol, values_from = c(users_accuracy)) %>% 
+      dplyr::mutate(ref_species_symbol = "User's Accuracy") %>% 
+      dplyr::relocate(ref_species_symbol)
+  )
+  
 
 ```
+
+```{r}
+# ==========================================
+# 1. OVERALL ACCURACY CALCULATION
+# ==========================================
+
+# Count total unique entries
+grand_total_samples <- nrow(tree_data)
+
+# Count matching valid species pairs (excluding background NONE matches)
+correct_counts <- tree_data |>
+  dplyr::filter(pred_species_symbol == ref_species_symbol, pred_species_symbol != "NONE") |>
+  dplyr::count() |>
+  dplyr::pull(n)
+
+# Fallback in case there are zero true positives
+correct_counts <- ifelse(length(correct_counts) == 0, 0, correct_counts)
+
+overall_accuracy <- correct_counts / grand_total_samples
+
+
+# ==========================================
+# 2. USER'S AND PRODUCER'S ACCURACY CALCULATION
+# ==========================================
+
+
+# ==========================================
+# PRINT RESULTS
+# ==========================================
+cat("Overall Accuracy:", round(overall_accuracy, 4), "\n\n")
+print(species_accuracy_summary)
+```
+
 
 
 
