@@ -4234,17 +4234,17 @@ ref_trees_list$WFSI_EglinAFB <- ref_trees_list$WFSI_EglinAFB %>%
 
 #### Tree-Level Accuracy
 
-we're going to use the tree-level prediction and reference data, including all TP, FP, and FN, predictions to perform confusion matrix accuracy evaluation of the species predictions. For missed trees (omissions; FN) and false detections (commissions; FP), we'll use "NONE" as the species in the confusion matrix to preserve the tree-level information.
+Given that our analysis is focused on evaluating the proposed taxonomic classification algorithm (rather than the individual tree detection method), we'll evaluate the taxonomic classification accuracy conditionally for successfully detected tree crowns (true positive matches). This conditional evaluation will allow us to isolate taxonomic model performance from tree detection errors (reviewed above [here](#03_itd)). In practice, the ITD window function would be tuned for the specific site and data being analyzed, but we implemented an automated ITD window selection process here since we will be evaluating many different sites and forest types.
+
+we're going to use the tree-level prediction and reference data for all TP (true positive) predictions to perform confusion matrix accuracy evaluation of the species predictions. 
 
 using the confusion matrix evaluation we'll calculate the following metrics: 
 
-* **Overall Accuracy**: Measures the global percentage of all correctly classified trees out of the entire dataset of true positive (TP), false positive (FP), and false negative (FN) observations. Provides an overall summary metric but can mask performance on uncommon species.
+* **Overall Accuracy**: Measures the global percentage of all correctly classified trees out of the entire dataset of true positive (TP) observations. Provides an overall summary metric but can mask performance on uncommon species.
 * **User's Accuracy** (precision): Measures the reliability of specific predicted species. For example, if the method predicts a tree is a ponderosa pine, how often it is actually true.
 * **Producer's Accuracy** (recall): Measures how well the model successfully aligns with what was measured on the ground. For example, out of all real ponderosa pine trees measured in the field, what percentage did the method correctly identify.
 
-(\(TP + FP + FN\))
-
-$$\text{Overall Accuracy} = \frac{\text{Number of Correctly Classified Species Observations}}{\text{TP} + \text{FP} + \text{FN}}$$
+$$\text{Overall Accuracy} = \frac{\text{Number of Correctly Classified Species Observations}}{\text{Total Number of Successfully Detected Trees (TPs)}}$$
 
 
 
@@ -4252,315 +4252,433 @@ $$\text{User's Accuracy (Species } i\text{)} = \frac{\text{Number of Correctly C
 
 
 $$\text{Producer's Accuracy (Species } i\text{)} = \frac{\text{Number of Correctly Classified Observations for Species } i}{\text{Total Number of Reference Observations for Species } i}$$
-
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
 
 ```{r}
-# function to do confusion matrix and accuracy metric calcs
+# fia_species_lookup %>% dplyr::glimpse()
+# function to do confusion matrix and tree-level accuracy metric calcs
+confusion_matrix_tree_class_fn <- function(pred_ref_match, pred_trees, ref_trees, use_genus = F, use_only_tp = T) {
 
-w_species <- 
   # add species to matches
-  pred_ref_tree_match_list$WFSI_EglinAFB %>% 
-  ################## predicted ##################
-  dplyr::left_join(
-    pred_trees_list$WFSI_EglinAFB %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::select(treeID, species_symbol) %>% 
-      # add on species info
-      dplyr::left_join(
-        fia_species_lookup %>% 
-          dplyr::select(-spcd) %>% 
-          dplyr::rename_with(
-            .cols = -c(species_symbol)
-            , .fn = ~paste0("species_",.x,recycle0 = T)
-          )
-        , by = "species_symbol"
-      ) %>% 
-      dplyr::rename_with(
-        .cols = tidyselect::starts_with("species_")
-        , .fn = ~paste0("pred_",.x,recycle0 = T)
+  w_species_temp <- 
+    pred_ref_match %>% 
+    ################## predicted ##################
+    dplyr::left_join(
+      pred_trees %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::select(treeID, species_symbol) %>% 
+        # add on species info
+        dplyr::left_join(
+          fia_species_lookup %>% 
+            dplyr::select(-spcd) %>% 
+            dplyr::rename_with(
+              .cols = -c(species_symbol)
+              , .fn = ~paste0("species_",.x,recycle0 = T)
+            )
+          , by = "species_symbol"
+        ) %>% 
+        dplyr::rename_with(
+          .cols = tidyselect::starts_with("species_")
+          , .fn = ~paste0("pred_",.x,recycle0 = T)
+        )
+      , by = dplyr::join_by(pred_treeID==treeID)
+    ) %>% 
+    ################## predicted ##################
+    ################## reference ##################
+    dplyr::left_join(
+      ref_trees %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::select(treeID, species_symbol) %>% 
+        # add on species info
+        dplyr::left_join(
+          fia_species_lookup %>% 
+            dplyr::select(-spcd) %>% 
+            dplyr::rename_with(
+              .cols = -c(species_symbol)
+              , .fn = ~paste0("species_",.x,recycle0 = T)
+            )
+          , by = "species_symbol"
+        ) %>% 
+        dplyr::rename_with(
+          .cols = tidyselect::starts_with("species_")
+          , .fn = ~paste0("ref_",.x,recycle0 = T)
+        )
+      , by = dplyr::join_by(ref_treeID==treeID)
+    ) %>% 
+    ################## reference ##################
+    # clean up missing
+    dplyr::mutate(
+      dplyr::across(
+        tidyselect::starts_with("pred_species_") & !c("pred_species_symbol")
+        , .fns = ~dplyr::case_when(
+          is.na(pred_species_symbol) ~ "NONE"
+          , is.na(.x) ~ "UNKNOWN"
+          , T ~ .x
+        )
       )
-    , by = dplyr::join_by(pred_treeID==treeID)
-  ) %>% 
-  ################## predicted ##################
-  ################## reference ##################
-  dplyr::left_join(
-    ref_trees_list$WFSI_EglinAFB %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::select(treeID, species_symbol) %>% 
-      # add on species info
-      dplyr::left_join(
-        fia_species_lookup %>% 
-          dplyr::select(-spcd) %>% 
-          dplyr::rename_with(
-            .cols = -c(species_symbol)
-            , .fn = ~paste0("species_",.x,recycle0 = T)
-          )
-        , by = "species_symbol"
-      ) %>% 
-      dplyr::rename_with(
-        .cols = tidyselect::starts_with("species_")
-        , .fn = ~paste0("ref_",.x,recycle0 = T)
+      , dplyr::across(
+        tidyselect::starts_with("ref_species_") & !c("ref_species_symbol")
+        , .fns = ~dplyr::case_when(
+          is.na(ref_species_symbol) ~ "NONE"
+          , is.na(.x) ~ "UNKNOWN"
+          , T ~ .x
+        )
       )
-    , by = dplyr::join_by(ref_treeID==treeID)
-  ) %>% 
-  # clean up missing
-  dplyr::mutate(
-    dplyr::across(
-      tidyselect::starts_with("pred_species_") & !c("pred_species_symbol")
-      , .fns = ~dplyr::case_when(
-        is.na(pred_species_symbol) ~ "NONE"
-        , is.na(.x) ~ "UNKNOWN"
-        , T ~ .x
-      )
+      , pred_species_symbol = dplyr::case_when(
+          is.na(pred_species_symbol) ~ "NONE"
+          , is.na(pred_species_symbol) ~ "UNKNOWN"
+          , T ~ pred_species_symbol
+        )
+      , ref_species_symbol = dplyr::case_when(
+          is.na(ref_species_symbol) ~ "NONE"
+          , is.na(ref_species_symbol) ~ "UNKNOWN"
+          , T ~ ref_species_symbol
+        )
     )
-    , dplyr::across(
-      tidyselect::starts_with("ref_species_") & !c("ref_species_symbol")
-      , .fns = ~dplyr::case_when(
-        is.na(ref_species_symbol) ~ "NONE"
-        , is.na(.x) ~ "UNKNOWN"
-        , T ~ .x
-      )
-    )
-    , pred_species_symbol = dplyr::case_when(
-        is.na(pred_species_symbol) ~ "NONE"
-        , is.na(pred_species_symbol) ~ "UNKNOWN"
-        , T ~ pred_species_symbol
-      )
-    , ref_species_symbol = dplyr::case_when(
-        is.na(ref_species_symbol) ~ "NONE"
-        , is.na(ref_species_symbol) ~ "UNKNOWN"
-        , T ~ ref_species_symbol
-      )
-  )
   
-# w_species %>% dplyr::glimpse()
-# w_species %>% dplyr::count(pred_species_genus,ref_species_genus)
-
-##############################################
-# pivot for confusion matrix
-##############################################
-
-cm_df <-
-  w_species %>% 
-  dplyr::count(pred_species_symbol,ref_species_symbol) %>% 
-  # make sure matrix diagonal is available
-  dplyr::full_join(
-    w_species %>% 
-      dplyr::distinct(ref_species_symbol) %>% 
-      dplyr::mutate(pred_species_symbol=ref_species_symbol)
-    , by = dplyr::join_by(ref_species_symbol,pred_species_symbol)
-  ) %>% 
-  dplyr::mutate(n=dplyr::coalesce(n,0)) %>% 
-  tidyr::pivot_wider(
-    names_from = pred_species_symbol
-    , values_from = n
-    , values_fill = 0
-  ) %>% 
-  # again make sure matrix diagonal is available
-  dplyr::bind_rows(
-    dplyr::tibble(
-      ref_species_symbol = 
-        base::setdiff(
-          unique(w_species$pred_species_symbol)
-          , unique(w_species$ref_species_symbol)
-        )
-    )
-  ) %>% 
-  dplyr::mutate(
-    dplyr::across(
-      .cols = dplyr::where(is.numeric)
-      , .fns = ~dplyr::coalesce(.x,0)
-    )
-  ) %>% 
-  dplyr::relocate(NONE, .after = dplyr::last_col()) %>% 
-  dplyr::mutate(sorter = ref_species_symbol=="NONE") %>% 
-  dplyr::arrange(sorter, ref_species_symbol) %>%
-  dplyr::select(-sorter)
-# rearrange columns for matrix diagonal
-cm_df <- 
-  cm_df %>% 
-  dplyr::select(
-    ref_species_symbol
-    , dplyr::all_of(
-      sort(unique(cm_df$ref_species_symbol))
-    )
-    , base::setdiff(names(cm_df %>% dplyr::select(-ref_species_symbol)),unique(cm_df$ref_species_symbol))
-  ) %>% 
-  dplyr::relocate(NONE, .after = dplyr::last_col())
-
-
-# cm_df %>% dplyr::glimpse()
-# cm_df
-
-##############################################
-# calc accuracy metrics
-##############################################
-
-#######################
-# overall (OA)
-#######################
-
-# all tp, fp, fn
-overall_n <- nrow(w_species) %>% dplyr::coalesce(0)
-# matching but excludes NONE and NONE
-correct_n <- 
-  w_species %>% 
-  dplyr::filter(
-    pred_species_symbol == ref_species_symbol
-    , pred_species_symbol != "NONE"
-  ) %>% 
-  nrow() %>% 
-  dplyr::coalesce(0)
-
-overall_accuracy <- ifelse(
-  overall_n == 0, NA
-  , (correct_n / overall_n)
-)
-# overall_accuracy
-
-#######################
-# UA and PA
-#######################
-# combine total counts
-tp_by_species <- 
-  w_species %>% 
-  dplyr::filter(
-    pred_species_symbol == ref_species_symbol
-    , pred_species_symbol != "NONE"
-  ) %>% 
-  dplyr::count(species_symbol = pred_species_symbol, name = "correct_n")
-
-# tot pred by species (denominator for UA)
-pred_tot <- 
-  w_species %>% 
-  dplyr::filter(pred_species_symbol != "NONE") %>% 
-  dplyr::count(species_symbol = pred_species_symbol, name = "tot_pred_n")
-
-# tot ref by species (denominator for PA)
-ref_tot <- 
-  w_species %>% 
-  dplyr::filter(ref_species_symbol != "NONE") %>% 
-  dplyr::count(species_symbol = ref_species_symbol, name = "tot_ref_n")
-
-# bring together
-species_accuracy_df <-
-  pred_tot %>% 
-  # full_join makes all combination
-  dplyr::full_join(ref_tot, by = "species_symbol") %>% 
-  dplyr::left_join(tp_by_species, by = "species_symbol") %>% 
-  # clean up
-  dplyr::mutate(
-    dplyr::across(
-      c(correct_n, tot_pred_n, tot_ref_n)
-      , ~dplyr::coalesce(.x, 0)
-    )
-    # handle 0 in denominator
-    , users_accuracy = dplyr::case_when(
-      tot_pred_n == 0 & tot_ref_n == 0 ~ 1
-      , tot_pred_n == 0 ~ as.numeric(NA)
-      , T ~ correct_n / tot_pred_n
-    )
-    , producers_accuracy = dplyr::case_when(
-      tot_pred_n == 0 & tot_ref_n == 0 ~ 1
-      , tot_ref_n == 0 ~ as.numeric(NA)
-      , T ~ correct_n / tot_ref_n
-    )
-  )
-
-species_accuracy_df
-cm_df
-
-species_accuracy_df_lab <- species_accuracy_df %>% 
-  dplyr::mutate(
-    dplyr::across(
-      tidyselect::ends_with("_n")
-      , ~ scales::comma(.x,accuracy=1)
-    )
-    , dplyr::across(
-      tidyselect::ends_with("_accuracy")
-      , ~ scales::percent(.x,accuracy=.1)
-    )
-  )
-species_accuracy_df_lab
-
-# make a kableExtra table
-kbl_table_df <-
-  cm_df %>% 
-  dplyr::mutate(
-    dplyr::across(
-      dplyr::where(is.numeric)
-      , ~ scales::comma(.x,accuracy=1)
-    )
-  ) %>% 
-  dplyr::left_join(
-    species_accuracy_df_lab %>% 
-      dplyr::select(species_symbol,tot_ref_n,producers_accuracy) %>% 
-      dplyr::bind_rows(
-        dplyr::tibble(
-          species_symbol = "NONE"
-          , tot_ref_n = scales::comma(
-            (w_species %>% dplyr::filter(ref_species_symbol=="NONE") %>% nrow())
-            , accuracy=1
-          )
-        )
-      )
-    , by = dplyr::join_by(ref_species_symbol==species_symbol)
-  ) %>% 
-  # add on column totals
-  dplyr::bind_rows(
-    cm_df %>% 
-      dplyr::distinct(ref_species_symbol) %>% 
-      dplyr::left_join(
-        species_accuracy_df_lab %>% 
-          dplyr::select(species_symbol,tot_pred_n)
-        , by = dplyr::join_by(ref_species_symbol==species_symbol)
-      ) %>% 
-      tidyr::pivot_wider(names_from = ref_species_symbol, values_from = c(tot_pred_n)) %>% 
-      dplyr::mutate(ref_species_symbol = "Total Predicted") %>% 
-      dplyr::relocate(ref_species_symbol) %>% 
+  if(use_only_tp){
+    w_species_temp <- w_species_temp %>% dplyr::filter(match_grp == "true positive")
+  }
+  
+  # w_species_temp %>% dplyr::glimpse()
+  # w_species_temp %>% dplyr::count(pred_species_genus,ref_species_genus)
+  
+  if(use_genus){
+    w_species_temp <- w_species_temp %>% 
       dplyr::mutate(
-        NONE = scales::comma(
-            (w_species %>% dplyr::filter(pred_species_symbol=="NONE") %>% nrow())
-            , accuracy=1
+        xxx_pred = pred_species_symbol
+        , xxx_ref = ref_species_symbol
+        , pred_species_symbol = pred_species_genus
+        , ref_species_symbol = ref_species_genus
+      )
+  }
+    
+  
+  
+  ##############################################
+  # pivot for confusion matrix
+  ##############################################
+  
+  cm_df_temp <-
+    w_species_temp %>% 
+    dplyr::count(pred_species_symbol,ref_species_symbol) %>% 
+    # make sure matrix diagonal is available
+    dplyr::full_join(
+      w_species_temp %>% 
+        dplyr::distinct(ref_species_symbol) %>% 
+        dplyr::mutate(pred_species_symbol=ref_species_symbol)
+      , by = dplyr::join_by(ref_species_symbol,pred_species_symbol)
+    ) %>% 
+    dplyr::mutate(n=dplyr::coalesce(n,0)) %>% 
+    tidyr::pivot_wider(
+      names_from = pred_species_symbol
+      , values_from = n
+      , values_fill = 0
+    ) %>% 
+    # again make sure matrix diagonal is available
+    dplyr::bind_rows(
+      dplyr::tibble(
+        ref_species_symbol = 
+          base::setdiff(
+            unique(w_species_temp$pred_species_symbol)
+            , unique(w_species_temp$ref_species_symbol)
           )
       )
-  ) %>% 
-  # add on PA
-  dplyr::bind_rows(
-    cm_df %>% 
-      dplyr::distinct(ref_species_symbol) %>% 
-      dplyr::left_join(
-        species_accuracy_df_lab %>% 
-          dplyr::select(species_symbol,users_accuracy)
-        , by = dplyr::join_by(ref_species_symbol==species_symbol)
-      ) %>% 
-      tidyr::pivot_wider(names_from = ref_species_symbol, values_from = c(users_accuracy)) %>% 
-      dplyr::mutate(ref_species_symbol = "User's Accuracy") %>% 
-      dplyr::relocate(ref_species_symbol)
-  ) %>% 
-  dplyr::rename(
-    `Total Reference` = tot_ref_n
-    , `Producer's Accuracy` = producers_accuracy
-  )
-
-# kbl_table_df
-
-### table that
-kbl_table_df %>% 
-  kableExtra::kbl() %>% 
-  kableExtra::kable_styling() %>% 
-  # Thick borders under the last and second-to-last rows
-  kableExtra::row_spec(
-    c(nrow(kbl_table_df) - 2, nrow(kbl_table_df) - 1, nrow(kbl_table_df))
-    , extra_css = "border-bottom: 3px solid black !important;"
-  ) %>%
-  # Thick borders to the right of the last and second-to-last columns
-  kableExtra::column_spec(
-    c(ncol(kbl_table_df) - 2, ncol(kbl_table_df) - 1, ncol(kbl_table_df))
-    , extra_css = "border-right: 3px solid black !important;"
-  )
+    ) %>% 
+    dplyr::mutate(
+      dplyr::across(
+        .cols = dplyr::where(is.numeric)
+        , .fns = ~dplyr::coalesce(.x,0)
+      )
+    ) %>% 
+    dplyr::mutate(sorter = ref_species_symbol=="NONE") %>% 
+    dplyr::arrange(sorter, ref_species_symbol) %>%
+    dplyr::select(-sorter)
+  # rearrange columns for matrix diagonal
+  cm_df_temp <- 
+    cm_df_temp %>% 
+    dplyr::select(
+      ref_species_symbol
+      , dplyr::all_of(
+        sort(unique(cm_df_temp$ref_species_symbol))
+      )
+      , base::setdiff(names(cm_df_temp %>% dplyr::select(-ref_species_symbol)),unique(cm_df_temp$ref_species_symbol))
+    )
   
+  if(any(stringr::str_equal(names(cm_df_temp), "UNKNOWN"))){
+    cm_df_temp <- cm_df_temp %>% dplyr::relocate(UNKNOWN, .after = dplyr::last_col())
+  }
+  if(any(stringr::str_equal(names(cm_df_temp), "NONE"))){
+    cm_df_temp <- cm_df_temp %>% dplyr::relocate(NONE, .after = dplyr::last_col())
+  }
+  
+  # cm_df_temp %>% dplyr::glimpse()
+  # cm_df_temp
+  
+  ##############################################
+  # calc accuracy metrics
+  ##############################################
+  
+  #######################
+  # overall (OA)
+  #######################
+  
+  # all reference and prediction records
+  overall_n_temp <- nrow(w_species_temp) %>% dplyr::coalesce(0)
+  # matching but excludes NONE and NONE
+  correct_n_temp <- 
+    w_species_temp %>% 
+    dplyr::filter(
+      pred_species_symbol == ref_species_symbol
+      , pred_species_symbol != "NONE"
+    ) %>% 
+    nrow() %>% 
+    dplyr::coalesce(0)
+  
+  overall_accuracy_temp <- ifelse(
+    overall_n_temp == 0, NA
+    , (correct_n_temp / overall_n_temp)
+  )
+  # overall_accuracy_temp
+  
+  #######################
+  # UA and PA
+  #######################
+  # combine total counts
+  tp_by_species_temp <- 
+    w_species_temp %>% 
+    dplyr::filter(
+      pred_species_symbol == ref_species_symbol
+      , pred_species_symbol != "NONE"
+    ) %>% 
+    dplyr::count(species_symbol = pred_species_symbol, name = "correct_n")
+  
+  # tot pred by species (denominator for UA)
+  pred_tot_temp <- 
+    w_species_temp %>% 
+    dplyr::filter(pred_species_symbol != "NONE") %>% 
+    dplyr::count(species_symbol = pred_species_symbol, name = "tot_pred_n")
+  
+  # tot ref by species (denominator for PA)
+  ref_tot_temp <- 
+    w_species_temp %>% 
+    dplyr::filter(ref_species_symbol != "NONE") %>% 
+    dplyr::count(species_symbol = ref_species_symbol, name = "tot_ref_n")
+  
+  # bring together
+  species_accuracy_df_temp <-
+    pred_tot_temp %>% 
+    # full_join makes all combination
+    dplyr::full_join(ref_tot_temp, by = "species_symbol") %>% 
+    dplyr::left_join(tp_by_species_temp, by = "species_symbol") %>% 
+    # clean up
+    dplyr::mutate(
+      dplyr::across(
+        c(correct_n, tot_pred_n, tot_ref_n)
+        , ~dplyr::coalesce(.x, 0)
+      )
+      # handle 0 in denominator
+      , users_accuracy = dplyr::case_when(
+        tot_pred_n == 0 & tot_ref_n == 0 ~ 1
+        , tot_pred_n == 0 ~ as.numeric(NA)
+        , T ~ correct_n / tot_pred_n
+      )
+      , producers_accuracy = dplyr::case_when(
+        tot_pred_n == 0 & tot_ref_n == 0 ~ 1
+        , tot_ref_n == 0 ~ as.numeric(NA)
+        , T ~ correct_n / tot_ref_n
+      )
+    )
+  
+  species_accuracy_df_temp
+  # cm_df_temp
+  
+  species_accuracy_df_lab_temp <- species_accuracy_df_temp %>% 
+    dplyr::mutate(
+      dplyr::across(
+        tidyselect::ends_with("_n")
+        , ~ scales::comma(.x,accuracy=1)
+      )
+      , dplyr::across(
+        tidyselect::ends_with("_accuracy")
+        , ~ scales::percent(.x,accuracy=.1)
+      )
+    )
+  # species_accuracy_df_lab_temp
+  
+  # make a kableExtra table
+  kbl_table_df_temp <-
+    cm_df_temp %>% 
+    dplyr::mutate(
+      dplyr::across(
+        dplyr::where(is.numeric)
+        , ~ scales::comma(.x,accuracy=1)
+      )
+    ) %>% 
+    dplyr::left_join(
+      species_accuracy_df_lab_temp %>% 
+        dplyr::select(species_symbol,tot_ref_n,producers_accuracy) %>% 
+        dplyr::bind_rows(
+          dplyr::tibble(
+            species_symbol = "NONE"
+            , tot_ref_n = scales::comma(
+              (w_species_temp %>% dplyr::filter(ref_species_symbol=="NONE") %>% nrow())
+              , accuracy=1
+            )
+          )
+        )
+      , by = dplyr::join_by(ref_species_symbol==species_symbol)
+    ) %>% 
+    # add on column totals
+    dplyr::bind_rows(
+      cm_df_temp %>% 
+        dplyr::distinct(ref_species_symbol) %>% 
+        dplyr::left_join(
+          species_accuracy_df_lab_temp %>% 
+            dplyr::select(species_symbol,tot_pred_n)
+          , by = dplyr::join_by(ref_species_symbol==species_symbol)
+        ) %>% 
+        tidyr::pivot_wider(names_from = ref_species_symbol, values_from = c(tot_pred_n)) %>% 
+        dplyr::mutate(ref_species_symbol = "Total Predicted") %>% 
+        dplyr::relocate(ref_species_symbol) %>% 
+        dplyr::mutate(
+          NONE = scales::comma(
+              (w_species_temp %>% dplyr::filter(pred_species_symbol=="NONE") %>% nrow())
+              , accuracy=1
+            )
+          # diagonal totals
+          , tot_ref_n = scales::comma(
+              (w_species_temp %>% nrow())
+              , accuracy=1
+            )
+        )
+    ) %>% 
+    # add on PA
+    dplyr::bind_rows(
+      cm_df_temp %>% 
+        dplyr::distinct(ref_species_symbol) %>% 
+        dplyr::left_join(
+          species_accuracy_df_lab_temp %>% 
+            dplyr::select(species_symbol,users_accuracy)
+          , by = dplyr::join_by(ref_species_symbol==species_symbol)
+        ) %>% 
+        tidyr::pivot_wider(names_from = ref_species_symbol, values_from = c(users_accuracy)) %>% 
+        dplyr::mutate(ref_species_symbol = "User's Accuracy") %>% 
+        dplyr::relocate(ref_species_symbol) %>% 
+        # add diagonals and overall accuracy
+        dplyr::mutate(
+          tot_ref_n = as.character(NA)
+          , producers_accuracy = scales::number(overall_accuracy_temp[1]*100, accuracy = 0.1, prefix = "<b>OA: ", suffix = "%</b>")
+        )
+    ) %>% 
+    dplyr::rename(
+      `Total Reference` = tot_ref_n
+      , `Producer's Accuracy` = producers_accuracy
+    ) %>% 
+    dplyr::mutate(
+      grp = ifelse(
+        dplyr::row_number()<=(dplyr::n()-2)
+        , "Reference"
+        , ""
+      )
+    ) %>% 
+    dplyr::relocate(grp)
+  
+  # kbl_table_df_temp
+  
+  if(use_only_tp){
+    kbl_table_df_temp <- kbl_table_df_temp %>% dplyr::select(-NONE) # none is only for FP and FN
+  }
+  
+  
+  ## table that
+  kbl_html_table_temp <- 
+    kbl_table_df_temp %>% 
+    kableExtra::kbl(
+      col.names = c(
+        "."
+        , ""
+        , names(kbl_table_df_temp)[3:ncol(kbl_table_df_temp)]
+      )
+      , escape = F
+    ) %>% 
+    kableExtra::kable_styling(font_size = 11.5) %>% 
+    # header
+    kableExtra::add_header_above(
+      c(
+        " " = 2
+        , "Predicted" = (ncol(kbl_table_df_temp)-4)
+        , " " = 2
+      )
+    ) %>% 
+    # font
+    kableExtra::column_spec(1:2, bold = T) %>% 
+    kableExtra::column_spec(
+      1
+      , width = "4px"
+      , extra_css = "transform: rotate(-90deg);padding-left: 0.5px; padding-right: 0.5px;"
+    ) %>% 
+    # borders
+    kableExtra::row_spec(
+      c(nrow(kbl_table_df_temp) - 2, nrow(kbl_table_df_temp) - 1, nrow(kbl_table_df_temp))
+      # , border = T, 
+      , extra_css = "border-bottom: 3px solid black !important;"
+    ) %>%
+    kableExtra::column_spec(
+      c(ncol(kbl_table_df_temp) - 2, ncol(kbl_table_df_temp) - 1) #, ncol(kbl_table_df))
+      , border_right = T
+      , include_thead = T
+      , extra_css = "border-right: 3px solid black !important;"
+    ) %>% 
+    # ref lab
+    kableExtra::collapse_rows(columns = 1, valign = "middle")
+  
+  ##########
+  if(use_genus){
+    w_species_temp <- 
+      w_species_temp %>% 
+      dplyr::mutate(
+        pred_species_symbol = xxx_pred
+        , ref_species_symbol = xxx_ref
+      ) %>% 
+      dplyr::select(-c(xxx_ref,xxx_pred))
+  }
+  return(list(
+    pred_ref_match_w_species = w_species_temp
+    , overall_accuracy = overall_accuracy_temp
+    , species_accuracy_df = species_accuracy_df_temp
+    , kbl_html_table = kbl_html_table_temp
+  ))
+}
 
+# test that
+confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
+  pred_ref_match = pred_ref_tree_match_list$WFSI_EglinAFB
+  , pred_trees = pred_trees_list$WFSI_EglinAFB
+  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  , use_genus = F
+)
+confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
+  pred_ref_match = pred_ref_tree_match_list$WFSI_EglinAFB
+  , pred_trees = pred_trees_list$WFSI_EglinAFB
+  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  , use_genus = T
+)
+```
+
+let's check out the confusion matrix for at the *species* level
+
+```{r, results='asis'}
+confusion_matrix_species_temp$kbl_html_table
+```
+
+and the confusion matrix for at the *genus* level
+
+```{r, results='asis'}
+confusion_matrix_genus_temp$kbl_html_table
 ```
 
 
@@ -4570,57 +4688,6 @@ we shift away from individual item matching and use the Bray-Curtis Dissimilarit
 
 What it means for this dataset: Even though our individual-level classification accuracy was quite low (~42% Overall Accuracy due to spatial mix-ups and structural misses), the model achieved a 94.74% aggregate composition accuracy. It predicted 4 Douglas-firs and 6 Ponderosa Pines, while the ground truth had 4 Douglas-firs and 5 Ponderosa Pines.Real-World Ecological Application: This aggregate evaluation is highly valuable for large-scale timber cruising, carbon credit stock assessments, and landscape ecology. If a forestry manager only needs to know the total volume, fuel loading, or biomass ratios of species across a 100-acre watershed to write a wildfire management plan, they don't care if individual tree coordinates are slightly off. They care about aggregate community structure, making Bray-Curtis the more relevant metric.
 
-```{r}
-# Load the core tidyverse package
-library(tidyverse)
-
-# 1. Reuse our raw tree matching data (with FP, TP, and FN records)
-tree_data <- tibble::tibble(
-  match_grp = c("TP", "TP", "TP", "TP", "TP", "TP", "TP", "FN", "FN", "FP", "FP", "FP"),
-  ref_species_symbol = c("DF", "DF", "PP", "PP", "PP", "PP", "DF", "DF", "PP", NA, NA, NA),
-  pred_species_symbol = c("DF", "DF", "PP", "PP", "PP", "DF", "PP", NA, NA, "DF", "PP", "PP")
-)
-
-# 2. Aggregate counts to the community level (Excluding "NONE" ghost/missed categories)
-# Instead of tracking pairs, we find the total community makeup for each source.
-ref_community <- tree_data |> 
-  dplyr::filter(!is.na(ref_species_symbol)) |> 
-  dplyr::count(species = ref_species_symbol, name = "reference_count")
-
-pred_community <- tree_data |> 
-  dplyr::filter(!is.na(pred_species_symbol)) |> 
-  dplyr::count(species = pred_species_symbol, name = "predicted_count")
-
-# 3. Combine communities and compute Bray-Curtis Metrics
-community_evaluation <- dplyr::full_join(
-  ref_community, 
-  pred_community, 
-  by = "species"
-) |> 
-  # Replace NA with 0 if a species was entirely missed by one method
-  dplyr::mutate(
-    reference_count = tidyr::replace_na(reference_count, 0),
-    predicted_count = tidyr::replace_na(predicted_count, 0),
-    # Calculate components for Bray-Curtis
-    abs_difference = abs(reference_count - predicted_count),
-    sum_abundance = reference_count + predicted_count
-  )
-
-# 4. Extract global aggregate metrics
-total_abs_diff <- sum(community_evaluation$abs_difference)
-total_abundance <- sum(community_evaluation$sum_abundance)
-
-bray_curtis_dissimilarity <- total_abs_diff / total_abundance
-bray_curtis_similarity <- 1 - bray_curtis_dissimilarity
-
-# Print summary table and index results
-print(community_evaluation)
-cat("Bray-Curtis Dissimilarity Index :", round(bray_curtis_dissimilarity, 4), "\n")
-cat("Aggregate Composition Accuracy  :", round(bray_curtis_similarity * 100, 2), "%\n")
-
-```
-
-
 #### RF Predicted Species Composition Accuracy
 
 perform same prediction accuracy as above for comparison
@@ -4628,6 +4695,7 @@ perform same prediction accuracy as above for comparison
 for this demonstration, we'll limit our evaluation to a single flight since all flights used the same species prediction model and we are evaluating the method moreso than the flight settings when it comes to the species prediction. since we have data across the different flight settings we'll just use the flight that resulted in the highest F-score noting that the flights were very similar in their detection accuracy
 
 ```{r}
+xxxxxx
 species_comp_temp <- 
   forcats::lvls_union(list(
     validation_trees$species_symbol

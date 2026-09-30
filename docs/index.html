@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>cloud2trees Species Validation</title>
   <meta name="description" content="cloud2trees Species Validation" />
-  <meta name="generator" content="bookdown 0.34 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
 
   <meta property="og:title" content="cloud2trees Species Validation" />
   <meta property="og:type" content="book" />
@@ -30,7 +30,7 @@
   
   
 
-
+<link rel="next" href="data-and-process-overview.html"/>
 <script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
 <link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
@@ -51,6 +51,24 @@
 <link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
 <link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
 <script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+<link href="libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet" />
+<script src="libs/htmlwidgets-1.6.4/htmlwidgets.js"></script>
+<link href="libs/leaflet-1.3.1/leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-1.3.1/leaflet.js"></script>
+<link href="libs/leafletfix-1.0.0/leafletfix.css" rel="stylesheet" />
+<script src="libs/proj4-2.6.2/proj4.min.js"></script>
+<script src="libs/Proj4Leaflet-1.0.1/proj4leaflet.js"></script>
+<link href="libs/rstudio_leaflet-1.3.1/rstudio_leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-binding-2.2.3/leaflet.js"></script>
+<script src="libs/leaflet-providers-3.0.0/leaflet-providers.js"></script>
+<script src="libs/leaflet-providers-plugin-2.2.3/leaflet-providers-plugin.js"></script>
+<script src="libs/clipboard-0.0.1/setClipboardText.js"></script>
+<link href="libs/mapviewCSS-0.0.1/mapview-popup.css" rel="stylesheet" />
+<link href="libs/mapviewCSS-0.0.1/mapview.css" rel="stylesheet" />
+<script src="libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="libs/lightable-0.0.1/lightable.css" rel="stylesheet" />
+<link href="libs/bsTable-3.3.7/bootstrapTable.min.css" rel="stylesheet" />
+<script src="libs/bsTable-3.3.7/bootstrapTable.js"></script>
 <script type="text/javascript">
 
 // toggle visibility of R source blocks in R Markdown output
@@ -77,6 +95,71 @@ document.write('<input onclick="toggle_R();" type="button" value="Hide Code" id=
 </script>
 
 
+<style type="text/css">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
 
 <style type="text/css">
   
@@ -95,11 +178,21 @@ document.write('<input onclick="toggle_R();" type="button" value="Hide Code" id=
       <nav role="navigation">
 
 <ul class="summary">
-<li class="chapter" data-level="1" data-path="index.html"><a href="#introduction"><i class="fa fa-check"></i><b>1</b> Introduction</a>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Introduction</a>
 <ul>
-<li class="chapter" data-level="1.1" data-path="index.html"><a href="#proposed-species-classification-method"><i class="fa fa-check"></i><b>1.1</b> Proposed Species Classification Method</a></li>
-<li class="chapter" data-level="1.2" data-path="index.html"><a href="#validation-data-and-accuracy-evaluation"><i class="fa fa-check"></i><b>1.2</b> Validation Data and Accuracy Evaluation</a></li>
-<li class="chapter" data-level="1.3" data-path="index.html"><a href="#benefits-and-next-steps"><i class="fa fa-check"></i><b>1.3</b> Benefits and Next Steps</a></li>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#proposed-species-classification-method"><i class="fa fa-check"></i><b>1.1</b> Proposed Species Classification Method</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#validation-data-and-accuracy-evaluation"><i class="fa fa-check"></i><b>1.2</b> Validation Data and Accuracy Evaluation</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#benefits-and-next-steps"><i class="fa fa-check"></i><b>1.3</b> Benefits and Next Steps</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html"><i class="fa fa-check"></i><b>2</b> Data and Process Overview</a>
+<ul>
+<li class="chapter" data-level="2.1" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#eglin-air-force-base-florida"><i class="fa fa-check"></i><b>2.1</b> Eglin Air Force Base (Florida)</a>
+<ul>
+<li class="chapter" data-level="2.1.1" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#id_01_fld_dta"><i class="fa fa-check"></i><b>2.1.1</b> Field Data</a></li>
+<li class="chapter" data-level="2.1.2" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#id_02_ptcld_dta"><i class="fa fa-check"></i><b>2.1.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="2.1.3" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#id_03_itd"><i class="fa fa-check"></i><b>2.1.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="2.1.4" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#id_04_species"><i class="fa fa-check"></i><b>2.1.4</b> Species/Genera Prediction Method</a></li>
+</ul></li>
 </ul></li>
 </ul>
 
@@ -121,18 +214,18 @@ document.write('<input onclick="toggle_R();" type="button" value="Hide Code" id=
 <div id="header">
 <h1 class="title"><code>cloud2trees</code> Species Validation</h1>
 <p class="author"><em>George Woolsey</em></p>
-<p class="date"><em>06 July, 2026</em></p>
+<p class="date"><em>30 September, 2026</em></p>
 </div>
 <div id="introduction" class="section level1 hasAnchor" number="1">
-<h1><span class="header-section-number">1</span> Introduction<a href="#introduction" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<h1><span class="header-section-number">1</span> Introduction<a href="index.html#introduction" class="anchor-section" aria-label="Anchor link to header"></a></h1>
 <p>The <code>cloud2trees</code> R <a href="https://github.com/georgewoolsey/cloud2trees">package</a> provides a framework for generating single-tree forest inventories from aerial point cloud data. The pipeline consolidates workflows to process raw point clouds, identify individual trees, and extract or model tree-level structural attributes including location, height, diameter at breast height (DBH), and crown base height (CBH). Because aerial point clouds lack the spectral information typically used to identify tree species natively, species-level information within the <code>cloud2trees</code> framework is currently a critical gap. To address this limitation, this analysis evaluates a novel, computationally efficient workflow designed to predict tree species by fusing point cloud structural data with the <a href="https://www.fs.usda.gov/rds/archive/catalog/RDS-2025-0032">USFS TreeMap</a> data product. TreeMap is a raster map of imputed FIA plot identifiers at 30-meter spatial resolution for the conterminous United States, which can be used to link with FIA-measured tree list data. This FIA tree list data is already used in <code>cloud2trees</code> to build site-specific allometric equations to predict DBH from tree height using the trees of the TreeMap imputed plots.</p>
 <div id="proposed-species-classification-method" class="section level2 hasAnchor" number="1.1">
-<h2><span class="header-section-number">1.1</span> Proposed Species Classification Method<a href="#proposed-species-classification-method" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<h2><span class="header-section-number">1.1</span> Proposed Species Classification Method<a href="index.html#proposed-species-classification-method" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>The proposed workflow will use the imputed FIA plot lists from the 30-meter TreeMap raster product that fall within the extent of the point cloud being evaluated. Because the TreeMap data product is a raster of imputed plots for a given area at 30m resolution, we should not assume that the tree list of an imputed plot represents the actual trees present at that location with complete accuracy. Instead, we expect the TreeMap imputed plots to be more accurate as we look over a broader area with accuracy decreasing at smaller scales. That is, when we consider the tree composition of an entire forest stand we expect TreeMap to generally get the main species and forest type correct but for each 30m raster cell we expect it to be less accurate within a single cell, potentially being a completely incorrect representation of the actual ground setting. As such, we’ll weight the individual tree records based on the stability of the imputed plots looking over a window surrounding the focal cell. Specifically, we’ll calculate the proportion of surrounding cells (5x5) that share the same imputed plot identifier as the focal cell and use this weight as a measure of TreeMap’s predicted stability to place less weight on plots that occur infrequently and more weight on plots that occur frequently.</p>
 <p>To train the predictive model, trees from the selected FIA lists are assigned to their respective cell centers. Their coordinates are then spatially jittered within the 30-meter pixel boundary. This jittering breaks up the artificial grid lines of the raster data, creating a continuous spatial surface while preserving the broader species distribution trends. Using the FIA tree list data, we’ll build an ensemble of Random Forest species classification models trained on tree height and spatial coordinates. Because tree species is a categorical variable, we’ll generate a single prediction for each tree from the model ensemble using a majority voting system to output the final species prediction for each point cloud-derived tree.</p>
 </div>
 <div id="validation-data-and-accuracy-evaluation" class="section level2 hasAnchor" number="1.2">
-<h2><span class="header-section-number">1.2</span> Validation Data and Accuracy Evaluation<a href="#validation-data-and-accuracy-evaluation" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<h2><span class="header-section-number">1.2</span> Validation Data and Accuracy Evaluation<a href="index.html#validation-data-and-accuracy-evaluation" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>To test this propsed species classification method, we compiled a collection of validation datasets across diverse forest conditions for this specific analysis project. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.</p>
 <p>We’ll evaluate the species classification method using two approaches:</p>
 <ol style="list-style-type: decimal">
@@ -148,7 +241,7 @@ document.write('<input onclick="toggle_R();" type="button" value="Hide Code" id=
 <p>The Bray-Curtis index is a widely trusted metric in <a href="https://vegandevs.github.io/vegan/reference/vegdist.html">community ecology</a>. Dissimilarity/similarity metrics tell us how well the proposed method captures the overall ecological community structure. Even if individual tree predictions are misaligned, the proposed method may still capture the correct stand-level abundance proportions, which can still be valuable for management.</p>
 </div>
 <div id="benefits-and-next-steps" class="section level2 hasAnchor" number="1.3">
-<h2><span class="header-section-number">1.3</span> Benefits and Next Steps<a href="#benefits-and-next-steps" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<h2><span class="header-section-number">1.3</span> Benefits and Next Steps<a href="index.html#benefits-and-next-steps" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>Integrating species identification directly into the <code>cloud2trees</code> framework would enable the direct assign individual tree species before modeling secondary biophysical attributes (e.g., DBH, CrBH, CrBD) could improve tree-level precision (Weiskittel et al., 2011) and management decisions that require consideration of individual tree species for removal and retention during silvicultural treatment design or in modeling tree-level fire effects. Ultimately, these methods could enable the integration of species-specific allometries and fire behavior parameters at scale, supporting management needs where explicit tree-level species identification is less critical.</p>
 <ul>
 <li><p><strong>Species-Specific Allometry</strong>: Attaching species to the point cloud-derived tree list enables the application of targeted allometric equations such as those currently used to predict DBH from tree height.</p></li>
@@ -163,7 +256,7 @@ document.write('<input onclick="toggle_R();" type="button" value="Hide Code" id=
         </div>
       </div>
 
-
+<a href="data-and-process-overview.html" class="navigation navigation-next navigation-unique" aria-label="Next page"><i class="fa fa-angle-right"></i></a>
     </div>
   </div>
 <script src="libs/gitbook-2.6.7/js/app.min.js"></script>
