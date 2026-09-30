@@ -4467,16 +4467,43 @@ species_accuracy_df <-
     )
   )
 
-# species_accuracy_df
-# cm_df
+species_accuracy_df
+cm_df
 
-
+species_accuracy_df_lab <- species_accuracy_df %>% 
+  dplyr::mutate(
+    dplyr::across(
+      tidyselect::ends_with("_n")
+      , ~ scales::comma(.x,accuracy=1)
+    )
+    , dplyr::across(
+      tidyselect::ends_with("_accuracy")
+      , ~ scales::percent(.x,accuracy=.1)
+    )
+  )
+species_accuracy_df_lab
 
 # make a kableExtra table
-cm_df %>% 
+kbl_table_df <-
+  cm_df %>% 
+  dplyr::mutate(
+    dplyr::across(
+      dplyr::where(is.numeric)
+      , ~ scales::comma(.x,accuracy=1)
+    )
+  ) %>% 
   dplyr::left_join(
-    species_accuracy_df %>% 
-      dplyr::select(species_symbol,tot_ref_n,producers_accuracy)
+    species_accuracy_df_lab %>% 
+      dplyr::select(species_symbol,tot_ref_n,producers_accuracy) %>% 
+      dplyr::bind_rows(
+        dplyr::tibble(
+          species_symbol = "NONE"
+          , tot_ref_n = scales::comma(
+            (w_species %>% dplyr::filter(ref_species_symbol=="NONE") %>% nrow())
+            , accuracy=1
+          )
+        )
+      )
     , by = dplyr::join_by(ref_species_symbol==species_symbol)
   ) %>% 
   # add on column totals
@@ -4484,185 +4511,55 @@ cm_df %>%
     cm_df %>% 
       dplyr::distinct(ref_species_symbol) %>% 
       dplyr::left_join(
-        species_accuracy_df %>% 
+        species_accuracy_df_lab %>% 
           dplyr::select(species_symbol,tot_pred_n)
         , by = dplyr::join_by(ref_species_symbol==species_symbol)
       ) %>% 
       tidyr::pivot_wider(names_from = ref_species_symbol, values_from = c(tot_pred_n)) %>% 
       dplyr::mutate(ref_species_symbol = "Total Predicted") %>% 
       dplyr::relocate(ref_species_symbol) %>% 
-      dplyr::mutate(NONE = (w_species %>% dplyr::filter(pred_species_symbol=="NONE") %>% nrow()))
-  ) 
-  
+      dplyr::mutate(
+        NONE = scales::comma(
+            (w_species %>% dplyr::filter(pred_species_symbol=="NONE") %>% nrow())
+            , accuracy=1
+          )
+      )
+  ) %>% 
   # add on PA
   dplyr::bind_rows(
     cm_df %>% 
       dplyr::distinct(ref_species_symbol) %>% 
       dplyr::left_join(
-        species_accuracy_df %>% 
+        species_accuracy_df_lab %>% 
           dplyr::select(species_symbol,users_accuracy)
         , by = dplyr::join_by(ref_species_symbol==species_symbol)
       ) %>% 
       tidyr::pivot_wider(names_from = ref_species_symbol, values_from = c(users_accuracy)) %>% 
       dplyr::mutate(ref_species_symbol = "User's Accuracy") %>% 
       dplyr::relocate(ref_species_symbol)
+  ) %>% 
+  dplyr::rename(
+    `Total Reference` = tot_ref_n
+    , `Producer's Accuracy` = producers_accuracy
+  )
+
+# kbl_table_df
+
+### table that
+kbl_table_df %>% 
+  kableExtra::kbl() %>% 
+  kableExtra::kable_styling() %>% 
+  # Thick borders under the last and second-to-last rows
+  kableExtra::row_spec(
+    c(nrow(kbl_table_df) - 2, nrow(kbl_table_df) - 1, nrow(kbl_table_df))
+    , extra_css = "border-bottom: 3px solid black !important;"
+  ) %>%
+  # Thick borders to the right of the last and second-to-last columns
+  kableExtra::column_spec(
+    c(ncol(kbl_table_df) - 2, ncol(kbl_table_df) - 1, ncol(kbl_table_df))
+    , extra_css = "border-right: 3px solid black !important;"
   )
   
-
-```
-
-```{r}
-# ==========================================
-# 1. OVERALL ACCURACY CALCULATION
-# ==========================================
-
-# Count total unique entries
-grand_total_samples <- nrow(tree_data)
-
-# Count matching valid species pairs (excluding background NONE matches)
-correct_counts <- tree_data |>
-  dplyr::filter(pred_species_symbol == ref_species_symbol, pred_species_symbol != "NONE") |>
-  dplyr::count() |>
-  dplyr::pull(n)
-
-# Fallback in case there are zero true positives
-correct_counts <- ifelse(length(correct_counts) == 0, 0, correct_counts)
-
-overall_accuracy <- correct_counts / grand_total_samples
-
-
-# ==========================================
-# 2. USER'S AND PRODUCER'S ACCURACY CALCULATION
-# ==========================================
-
-
-# ==========================================
-# PRINT RESULTS
-# ==========================================
-cat("Overall Accuracy:", round(overall_accuracy, 4), "\n\n")
-print(species_accuracy_summary)
-```
-
-
-
-
-```{r}
-# 1. Establish the sample tree dataset
-tree_data <- tibble::tibble(
-  match_grp           = c("TP", "TP", "FP", "FN", "TP", "FP", "FN"),
-  pred_tree_id        = c("P01", "P02", "P03", NA, "P04", "P05", NA),
-  ref_tree_id         = c("R01", "R02", NA, "R03", "R04", NA, "R05"),
-  pred_species_symbol = c("PIPO", "PSME", "PIPO", NA, "PSME", "ABCO", NA),
-  ref_species_symbol  = c("PIPO", "PIPO", NA, "PSME", "PSME", NA, "ABCO")
-)
-
-# 2. Harmonize NA fields and create the matrix layout completely within tidyverse
-processed_trees <- tree_data |>
-  dplyr::mutate(
-    Target_Predicted = dplyr::coalesce(pred_species_symbol, "NONE"),
-    Target_Reference = dplyr::coalesce(ref_species_symbol, "NONE")
-  )
-
-# Calculate discrete cell intersection counts
-matrix_counts <- processed_trees |>
-  dplyr::count(Target_Predicted, Target_Reference)
-
-# Pivot wider to build a square confusion matrix layout
-wide_matrix <- matrix_counts |>
-  tidyr::pivot_wider(
-    names_from  = Target_Reference, 
-    values_from = n, 
-    values_fill = 0
-  )
-
-# Append explicit Row and Column summaries using tidyverse vector operations
-cf_matrix_with_totals <- wide_matrix |>
-  # Compute row totals
-  dplyr::rowwise() |>
-  dplyr::mutate(Total = sum(dplyr::c_across(where(is.numeric)))) |>
-  dplyr::ungroup() |>
-  # Bind a final summary row containing column totals
-  dplyr::bind_rows(
-    wide_matrix |>
-      dplyr::summarise(dplyr::across(where(is.numeric), sum)) |>
-      dplyr::mutate(
-        Target_Predicted = "Total",
-        Total            = sum(dplyr::c_across(where(is.numeric)))
-      )
-  )
-
-# Display the pure Tidyverse-constructed matrix via kableExtra
-cf_matrix_with_totals |>
-  knitr::kable(format = "html", caption = "Tidyverse Confusion Matrix (Including Background)") |>
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
-
-
-# Extract absolute species list (excluding summary tags)
-species_list <- setdiff(cf_matrix_with_totals$Target_Predicted, c("NONE", "Total"))
-
-# Convert wide matrix structure into a long format to cleanly extract accuracy pairs
-metrics_long <- cf_matrix_with_totals |>
-  dplyr::filter(Target_Predicted != "Total") |>
-  tidyr::pivot_longer(
-    cols      = -Target_Predicted, 
-    names_to  = "Target_Reference", 
-    values_to = "Count"
-  )
-
-# 1. Isolate True Positives and calculate Overall Accuracy
-true_positives_sum <- metrics_long |>
-  dplyr::filter(Target_Predicted == Target_Reference, Target_Predicted != "NONE") |>
-  dplyr::summarise(total_tp = sum(Count)) |>
-  dplyr::pull(total_tp)
-
-grand_total_items <- metrics_long |>
-  dplyr::filter(Target_Predicted == "NONE" | Target_Reference == "NONE") |>
-  dplyr::summarise(grand_total = sum(Count)) |>
-  # Include true positives to get the denominator
-  dplyr::mutate(grand_total = grand_total + true_positives_sum) |>
-  dplyr::pull(grand_total)
-
-overall_accuracy <- true_positives_sum / grand_total_items
-
-# 2. Extract User's Accuracy (Precision) per unique species group
-users_accuracy_table <- metrics_long |>
-  # Focus strictly on true classifications vs total predicted per row
-  dplyr::filter(Target_Predicted %in% species_list) |>
-  dplyr::group_by(Target_Predicted) |>
-  dplyr::summarise(
-    True_Positives  = sum(Count[Target_Reference == Target_Predicted]),
-    Total_Predicted = sum(Count[Target_Reference != "Total"]), # Exclude the Total column column
-    Users_Accuracy  = True_Positives / Total_Predicted,
-    .groups         = "drop"
-  ) |>
-  dplyr::rename(Species = Target_Predicted)
-
-# Output summary layout
-users_accuracy_table |>
-  knitr::kable(format = "html", digits = 3, caption = "User's Accuracy (Precision) Table") |>
-  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
-
-
-# Ensure all possible combinations are visually represented in the plot
-complete_tile_data <- processed_trees |>
-  dplyr::count(Target_Predicted, Target_Reference) |>
-  tidyr::complete(Target_Predicted, Target_Reference, fill = list(n = 0))
-
-ggplot2::ggplot(complete_tile_data, ggplot2::aes(x = Target_Reference, y = Target_Predicted, fill = n)) +
-  ggplot2::geom_tile(color = "white", linewidth = 0.6) +
-  ggplot2::geom_text(ggplot2::aes(label = n), color = "black", size = 5, fontface = "bold") +
-  ggplot2::scale_fill_gradient(low = "#fdf8f7", high = "#b2182b", name = "Tree Match N") +
-  ggplot2::labs(
-    title = "Tree Class Validation Matrix",
-    subtitle = paste0("Overall Target Accuracy: ", round(overall_accuracy * 100, 1), "%"),
-    x = "Reference Field Truth Status",
-    y = "Model Output Prediction Status"
-  ) +
-  ggplot2::theme_minimal(base_size = 12) +
-  ggplot2::theme(
-    panel.grid = ggplot2::element_blank(),
-    axis.text  = ggplot2::element_text(face = "bold", size = 11)
-  )
 
 ```
 
