@@ -38,6 +38,9 @@ library(terra) # raster
 library(sf) # simple features
 library(lidR) # lidar data
 library(cloud2trees) # the cloud2trees
+
+# other
+library(vegan) # community analysis
 ```
 
 ```{r pkg-ld, include=F, warning=F, message=F}
@@ -95,9 +98,9 @@ We're going to use this first study site and associated data to demonstrate the 
   - Utilize multiple window functions for ITD
   - Evaluate detection accuracy with segmentation matching of the predicted crowns with the field reference points
   - Select the best performing window function with the ITD result used for the remaining species method validation
-* [Species/Genera Prediction](#04_species): Predict species for the point cloud-generated tree list
-* [Tree-level Species/Genera Evaluation]: Evaluate the tree-level accuracy of the proposed classification method
-* [Site-level Species/Genera Evaluation]: Evaluate the site-level accuracy of the proposed classification method based on proportional distributions
+* [Species/Genus Prediction](#04_species): Predict species for the point cloud-generated tree list
+* [Tree-level Species/Genus Evaluation](#05_tree_acc): Evaluate the tree-level accuracy of the proposed classification method
+* [Site-level Species/Genus Evaluation](06_site_acc): Evaluate the site-level accuracy of the proposed classification method based on proportional distributions
 
 ## Eglin Air Force Base (Florida)
 
@@ -3042,7 +3045,7 @@ remove(cloud2raster_ans)
 gc()
 ```
 
-### Species/Genera Prediction Method{#04_species}
+### Species/Genus Prediction Method{#04_species}
 
 for some context of the primary objective of this analysis, here is what we said in the `cloud2trees` manuscript (a draft of the manuscript which may be different than what was actually published): 
 
@@ -3592,7 +3595,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-#### Predict Species
+### Predict Species/Genus Application
 
 let's implement a random forest model majority voting for species with the objective to reduce estimation time (compared to a Bayesian Softmax model)
 
@@ -4232,7 +4235,9 @@ ref_trees_list$WFSI_EglinAFB <- ref_trees_list$WFSI_EglinAFB %>%
   )
 ```
 
-#### Tree-Level Accuracy
+### Species/Genus Accuracy Evaluation
+
+#### Tree-Level Accuracy{#05_tree_acc}
 
 Given that our analysis is focused on evaluating the proposed taxonomic classification algorithm (rather than the individual tree detection method), we'll evaluate the taxonomic classification accuracy conditionally for successfully detected tree crowns (true positive matches). This conditional evaluation will allow us to isolate taxonomic model performance from tree detection errors (reviewed above [here](#03_itd)). In practice, the ITD window function would be tuned for the specific site and data being analyzed, but we implemented an automated ITD window selection process here since we will be evaluating many different sites and forest types.
 
@@ -4256,6 +4261,8 @@ $$\text{Producer's Accuracy (Species } i\text{)} = \frac{\text{Number of Correct
 remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
+
+let's make a function to get the confusion matrix and those accuracy metrics
 
 ```{r}
 # fia_species_lookup %>% dplyr::glimpse()
@@ -4657,7 +4664,7 @@ confusion_matrix_tree_class_fn <- function(pred_ref_match, pred_trees, ref_trees
 # test that
 confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
   pred_ref_match = pred_ref_tree_match_list$WFSI_EglinAFB
-  , pred_trees = pred_trees_list$WFSI_EglinAFB
+  , <- = pred_trees_list$WFSI_EglinAFB
   , ref_trees = ref_trees_list$WFSI_EglinAFB
   , use_genus = F
 )
@@ -4681,31 +4688,60 @@ and the confusion matrix for at the *genus* level
 confusion_matrix_genus_temp$kbl_html_table
 ```
 
-
-#### Aggregate Community-Level Accuracy
+#### Site-Level Accuracy{#06_site_acc}
 
 we shift away from individual item matching and use the Bray-Curtis Dissimilarity Index. This metric compares the total abundance (counts) of each species predicted by the model against the reference counts within a defined area or site.
 
-What it means for this dataset: Even though our individual-level classification accuracy was quite low (~42% Overall Accuracy due to spatial mix-ups and structural misses), the model achieved a 94.74% aggregate composition accuracy. It predicted 4 Douglas-firs and 6 Ponderosa Pines, while the ground truth had 4 Douglas-firs and 5 Ponderosa Pines.Real-World Ecological Application: This aggregate evaluation is highly valuable for large-scale timber cruising, carbon credit stock assessments, and landscape ecology. If a forestry manager only needs to know the total volume, fuel loading, or biomass ratios of species across a 100-acre watershed to write a wildfire management plan, they don't care if individual tree coordinates are slightly off. They care about aggregate community structure, making Bray-Curtis the more relevant metric.
+Instead of evaluating trees one by one, this accuracy evaluation aggregates the species counts or proportions across an entire plot or forest stand. It then calculates the Bray-Curtis dissimilarity index to compare the predicted species composition against the observed field composition. The index returns a value between 0 and 1, where 0 indicates identical species compositions and 1 indicates completely non-overlapping communities. Because Bray-Curtis is a dissimilarity measure, it can be interpreted as: 
 
-#### RF Predicted Species Composition Accuracy
+$$\textrm{Bray-Curtis}_{dissimilarity} \approx 1-\textrm{Bray-Curtis}_{similarity}$$
 
-perform same prediction accuracy as above for comparison
+The Bray-Curtis index is a widely trusted metric in [community ecology](https://vegandevs.github.io/vegan/reference/vegdist.html). Dissimilarity/similarity metrics tell us how well the proposed method captures the overall ecological community structure. Even if individual tree predictions are misaligned, the proposed method may still capture the correct stand-level abundance proportions, which can still be valuable for management.
 
-for this demonstration, we'll limit our evaluation to a single flight since all flights used the same species prediction model and we are evaluating the method moreso than the flight settings when it comes to the species prediction. since we have data across the different flight settings we'll just use the flight that resulted in the highest F-score noting that the flights were very similar in their detection accuracy
+*What it means for this evaluation*: Even if individual-level classification accuracy is low, the model may still achieve acceptable aggregate composition accuracy. 
+*Real-World Ecological Application*: This aggregate evaluation is valuable for large-scale forest structure measurement including: timber management, carbon and fuel assessments, and landscape ecology patterns. If a forestry manager only needs to know the total volume, fuel loading, or biomass ratios of species across a 100-acre area to write a wildfire management plan, they don't care if individual tree predictions are slightly off. They care about aggregate community structure, making Bray-Curtis the more relevant metric.
+
+
+let's make a function to use the full prediction and reference data irrespective of instance matching status to calculate the aggregated species composition metrics
 
 ```{r}
-xxxxxx
-species_comp_temp <- 
-  forcats::lvls_union(list(
-    validation_trees$species_symbol
-    , predicted_trees %>% purrr::list_rbind() %>% dplyr::pull(species_symbol)
-  )) %>% 
-  dplyr::as_tibble() %>% 
-  dplyr::rename(species_symbol=value) %>% 
+pred_trees <- pred_trees_list$WFSI_EglinAFB
+ref_trees <- ref_trees_list$WFSI_EglinAFB
+
+species_comp_temp <-
+  dplyr::tibble(
+    species_symbol = c(ref_trees$species_symbol, pred_trees$species_symbol) %>% unique()
+  ) %>% 
+  # join on species data
+  # add on species info
+  dplyr::left_join(
+    fia_species_lookup %>% 
+      dplyr::select(-spcd) %>% 
+      dplyr::rename_with(
+        .cols = -c(species_symbol)
+        , .fn = ~paste0("species_",.x,recycle0 = T)
+      )
+      , by = "species_symbol"
+    ) %>% 
+    # clean up missing
+    dplyr::mutate(
+      dplyr::across(
+        tidyselect::starts_with("species_") & !c("species_symbol")
+        , .fns = ~dplyr::case_when(
+          is.na(species_symbol) ~ "NONE"
+          , is.na(.x) ~ "UNKNOWN"
+          , T ~ .x
+        )
+      )
+      , species_symbol = dplyr::case_when(
+        is.na(species_symbol) ~ "NONE"
+        , is.na(species_symbol) ~ "UNKNOWN"
+        , T ~ species_symbol
+      )
+  ) %>% 
   # count reference trees
   dplyr::left_join(
-    validation_trees %>% 
+    ref_trees %>% 
       sf::st_drop_geometry() %>% 
       dplyr::count(species_symbol) %>% 
       dplyr::mutate(pct=n/sum(n)) %>% 
@@ -4717,12 +4753,7 @@ species_comp_temp <-
   ) %>% 
   # count pred trees
   dplyr::left_join(
-    predicted_trees %>% 
-      purrr::pluck(
-        agg_ground_truth_match_ans %>% 
-          dplyr::slice_max(n=1, order_by = f_score, with_ties = F) %>% 
-          dplyr::pull(dataset_factor)    
-      ) %>% 
+    pred_trees %>% 
       sf::st_drop_geometry() %>% 
       dplyr::count(species_symbol) %>% 
       dplyr::mutate(pct=n/sum(n)) %>% 
@@ -4741,17 +4772,17 @@ species_comp_temp <-
     , overlap_pct = pmin(pred_pct, ref_pct)
     , sq_pct_error = (pred_pct - ref_pct)^2
   )
-# species_comp_temp  
-```
+# species_comp_temp
 
-table the predicted versus reference counts by species
+xxxxxxx
 
-```{r}
-species_comp_temp %>% 
+# table the predicted versus reference counts by species
+# kbl_html_table_temp <- 
+  species_comp_temp %>% 
   dplyr::mutate(
     # # one column for diff/pct
-    pred_pct = paste0(scales::comma(pred_n,accuracy=1), "<br />(", scales::percent(pred_pct,accuracy=0.1), ")")
-    , ref_pct = paste0(scales::comma(ref_n,accuracy=1), "<br />(", scales::percent(ref_pct,accuracy=0.1), ")")
+    pred_pct = paste0(scales::percent(pred_pct,accuracy=0.1), "<br />(", scales::comma(pred_n,accuracy=1), ")")
+    , ref_pct = paste0(scales::percent(ref_pct,accuracy=0.1), "<br />(", scales::comma(ref_n,accuracy=1), ")")
   ) %>% 
   dplyr::select(species_symbol, pred_pct, ref_pct) %>% 
   tidyr::pivot_longer(
@@ -4760,7 +4791,7 @@ species_comp_temp %>%
     , values_to = "prop"
   ) %>% 
   dplyr::mutate(
-    dta = ifelse(dta == "pred_pct", "predicted", "field")
+    dta = ifelse(dta == "pred_pct", "predicted", "reference")
   ) %>% 
   tidyr::pivot_wider(
     names_from = species_symbol
@@ -4777,9 +4808,9 @@ species_comp_temp %>%
     )
     , escape = F
   ) %>% 
-  kableExtra::kable_styling() %>% 
+  kableExtra::kable_styling(font_size = 11.5) %>% 
   kableExtra::add_header_above(
-    c(" " = 1, "Species Tree Counts and Proportions" = nrow(species_comp_temp))
+    c(" " = 1, "Species Proportions and Tree Counts" = nrow(species_comp_temp))
   )
 ```
 

@@ -43,15 +43,15 @@ We'll evaluate the species classification method using two approaches:
 
 1. **Individual Tree-Level Accuracy**
 
-This approach evaluates classification accuracy at the individual tree level. It maps every predicted tree species against the reference field-measured tree using a classical confusion matrix cross-tabulation (i.e. True Positive, False Positive, False Negative counts).
+This approach evaluates classification accuracy at the individual tree level. It maps every predicted tree species against the reference field-measured tree using a classical confusion matrix cross-tabulation. Given that our analysis is focused on evaluating the proposed taxonomic classification algorithm (rather than the individual tree detection method), we'll evaluate the taxonomic classification accuracy conditionally for successfully detected tree crowns (true positive matches). This conditional evaluation will allow us to isolate taxonomic classification performance from tree detection errors.
 
-The confusion matrix will allow us to calculate class-specific performance metrics, including producer's accuracy (omission error) and user's accuracy (commission error) and overall accuracy
+The confusion matrix will allow us to calculate class-specific performance metrics, including producer's accuracy (omission error) and user's accuracy (commission error) and overall accuracy.
 
 2. **Stand-Wide Compositional Accuracy**
 
 Instead of evaluating trees one by one, this accuracy evaluation aggregates the species counts or proportions across an entire plot or forest stand. It then calculates the Bray-Curtis dissimilarity index to compare the predicted species composition against the observed field composition. The index returns a value between 0 and 1, where 0 indicates identical species compositions and 1 indicates completely non-overlapping communities. Because Bray-Curtis is a dissimilarity measure, it can be interpreted as: 
 
-$$\textrm{Bray-Curtis}_{dissimilarity} \approx 1-\textrm{Schoener}_{similarity}$$
+$$\textrm{Bray-Curtis}_{dissimilarity} \approx 1-\textrm{Bray-Curtis}_{similarity}$$
 
 The Bray-Curtis index is a widely trusted metric in [community ecology](https://vegandevs.github.io/vegan/reference/vegdist.html). Dissimilarity/similarity metrics tell us how well the proposed method captures the overall ecological community structure. Even if individual tree predictions are misaligned, the proposed method may still capture the correct stand-level abundance proportions, which can still be valuable for management.
 
