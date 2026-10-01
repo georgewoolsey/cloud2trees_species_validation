@@ -4664,7 +4664,7 @@ confusion_matrix_tree_class_fn <- function(pred_ref_match, pred_trees, ref_trees
 # test that
 confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
   pred_ref_match = pred_ref_tree_match_list$WFSI_EglinAFB
-  , <- = pred_trees_list$WFSI_EglinAFB
+  , pred_trees = pred_trees_list$WFSI_EglinAFB
   , ref_trees = ref_trees_list$WFSI_EglinAFB
   , use_genus = F
 )
@@ -4707,6 +4707,8 @@ let's make a function to use the full prediction and reference data irrespective
 ```{r}
 pred_trees <- pred_trees_list$WFSI_EglinAFB
 ref_trees <- ref_trees_list$WFSI_EglinAFB
+use_genus = F
+
 
 species_comp_temp <-
   dplyr::tibble(
@@ -4742,7 +4744,8 @@ species_comp_temp <-
   # count reference trees
   dplyr::left_join(
     ref_trees %>% 
-      sf::st_drop_geometry() %>% 
+      sf::st_drop_geometry() %>%
+      dplyr::ungroup() %>% 
       dplyr::count(species_symbol) %>% 
       dplyr::mutate(pct=n/sum(n)) %>% 
       dplyr::rename(
@@ -4754,7 +4757,8 @@ species_comp_temp <-
   # count pred trees
   dplyr::left_join(
     pred_trees %>% 
-      sf::st_drop_geometry() %>% 
+      sf::st_drop_geometry() %>%
+      dplyr::ungroup() %>% 
       dplyr::count(species_symbol) %>% 
       dplyr::mutate(pct=n/sum(n)) %>% 
       dplyr::rename(
@@ -4768,17 +4772,45 @@ species_comp_temp <-
       dplyr::where(is.numeric)
       , ~ dplyr::coalesce(.x,0)
     )
-    # calc intersecting shared area per species (Schoener's Overlap index component)
-    , overlap_pct = pmin(pred_pct, ref_pct)
-    , sq_pct_error = (pred_pct - ref_pct)^2
   )
 # species_comp_temp
 
-xxxxxxx
+if(use_genus){
+  species_comp_temp <- 
+    species_comp_temp %>% 
+    dplyr::group_by(species_genus) %>% 
+    dplyr::summarise(
+      dplyr::across(
+        dplyr::where(is.numeric)
+        , ~ sum(.x,na.rm=T)
+      ) 
+    ) %>% 
+    dplyr::ungroup()
+}
+# species_comp_temp
 
-# table the predicted versus reference counts by species
-# kbl_html_table_temp <- 
+# calc intersecting shared area per species (Schoener's Overlap index component)
+species_comp_temp <- 
   species_comp_temp %>% 
+  dplyr::mutate(
+    overlap_pct = pmin(pred_pct, ref_pct)
+    , sq_pct_error = (pred_pct - ref_pct)^2
+  )
+
+# species_comp_temp
+
+if(use_genus){
+  kbl_df_temp <- species_comp_temp %>% dplyr::rename(species_symbol=species_genus)
+  cap_temp <- "Taxonomic Genus Proportional Comparision"
+  head_temp <- "Genus Proportions and Tree Counts"
+}else{
+  kbl_df_temp <- species_comp_temp
+  cap_temp <- "Taxonomic Species Proportional Comparision"
+  head_temp <- "Species Proportions and Tree Counts"
+}
+# table the predicted versus reference counts by species
+kbl_html_table_temp <-
+  kbl_df_temp %>% 
   dplyr::mutate(
     # # one column for diff/pct
     pred_pct = paste0(scales::percent(pred_pct,accuracy=0.1), "<br />(", scales::comma(pred_n,accuracy=1), ")")
@@ -4800,7 +4832,7 @@ xxxxxxx
   dplyr::rename(`data`=dta) %>% 
   kableExtra::kbl(
     caption = paste0(
-      "Species Proportional Comparision"
+      cap_temp # "Taxonomic Proportional Comparision"
       , "<br />Total Overlap Index: "
       , sum(species_comp_temp$overlap_pct) %>% scales::percent(accuracy = 0.1 )
       # , "<br />Proportion RMSE: "
@@ -4810,8 +4842,62 @@ xxxxxxx
   ) %>% 
   kableExtra::kable_styling(font_size = 11.5) %>% 
   kableExtra::add_header_above(
-    c(" " = 1, "Species Proportions and Tree Counts" = nrow(species_comp_temp))
+    # named numeric vector req'd for dynamic label
+    setNames( c(1,nrow(species_comp_temp)), c(" ", head_temp) )
   )
+
+## dissimilarity index
+# library(vegan)
+
+# format data and pass to vegan::vegdist
+# ?vegan::vegdist
+# vegan needs a matrix :\
+bc_dissim_temp <-
+  species_comp_temp %>% 
+  dplyr::select(species_symbol, pred_n, ref_n) %>% 
+  tidyr::pivot_longer(cols = c(pred_n, ref_n), names_to = "which_dta", values_to = "n") %>% 
+  tidyr::pivot_wider(names_from = species_symbol, values_from = n) %>% 
+  dplyr::mutate(which_dta = ifelse(which_dta == "pred_n", "predicted", "reference")) %>% 
+  tibble::column_to_rownames(var = "which_dta") %>% 
+  # relative props
+  vegan::decostand(method = "total") %>% 
+  # dissimilarity
+  vegan::vegdist(method = "bray") %>% 
+  as.numeric()
+# sim
+bc_sim_temp <- 1 - bc_dissim_temp
+# table
+sim_table_temp <- 
+  dplyr::tibble(
+    metric = c(
+      "Bray-Curtis Dissimilarity Index"
+      , "Bray-Curtis Similarity"
+      , "Schoener's D (total overlap) Index"
+    )
+    , value = c(
+      bc_dissim_temp
+      , bc_sim_temp
+      , sum(species_comp_temp$overlap_pct) 
+    )
+    , huh = c(
+      "proportion of relative species profile mis-matched"
+      , "proportion of total distribution matching perfectly"
+      , "equal to Bray-Curtis similarity for proportions"
+    )
+  )
+xxxxxxx
+sim_table_temp %>% 
+  dplyr::mutate(dplyr::across(
+    dplyr::where(is.numeric)
+    , ~scales::percent(.x,accuracy=0.01)
+  )) %>% 
+  kableExtra::kbl(
+    caption = "Predicted vs Reference Profile Similarity Metrics"
+    , col.names = c("","value","interpretation")
+  ) %>% 
+  kableExtra::kable_styling() %>% 
+  kableExtra::column_spec(1:2, bold = TRUE)
+
 ```
 
 looks pretty similar to the bayesian model demonstrated above with significant time savings
