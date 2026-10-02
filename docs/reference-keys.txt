@@ -1,5 +1,6 @@
 tab:unnamed-chunk-40
 tab:unnamed-chunk-50
+tab:unnamed-chunk-68
 introduction
 proposed-species-classification-method
 validation-data-and-accuracy-evaluation
@@ -11,5 +12,7 @@ id_02_ptcld_dta
 id_03_itd
 id_04_species
 training-data
-predict-species
-tree-level-accuracy
+predict-speciesgenus-application
+speciesgenus-accuracy-evaluation
+id_05_tree_acc
+id_06_site_acc

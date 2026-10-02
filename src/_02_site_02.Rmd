@@ -1,154 +1,72 @@
-# Data and Process Overview
+# Another Site
 
-We compiled a collection of validation datasets across diverse forest conditions for this specific analysis project. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.
-
-| Name | State | Forest Type | Point Cloud Data | Field Data |
-| :--- | :--- | :--- | :--- | :--- |
-| Penobscot Experimental Forest | Maine | northern mixed conifer | ALS | tree locations |
-| Manitou Experimental Forest (N1) | Colorado | ponderosa pine | UAS-SfM | tree locations |
-| Manitou Experimental Forest (Big Plot) | Colorado | western mixed conifer | UAS-SfM | tree locations |
-| CSFS State Forest State Park | Colorado | lodgepole pine | UAS-lidar | plots |
-| BLM Dawson Creek | Colorado | pinyon-juniper | UAS-SfM | tree locations |
-| Ute Creek | Colorado | | UAS-SfM | plots |
-| WFSI Fort Stewart | Georgia | southern yellow pine forest | UAS-lidar | plots |
-| WFSI Elgin AFB | Florida | longleaf pine | UAS-lidar | plots |
-| Wabikon Lake Forest Dynamics Plot (ForestGEO) | Wisconsin | northern mixed hardwood | ALS | tree locations |
-| UC Santa Cruz Forest Ecology Research Plot (ForestGEO) | California | coastal mixed-evergreen & coast redwood | ALS | tree locations |
-| Smithsonian Environmental Research Center (ForestGEO) | Maryland | mixed deciduous hardwood | ALS | tree locations |
-| Smithsonian Conservation Biology Institute (ForestGEO) | Virginia | mid-atlantic deciduous | ALS | tree locations |
-
-Load the standard libraries we use to do work
-
-```{r, warning=FALSE, message=FALSE}
-# bread-and-butter
-library(tidyverse) # the tidyverse
-library(viridis) # viridis colors
-library(harrypotter) # hp colors
-library(RColorBrewer) # brewer colors
-library(scales) # work with number and plot scales
-library(latex2exp)
-
-# visualization
-library(mapview) # interactive html maps
-library(kableExtra) # tables
-library(patchwork) # combine plots
-
-# spatial analysis
-library(terra) # raster
-library(sf) # simple features
-library(lidR) # lidar data
-library(cloud2trees) # the cloud2trees
-
-# other
-library(vegan) # community analysis
-```
-
-```{r pkg-ld, include=F, warning=F, message=F}
-# knit options
-knitr::opts_chunk$set(
-  echo = TRUE
-  , warning = FALSE
-  , message = FALSE
-  # , results = 'hide'
-  , fig.width = 10.5
-  , fig.height = 7
-)
-# option to put satellite imagery as base layer of mapview maps
-  mapview::mapviewOptions(
-    homebutton = FALSE
-    # , basemaps = c("Esri.WorldImagery","OpenStreetMap")
-    , basemaps = c("OpenStreetMap", "Esri.WorldImagery")
-  )
-# clean session
-remove(list = ls())
-gc()
-```
+Now that we have reviewed the process and evaluation method and set up functions to standardize and streamline our data processing, let's do it for another site
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-let's make a quick data frame of our project data which is organized by site
-
-```{r}
-project_data_df <-
-  dplyr::tibble(
-   data_dir = list.dirs("../data", recursive = F) 
-  ) %>% 
-  dplyr::mutate(
-    data_site_nm = basename(data_dir)
-  )
-# project_data_df$data_site_nm
-# make a list for the CHM, predicted trees, field trees, and plot spatial data we can add to
-chm_list <- setNames( vector("list", nrow(project_data_df)), project_data_df$data_site_nm)
-# chm_list
-# names(chm_list)
-pred_trees_list <- chm_list
-ref_trees_list <- chm_list
-ref_plots_list <- chm_list
-pred_ref_tree_match_list <- chm_list
-```
-
-We're going to use this first study site and associated data to demonstrate the entire analysis process which includes:
-
-* [Reference Field Data](#01_fld_dta): load and attempt to standardize the field reference spatial tree inventory and polygon plot data
-* [Point Cloud Data](#02_ptcld_dta): process the raw point cloud data to generate the CHM used for individual tree detection
-* [Individual Tree Detection](#03_itd): Use the CHM for individual tree detection. This includes many steps.
-  - Utilize multiple window functions for ITD
-  - Evaluate detection accuracy with segmentation matching of the predicted crowns with the field reference points
-  - Select the best performing window function with the ITD result used for the remaining species method validation
-* [Species/Genus Prediction](#04_species): Predict species for the point cloud-generated tree list
-* [Tree-level Species/Genus Evaluation](#05_tree_acc): Evaluate the tree-level accuracy of the proposed classification method
-* [Site-level Species/Genus Evaluation](06_site_acc): Evaluate the site-level accuracy of the proposed classification method based on proportional distributions
-
-## Eglin Air Force Base (Florida)
-
 ### Field Data{#01_fld_dta}
 
 Field data from this study site is from: 
 
-* Andrew Hudak, Seth Bigelow, Nuria Sánchez-López, and Vanessa Niemczyk. 2025. Field measurements of coarse wood, duff, litter, and trees for the Eglin Air Force Base 2023 fuels campaign. Wildland Fire Science Initiative (WFSI) [https://doi.org/10.60594/W4RG6P](https://doi.org/10.60594/W4RG6P)
+xxxxxxx
 
->Field measurements collected before and after 2023 study fires at Eglin Air Force Base (AFB) to document fuel loads (large diameter fuels, litter depth, duff depth) and trees in a 3-year rough in sandhill longleaf pine, and the effects of study fires on these variables. Fuel loads, which were measured along transects, were co-located with tree observations, which were measured within fixed-radius plots. These field observations were also co-located with three-dimensional fuel and laser scan plots to allow for leveraging of these other data.
+the sampling protocol for trees was:
 
->After the study fires in March 2023, trees within 10 m of plot center were identified to functional group (pine, hardwood or species), measured for diameter at breast height with a diameter tape, measured for distance from outer bark to plot center, and measured for azimuth from plot center to tree. Some post-processing was done using lidar scans to distinguish between evergreeen and deciduous hardwoods. Saplings were tallied by ordinal quadrant (up to 5 m from plot center). Tree measurements were not taken in unit L25. In unit G20, plots HH01, HH02, HH03, HH04, HH05 were sampled pre-fire but not post fire. In unit G25, plots HH105, HH95, PP16 were sampled pre-fire but not post fire.
-
-according to *Eglin_2022_Tree_and_Transect_Field_Protocol.pdf*, the post-fire sampling protocol for trees was:
-
-I. Determine if plot radius is 8 or 11.3 meters and record on datasheet
-  a. If there are 4 or more trees within an 8-meter radius, then the plot radius is 8-meters.
-  b. If there are 0 to 3 trees within an 8-meter radius, then increase the plot radius to 11.3-meters.
-II. Sample all trees ≥10 cm DBH within the plot radius and over from plot center 
-III. Sample all pine saplings ONLY ≥2.5 to 10 cm DBH by recording:
-  a. Radius (4 or 5.6m):
-    i. If tree sampling radius was 8-meters, then sapling sampling radius = 4-meters
-    ii. If tree sampling radius was 11.3-meters, then sapling sampling radius = 5.6-meters
-  b. Quadrant = NE, SE, SW, or NW
-  c. Count = How many of the same species in that quadrant
-  d. Species = Longleaf pine (Pinus palustris), Loblolly pine (Pinus taeda), Sand pine (Pinus clausa) or TBD
-
-for those interested, pre- and post-burn photographs for each plot were archived here: [https://doi.org/10.60594/W4GW2T](https://doi.org/10.60594/W4GW2T)
+xxxxxxxxx
 
 ```{r}
-# https://doi.org/10.60594/W4RG6P
-wfsi_eglinafb_trees <-
-  readr::read_csv(
-    "../data/WFSI_EglinAFB/Eglin_Air_Force_Base_2023_fuels/data/trees.csv"
-    , progress = F
-    , show_col_types = F
+usfs_manitouef_n1_trees <-
+  readxl::read_excel("../data/N1_2024_Field_Trees.xlsx") %>% 
+  dplyr::rename_with(
+    ~ tolower(.x) %>% 
+      stringr::str_squish() %>% 
+      make.names() %>% 
+      stringr::str_replace_all( "\\.{2,}", ".") %>% 
+      stringr::str_remove( "\\.$") %>% 
+      stringr::str_replace_all( "\\.", "_")
   ) %>% 
-  dplyr::rename_with(~tolower(.x) %>% make.names()) %>% 
-  # dplyr::count(species)
+  sf::st_as_sf(
+    coords = c("easting", "northing")
+    , crs = 26913
+    , remove=F
+  ) %>% 
+  dplyr::rename(
+    # field_dbh_cm = dbh_cm
+    # , field_tree_height_m = ht_m
+    field_dbh_in = dbh_24
+    , field_tree_height_ft = ht_24
+  ) %>% 
+  # dplyr::select(field_dbh_in, field_tree_height_ft) %>% summary()
+  dplyr::mutate(
+    field_dbh_cm = field_dbh_in/0.394
+    , field_tree_height_m = field_tree_height_ft/3.281
+  ) %>% 
+  # dplyr::select(field_dbh_cm, field_tree_height_m) %>% summary()
+  sf::st_set_geometry("geometry") %>% 
   dplyr::filter(
-    species != ""
-    , !is.na(species)
-    , !is.na(tree_x)
-    , !is.na(tree_y)
+    !is.na(field_dbh_cm)
+    & !is.na(field_tree_height_m)
+    & sf::st_is_valid(geometry)
+    # only keep trees that are above height threshold used for uas processing
+    & field_tree_height_m >= my_tree_ht_m
+    # & field_dbh_cm >= min_tree_dbh_cm # if know min field dbh for field sampling
   ) %>% 
-  # spatial that
-  # epsg from "data_dictionary.csv"
-  sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = 26916, remove = F) %>% 
+  sf::st_transform(terra::crs(chm_rast[[1]])) %>% 
+  sf::st_intersection(
+    stand_boundary %>%
+      dplyr::select(stand_area_m2)
+  ) %>%
+  dplyr::mutate(
+    field_tree_id = dplyr::row_number()
+    , tree_utm_x = sf::st_coordinates(geometry)[,1] #lon
+    , tree_utm_y = sf::st_coordinates(geometry)[,2] #lat
+    # basal area
+    , basal_area_m2 = pi * field_dbh_cm^2 / (4*10000)
+  ) %>% 
+  xxxx
   # make a plot_id that is unique for all so we don't have to join by multiple columns
   # and for all sites we'll just use a plot_id
   dplyr::mutate(
@@ -159,20 +77,20 @@ wfsi_eglinafb_trees <-
     , species_symbol = toupper(species) %>% stringr::str_remove_all("\\s")
   )
 # huh?
-wfsi_eglinafb_trees %>% dplyr::glimpse()
-# wfsi_eglinafb_trees %>% dplyr::select(dbh_cm) %>% summary()
+usfs_manitouef_n1_trees %>% dplyr::glimpse()
+# usfs_manitouef_n1_trees %>% dplyr::select(dbh_cm) %>% summary()
 ```
 
 let's check those field trees out to orient ourselves to the location
 
 ```{r}
-wfsi_eglinafb_trees %>% 
+usfs_manitouef_n1_trees %>% 
   mapview::mapview(
     zcol = "species"
     , layer.name="WFSI Eglin AFB: field trees"
     , popup=F
   )
-# wfsi_eglinafb_trees %>%
+# usfs_manitouef_n1_trees %>%
 #   sf::st_union() %>%
 #   sf::st_bbox() %>%
 #   sf::st_as_sfc() %>%
@@ -185,7 +103,7 @@ wfsi_eglinafb_trees %>%
 what is the count of trees measured pre- and post-burn?
 
 ```{r}
-wfsi_eglinafb_trees %>% 
+usfs_manitouef_n1_trees %>% 
   sf::st_drop_geometry() %>% 
   dplyr::count(burn_status)
 ```
@@ -193,7 +111,7 @@ wfsi_eglinafb_trees %>%
 so these are all post-burn samples. what is the distribution of species?
 
 ```{r}
-wfsi_eglinafb_trees %>% 
+usfs_manitouef_n1_trees %>% 
   sf::st_drop_geometry() %>% 
   dplyr::count(species) %>% 
   dplyr::arrange(desc(n)) %>% 
@@ -203,7 +121,7 @@ wfsi_eglinafb_trees %>%
 how many plots have trees by unit?
 
 ```{r}
-wfsi_eglinafb_trees %>% 
+usfs_manitouef_n1_trees %>% 
   sf::st_drop_geometry() %>% 
   dplyr::distinct(unit,plot) %>% 
   dplyr::count(unit)
@@ -213,9 +131,9 @@ we need to get the plot location points and buffer them by 10 m of plot center w
 
 ```{r}
 # https://doi.org/10.60594/W4T880
-wfsi_eglinafb_plots <-
+usfs_manitouef_n1_plots <-
   readr::read_csv(
-    "../data/WFSI_EglinAFB/Macroplot_Geographical_Location_Data/data/Geographical_Macroplot_Data_Eglin_2023.csv"
+    "../data/usfs_manitouef_n1/Macroplot_Geographical_Location_Data/data/Geographical_Macroplot_Data_Eglin_2023.csv"
     , progress = F
     , show_col_types = F
   ) %>% 
@@ -228,7 +146,7 @@ wfsi_eglinafb_plots <-
   # spatial that
   sf::st_as_sf(coords = c("longitude_x", "latitude_y"), crs = 4326, remove = F) %>% 
   # converts proj to match trees and horizontal units to m
-  sf::st_transform(sf::st_crs(wfsi_eglinafb_trees)) %>% 
+  sf::st_transform(sf::st_crs(usfs_manitouef_n1_trees)) %>% 
   # "After the study fires in March 2023, trees within 10 m of plot center were identified..."
   sf::st_buffer(10) %>% 
   dplyr::mutate(
@@ -247,15 +165,15 @@ wfsi_eglinafb_plots <-
     , unit = burn_unit
   )
 
-# wfsi_eglinafb_plots %>% dplyr::glimpse()
-# wfsi_eglinafb_plots$plot %>% unique()
+# usfs_manitouef_n1_plots %>% dplyr::glimpse()
+# usfs_manitouef_n1_plots$plot %>% unique()
 
 # # check for plot and unit non-matches
-# wfsi_eglinafb_trees %>%
+# usfs_manitouef_n1_trees %>%
 #   sf::st_drop_geometry() %>%
 #   dplyr::distinct(unit,plot) %>%
 #   dplyr::anti_join(
-#     wfsi_eglinafb_plots %>%
+#     usfs_manitouef_n1_plots %>%
 #       sf::st_drop_geometry() %>%
 #       dplyr::distinct(unit,plot,plot_area_m2)
 #     , by = dplyr::join_by(unit,plot)
@@ -263,22 +181,22 @@ wfsi_eglinafb_plots <-
 #   dplyr::glimpse()
   
 # lets keep only plots for which tree data exists since we know those were measured post-burn
-wfsi_eglinafb_plots <- wfsi_eglinafb_plots %>% 
+usfs_manitouef_n1_plots <- usfs_manitouef_n1_plots %>% 
   dplyr::inner_join(
-    wfsi_eglinafb_trees %>%
+    usfs_manitouef_n1_trees %>%
       sf::st_drop_geometry() %>%
       dplyr::distinct(unit,plot,plot_id)
     , by = dplyr::join_by(unit,plot)
   )
   
-# wfsi_eglinafb_plots %>% dplyr::glimpse()
+# usfs_manitouef_n1_plots %>% dplyr::glimpse()
 
 # save to reference list
 # add to the ref trees list
 nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(data_site_nm)
-ref_plots_list[[nm_temp]] <- wfsi_eglinafb_plots
+ref_plots_list[[nm_temp]] <- usfs_manitouef_n1_plots
 # ref_plots_list
 
 ```
@@ -286,11 +204,11 @@ ref_plots_list[[nm_temp]] <- wfsi_eglinafb_plots
 let's quickly check the trees and plots to make sure they align
 
 ```{r}
-# wfsi_eglinafb_trees %>% dplyr::glimpse()
+# usfs_manitouef_n1_trees %>% dplyr::glimpse()
 # plot function
 p_fn_temp <- function(nr){
-    p <- wfsi_eglinafb_plots %>% dplyr::slice(nr)
-    t <- wfsi_eglinafb_trees %>% 
+    p <- usfs_manitouef_n1_plots %>% dplyr::slice(nr)
+    t <- usfs_manitouef_n1_trees %>% 
       dplyr::inner_join(
           p %>% 
           dplyr::select(unit,plot) %>%
@@ -316,7 +234,7 @@ p_fn_temp <- function(nr){
     ) + 
     ggplot2::scale_color_viridis_c(
       option = "mako"
-      , limits = c(0, ceiling(max(wfsi_eglinafb_trees$dbh_cm,na.rm=T)*1.01))
+      , limits = c(0, ceiling(max(usfs_manitouef_n1_trees$dbh_cm,na.rm=T)*1.01))
       , direction = -1
       , name = "DBH (cm)"
     ) +
@@ -330,7 +248,7 @@ p_fn_temp <- function(nr){
   }
 
 pl_temp <- 
-  1:nrow(wfsi_eglinafb_plots) %>% 
+  1:nrow(usfs_manitouef_n1_plots) %>% 
   sample(12) %>% 
   purrr::map(p_fn_temp)
 patchwork::wrap_plots(pl_temp,ncol=4,guides = "collect")
@@ -339,12 +257,12 @@ patchwork::wrap_plots(pl_temp,ncol=4,guides = "collect")
 spot check of alignment between plot and tree spatial data looks good but we can quickly look at all plots and trees to see if any trees fall outside of the plot boundaries
 
 ```{r}
-# wfsi_eglinafb_trees %>% dplyr::glimpse()
-wfsi_eglinafb_trees <- 
-  1:nrow(wfsi_eglinafb_plots) %>% 
+# usfs_manitouef_n1_trees %>% dplyr::glimpse()
+usfs_manitouef_n1_trees <- 
+  1:nrow(usfs_manitouef_n1_plots) %>% 
   purrr::map(function(nr){
-    p <- wfsi_eglinafb_plots %>% dplyr::slice(nr)
-    t <- wfsi_eglinafb_trees %>% 
+    p <- usfs_manitouef_n1_plots %>% dplyr::slice(nr)
+    t <- usfs_manitouef_n1_trees %>% 
       dplyr::inner_join(
           p %>% 
           dplyr::select(unit,plot) %>%
@@ -373,22 +291,22 @@ wfsi_eglinafb_trees <-
 # save to reference list
 # add to the ref trees list
 nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(data_site_nm)
-ref_trees_list[[nm_temp]] <- wfsi_eglinafb_trees
+ref_trees_list[[nm_temp]] <- usfs_manitouef_n1_trees
 # ref_trees_list 
 
 # are there any out?
-wfsi_eglinafb_trees %>% sf::st_drop_geometry() %>% dplyr::count(is_out_of_plot)
+usfs_manitouef_n1_trees %>% sf::st_drop_geometry() %>% dplyr::count(is_out_of_plot)
 ```
 
 uh-oh we have one tree outside of the plot
 
 ```{r}
-wfsi_eglinafb_plots %>% 
+usfs_manitouef_n1_plots %>% 
   dplyr::mutate(rn=dplyr::row_number()) %>% 
   dplyr::inner_join(
-    wfsi_eglinafb_trees %>% 
+    usfs_manitouef_n1_trees %>% 
       dplyr::filter(is_out_of_plot) %>% 
       sf::st_drop_geometry() %>% 
       dplyr::distinct(unit,plot)
@@ -421,16 +339,16 @@ some other relevant notes about the data:
 let's check out the raw ALS data
 
 ```{r}
-wfsi_eglinafb_las_f_temp <- "../data/WFSI_EglinAFB/post_fire_laz_apr2023"
-wfsi_eglinafb_las_ctg_temp <- lidR::readLAScatalog(wfsi_eglinafb_las_f_temp)
-wfsi_eglinafb_las_ctg_temp
-# wfsi_eglinafb_las_ctg_temp@data %>% dplyr::glimpse()
+usfs_manitouef_n1_las_f_temp <- "../data/usfs_manitouef_n1/post_fire_laz_apr2023"
+usfs_manitouef_n1_las_ctg_temp <- lidR::readLAScatalog(usfs_manitouef_n1_las_f_temp)
+usfs_manitouef_n1_las_ctg_temp
+# usfs_manitouef_n1_las_ctg_temp@data %>% dplyr::glimpse()
 ```
 
 let's check out the lidar data coverage compared to the field plot data
 
 ```{r}
-wfsi_eglinafb_las_ctg_temp@data$geometry %>% 
+usfs_manitouef_n1_las_ctg_temp@data$geometry %>% 
   sf::st_union() %>% 
   sf::st_as_sf() %>% 
   dplyr::mutate(data = "ALS data extent") %>% 
@@ -440,7 +358,7 @@ mapview::mapview(
   , popup=F
 ) +
 mapview::mapview(
-  wfsi_eglinafb_trees
+  usfs_manitouef_n1_trees
   , zcol = "species"
   , layer.name="WFSI Eglin AFB: field trees"
   , popup=F
@@ -455,7 +373,7 @@ use `cloud2trees` to process the raw point cloud data to generate a CHM for use 
 ################################################
 # outdir
 c2t_output_dir_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(data_dir)
 c2t_process_dir_temp <- file.path(c2t_output_dir_temp, "point_cloud_processing_delivery")
 # timer file
@@ -545,7 +463,7 @@ get_ptcld_density_chm_res_fn <- function(las_ctg, rast_res_buffer = 0.01, min_ch
 }
 
 # get point cloud density and raster resolutions
-get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(wfsi_eglinafb_las_ctg_temp)
+get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(usfs_manitouef_n1_las_ctg_temp)
 # get_ptcld_density_chm_res_temp
 
 # fnm
@@ -576,7 +494,7 @@ if(
   # cloud2trees
   cloud2raster_ans <- cloud2trees::cloud2raster(
     output_dir = c2t_output_dir_temp
-    , input_las_dir = wfsi_eglinafb_las_f_temp
+    , input_las_dir = usfs_manitouef_n1_las_f_temp
     , accuracy_level = 2
     , keep_intrmdt = T
     , dtm_res_m = get_ptcld_density_chm_res_temp$dtm_res_m # (1/sqrt(pts_m2_temp))*2
@@ -654,7 +572,7 @@ agg_chm_rast_temp <- agg_chm_rast_fn(
   , res = min_chm_res
   , dir = 
     project_data_df %>% 
-    dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+    dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
     dplyr::pull(c2t_process_dir)
 )
 # agg_chm_rast_temp
@@ -662,7 +580,7 @@ agg_chm_rast_temp <- agg_chm_rast_fn(
 
 # add to the chm list
 nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(data_site_nm)
 chm_list[[nm_temp]] <- agg_chm_rast_temp
 # chm_list
@@ -1073,7 +991,7 @@ get the individual tree predictions for each window function for the area within
 ```{r}
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(c2t_process_dir)
 fnm_temp <- file.path(c2t_process_dir_temp,"ws_pred_trees.gpkg")
 project_data_df <- project_data_df %>% 
@@ -1081,15 +999,15 @@ project_data_df <- project_data_df %>%
     ws_pred_trees_fnm = ifelse(c2t_process_dir==c2t_process_dir_temp, fnm_temp, "")
   )
 if(!file.exists(fnm_temp)){
-  wfsi_eglinafb_ws_pred_trees <- 
-    1:nrow(wfsi_eglinafb_plots) %>% 
+  usfs_manitouef_n1_ws_pred_trees <- 
+    1:nrow(usfs_manitouef_n1_plots) %>% 
     purrr::map(
       \(x)
       ws_testtest_fn(
-        chm = chm_list$WFSI_EglinAFB
+        chm = chm_list$usfs_manitouef_n1
         , buffer = 5.5
         , plot_sf = 
-          wfsi_eglinafb_plots %>% 
+          usfs_manitouef_n1_plots %>% 
           dplyr::ungroup() %>% 
           dplyr::slice(x) %>%
           sf::st_union()
@@ -1100,32 +1018,32 @@ if(!file.exists(fnm_temp)){
     purrr::list_rbind(names_to = "plot_dta_idx")
   
   # add plot id
-  wfsi_eglinafb_ws_pred_trees <- 
-    wfsi_eglinafb_ws_pred_trees %>% 
+  usfs_manitouef_n1_ws_pred_trees <- 
+    usfs_manitouef_n1_ws_pred_trees %>% 
     dplyr::left_join(
-      wfsi_eglinafb_plots %>% 
+      usfs_manitouef_n1_plots %>% 
         dplyr::mutate(plot_dta_idx=dplyr::row_number()) %>% 
         sf::st_drop_geometry() %>% 
         dplyr::select(plot_dta_idx,plot_id)
       , by = "plot_dta_idx"
     )
   # get dbh
-  wfsi_eglinafb_ws_pred_trees_dbh_temp <- 
-    wfsi_eglinafb_ws_pred_trees %>% 
+  usfs_manitouef_n1_ws_pred_trees_dbh_temp <- 
+    usfs_manitouef_n1_ws_pred_trees %>% 
     dplyr::rename(xxxtreeID=treeID) %>% 
     dplyr::mutate(
       treeID = dplyr::row_number() %>% as.character()
     ) %>% 
     cloud2trees::trees_dbh()
-  # wfsi_eglinafb_ws_pred_trees_dbh_temp %>% dplyr::glimpse()
+  # usfs_manitouef_n1_ws_pred_trees_dbh_temp %>% dplyr::glimpse()
   # add to trees
-  wfsi_eglinafb_ws_pred_trees <- 
-    wfsi_eglinafb_ws_pred_trees %>% 
+  usfs_manitouef_n1_ws_pred_trees <- 
+    usfs_manitouef_n1_ws_pred_trees %>% 
     dplyr::mutate(
       join_id = dplyr::row_number()
     ) %>% 
     dplyr::left_join(
-      wfsi_eglinafb_ws_pred_trees_dbh_temp %>% 
+      usfs_manitouef_n1_ws_pred_trees_dbh_temp %>% 
         sf::st_drop_geometry() %>% 
         dplyr::mutate(
           join_id = as.character(treeID)
@@ -1135,10 +1053,10 @@ if(!file.exists(fnm_temp)){
         )
       , by = "join_id"
     )
-  # wfsi_eglinafb_ws_pred_trees %>% dplyr::glimpse()
+  # usfs_manitouef_n1_ws_pred_trees %>% dplyr::glimpse()
   
   # # plot real quick
-  # wfsi_eglinafb_ws_pred_trees %>% 
+  # usfs_manitouef_n1_ws_pred_trees %>% 
   #   sf::st_drop_geometry() %>% 
   #   dplyr::slice_sample(n = 9999) %>% 
   #   ggplot2::ggplot(mapping = ggplot2::aes(x=tree_height_m,y=dbh_cm)) + 
@@ -1147,11 +1065,11 @@ if(!file.exists(fnm_temp)){
   #   ggplot2::geom_point(mapping = ggplot2::aes(y=fia_est_dbh_cm_upper),color="gray")
 
   # save
-  sf::st_write(wfsi_eglinafb_ws_pred_trees, dsn = fnm_temp, quiet = T, append = F)
+  sf::st_write(usfs_manitouef_n1_ws_pred_trees, dsn = fnm_temp, quiet = T, append = F)
 }else{
-  wfsi_eglinafb_ws_pred_trees <- sf::st_read(fnm_temp, quiet = T)
+  usfs_manitouef_n1_ws_pred_trees <- sf::st_read(fnm_temp, quiet = T)
 }
-wfsi_eglinafb_ws_pred_trees <- wfsi_eglinafb_ws_pred_trees %>% 
+usfs_manitouef_n1_ws_pred_trees <- usfs_manitouef_n1_ws_pred_trees %>% 
   dplyr::mutate(
     ws_type = 
       ws_fn_nm %>% 
@@ -1163,8 +1081,8 @@ wfsi_eglinafb_ws_pred_trees <- wfsi_eglinafb_ws_pred_trees %>%
       forcats::fct_inorder(ordered = T)
     , treeID = as.character(treeID)
   )
-# wfsi_eglinafb_ws_pred_trees %>% dplyr::glimpse()
-# wfsi_eglinafb_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_type)
+# usfs_manitouef_n1_ws_pred_trees %>% dplyr::glimpse()
+# usfs_manitouef_n1_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_type)
 ```
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
@@ -1176,20 +1094,20 @@ let's check out one example field plot and a few different window function tree 
 
 ```{r, fig.height=10}
 # plot
-p_temp <- wfsi_eglinafb_plots %>% dplyr::slice(1)
+p_temp <- usfs_manitouef_n1_plots %>% dplyr::slice(1)
 # some trees
 t_temp <- 
-  wfsi_eglinafb_ws_pred_trees %>% 
+  usfs_manitouef_n1_ws_pred_trees %>% 
   dplyr::filter(plot_id==p_temp$plot_id[1]) %>% 
   dplyr::inner_join(
-    wfsi_eglinafb_ws_pred_trees %>% 
+    usfs_manitouef_n1_ws_pred_trees %>% 
       sf::st_drop_geometry() %>% 
       dplyr::distinct(ws_fn_nm,ws_type) %>% 
       dplyr::slice_sample(n = 3, by = ws_type) %>% 
       dplyr::select(ws_fn_nm)
     , by = "ws_fn_nm"
   )
-chm_temp <- chm_list[["WFSI_EglinAFB"]] %>% 
+chm_temp <- chm_list[["usfs_manitouef_n1"]] %>% 
   terra::crop(
     t_temp %>% 
       sf::st_union() %>% 
@@ -1822,15 +1740,15 @@ ground_truth_prediction_match <- function(
 xxx_temp <- 
   reference_prediction_match(
   pred_data = 
-    wfsi_eglinafb_ws_pred_trees %>% 
+    usfs_manitouef_n1_ws_pred_trees %>% 
     dplyr::filter(
-      plot_id == wfsi_eglinafb_plots$plot_id[1]
-      , ws_fn_nm== wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1]
+      plot_id == usfs_manitouef_n1_plots$plot_id[1]
+      , ws_fn_nm== usfs_manitouef_n1_ws_pred_trees$ws_fn_nm[1]
     )
   , ref_data = 
-    wfsi_eglinafb_trees %>% 
+    usfs_manitouef_n1_trees %>% 
     dplyr::filter(
-      plot_id == wfsi_eglinafb_plots$plot_id[1]
+      plot_id == usfs_manitouef_n1_plots$plot_id[1]
     )
   , max_dist_m = 3
   , max_error_pct = 0.5
@@ -2103,15 +2021,15 @@ instance_match_fn <- function(
 ###################################
 instance_match_fn(
   pred_crowns = 
-    wfsi_eglinafb_ws_pred_trees %>% 
+    usfs_manitouef_n1_ws_pred_trees %>% 
     dplyr::filter(
-      plot_id == wfsi_eglinafb_plots$plot_id[1]
-      , ws_fn_nm==wfsi_eglinafb_ws_pred_trees$ws_fn_nm[1]
+      plot_id == usfs_manitouef_n1_plots$plot_id[1]
+      , ws_fn_nm==usfs_manitouef_n1_ws_pred_trees$ws_fn_nm[1]
     )
   , ref_points = 
-    wfsi_eglinafb_trees %>% 
+    usfs_manitouef_n1_trees %>% 
     dplyr::filter(
-      plot_id == wfsi_eglinafb_plots$plot_id[1]
+      plot_id == usfs_manitouef_n1_plots$plot_id[1]
     )
 ) %>% 
 # dplyr::glimpse()
@@ -2320,13 +2238,13 @@ let's test that for a single plot
 
 ws_iter_instance_match_fn(
   # needs plot_id # should be a single plot
-  plot_sf = wfsi_eglinafb_plots %>% dplyr::slice(4) 
+  plot_sf = usfs_manitouef_n1_plots %>% dplyr::slice(4) 
   # needs plot_id
-  , ref_pts = wfsi_eglinafb_trees 
+  , ref_pts = usfs_manitouef_n1_trees 
   # needs plot_id
-  , pred_polys = wfsi_eglinafb_ws_pred_trees %>% 
+  , pred_polys = usfs_manitouef_n1_ws_pred_trees %>% 
     dplyr::inner_join(
-      wfsi_eglinafb_ws_pred_trees %>% 
+      usfs_manitouef_n1_ws_pred_trees %>% 
         sf::st_drop_geometry() %>% 
         dplyr::distinct(ws_fn_nm,ws_type) %>% 
         dplyr::slice_sample(n = 3, by = ws_type) %>% 
@@ -2419,24 +2337,24 @@ plot_iter_instance_match_fn <- function(
 # get the ans
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(c2t_process_dir)
 fnm_temp <- file.path(c2t_process_dir_temp,"ws_instance_match.csv")
 if(!file.exists(fnm_temp)){
-  wfsi_eglinafb_ws_instance_match <- 
+  usfs_manitouef_n1_ws_instance_match <- 
     plot_iter_instance_match_fn(
-      ref_plots = ref_plots_list[["WFSI_EglinAFB"]]
-      , ref_pts = ref_trees_list[["WFSI_EglinAFB"]]
-      , pred_polys = wfsi_eglinafb_ws_pred_trees
+      ref_plots = ref_plots_list[["usfs_manitouef_n1"]]
+      , ref_pts = ref_trees_list[["usfs_manitouef_n1"]]
+      , pred_polys = usfs_manitouef_n1_ws_pred_trees
       , min_ht_m = NA
       , min_dbh_cm = 10
     )
-  readr::write_csv(wfsi_eglinafb_ws_instance_match, file = fnm_temp, append = F, progress = F)
+  readr::write_csv(usfs_manitouef_n1_ws_instance_match, file = fnm_temp, append = F, progress = F)
 }else{
-  wfsi_eglinafb_ws_instance_match <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
+  usfs_manitouef_n1_ws_instance_match <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
 }
 # huh?
-# wfsi_eglinafb_ws_instance_match %>% dplyr::glimpse()
+# usfs_manitouef_n1_ws_instance_match %>% dplyr::glimpse()
 ```
 
 lastly, we need a function to aggregate these instance segmentation counts (TP, FP, and FN) to evaluate the overall accuracy of the tree segmentation method. then, we'll select the best window function and apply that across the entire study area.
@@ -2599,10 +2517,10 @@ agg_ground_truth_match <- function(ground_truth_prediction_match_ans) {
   return(return_df)
 }
 # agg_ground_truth_match(
-#   wfsi_eglinafb_ws_instance_match %>% 
+#   usfs_manitouef_n1_ws_instance_match %>% 
 #     dplyr::filter(
-#       plot_id==wfsi_eglinafb_ws_instance_match$plot_id[1]
-#       , ws_fn_nm==wfsi_eglinafb_ws_instance_match$ws_fn_nm[1]
+#       plot_id==usfs_manitouef_n1_ws_instance_match$plot_id[1]
+#       , ws_fn_nm==usfs_manitouef_n1_ws_instance_match$ws_fn_nm[1]
 #     )
 # )
 
@@ -2611,21 +2529,21 @@ agg_ground_truth_match <- function(ground_truth_prediction_match_ans) {
 # get the ans
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(c2t_process_dir)
 fnm_temp <- file.path(c2t_process_dir_temp,"agg_ground_truth_match_ans.csv")
 if(!file.exists(fnm_temp)){
   # ?purrr::pmap
   # A data frame is an important special case of .l. It will cause .f to be called once for each row.
-  wfsi_eglinafb_agg_ground_truth_match_ans <- 
-    wfsi_eglinafb_ws_instance_match %>% 
+  usfs_manitouef_n1_agg_ground_truth_match_ans <- 
+    usfs_manitouef_n1_ws_instance_match %>% 
     dplyr::distinct(plot_id,ws_fn_nm) %>% 
     purrr::pmap(function(plot_id, ws_fn_nm) {
       # the unique row data
       d <- dplyr::tibble(plot_id = plot_id, ws_fn_nm = ws_fn_nm)
       # filter full set based on the data
       j <- 
-        wfsi_eglinafb_ws_instance_match %>% 
+        usfs_manitouef_n1_ws_instance_match %>% 
         dplyr::inner_join(
           d   
           , by = dplyr::join_by("plot_id","ws_fn_nm")
@@ -2636,22 +2554,22 @@ if(!file.exists(fnm_temp)){
       
     }) %>% 
     list_rbind()
-  readr::write_csv(wfsi_eglinafb_agg_ground_truth_match_ans, file = fnm_temp, append = F, progress = F)
+  readr::write_csv(usfs_manitouef_n1_agg_ground_truth_match_ans, file = fnm_temp, append = F, progress = F)
 }else{
-  wfsi_eglinafb_agg_ground_truth_match_ans <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
+  usfs_manitouef_n1_agg_ground_truth_match_ans <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
 }
 # huh?
-# wfsi_eglinafb_agg_ground_truth_match_ans %>% dplyr::glimpse()
+# usfs_manitouef_n1_agg_ground_truth_match_ans %>% dplyr::glimpse()
 ```
 
 aggregate the plot level data to the window function to get the answer we've been searching for
 
 ```{r}
-# wfsi_eglinafb_agg_ground_truth_match_ans %>% 
+# usfs_manitouef_n1_agg_ground_truth_match_ans %>% 
 #   dplyr::count(ws_fn_nm) %>% 
 #   dplyr::count(n)
 agg_temp <- 
-  wfsi_eglinafb_agg_ground_truth_match_ans %>% 
+  usfs_manitouef_n1_agg_ground_truth_match_ans %>% 
   dplyr::group_by(ws_fn_nm) %>% 
   dplyr::summarize(
     n_plots = dplyr::n()
@@ -2665,7 +2583,7 @@ agg_temp <-
   ) %>% 
   dplyr::ungroup() %>% 
   dplyr::left_join(
-    wfsi_eglinafb_ws_pred_trees %>% 
+    usfs_manitouef_n1_ws_pred_trees %>% 
       sf::st_drop_geometry() %>% 
       dplyr::distinct(ws_fn_nm, ws_type)
     , by = "ws_fn_nm"
@@ -2685,7 +2603,7 @@ agg_temp <-
 let's check out the plot-level distribution of F-score for the top window functions
 
 ```{r}
-wfsi_eglinafb_agg_ground_truth_match_ans %>% 
+usfs_manitouef_n1_agg_ground_truth_match_ans %>% 
   # add agg data
   dplyr::inner_join(
     agg_temp %>% 
@@ -2767,7 +2685,7 @@ nice, we'll select the best non-constant window function for use in evaluation o
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
     best_ws_fn_nm = ifelse(
-      tolower(data_site_nm)=="wfsi_eglinafb"
+      tolower(data_site_nm)=="usfs_manitouef_n1"
       , agg_temp %>% 
         dplyr::filter(ws_type!="constant") %>% 
         dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean)) %>% 
@@ -2851,7 +2769,7 @@ get_relative_height_fn <- function(df, radius) {
 }
 # get_relative_height_fn_ans_temp <- 
 #   get_relative_height_fn(
-#     df = wfsi_eglinafb_ws_pred_trees %>% dplyr::slice_sample(n=555)
+#     df = usfs_manitouef_n1_ws_pred_trees %>% dplyr::slice_sample(n=555)
 #     # radius to roughly match area used for relative height from TreeMap training data
 #     # 30*30*3*3 = 8100 square meters = size of 30 m raster cell with moving window of 3 in terra::focal()
 #     # .... but we'll go a little smaller because we're confident in the ITD trees and heights 
@@ -2867,7 +2785,7 @@ full CHM data processing
 ```{r}
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(c2t_process_dir)
 fnm_temp <- file.path(c2t_process_dir_temp,"best_ws_pred_trees.gpkg")
 project_data_df <- project_data_df %>% 
@@ -2888,15 +2806,15 @@ if(!file.exists(fnm_temp)){
     dplyr::pull(best_ws_fn_nm)
   
   pred_trees_temp <- 
-    1:nrow(wfsi_eglinafb_plots) %>% 
+    1:nrow(usfs_manitouef_n1_plots) %>% 
     # .[1:3] %>% 
     purrr::map(
       \(x)
       ws_testtest_fn(
-        chm = chm_list$WFSI_EglinAFB
+        chm = chm_list$usfs_manitouef_n1
         , buffer = (competition_radius_m+3) # !!!!! this is being increased significantly to get relative height + 3 for 6 m crown width buffer
         , plot_sf = 
-          wfsi_eglinafb_plots %>% 
+          usfs_manitouef_n1_plots %>% 
           dplyr::ungroup() %>% 
           dplyr::slice(x) %>%
           sf::st_union()
@@ -2911,7 +2829,7 @@ if(!file.exists(fnm_temp)){
   pred_trees_temp <- 
     pred_trees_temp %>% 
     dplyr::left_join(
-      wfsi_eglinafb_plots %>% 
+      usfs_manitouef_n1_plots %>% 
         dplyr::mutate(plot_dta_idx=dplyr::row_number()) %>% 
         sf::st_drop_geometry() %>% 
         dplyr::select(plot_dta_idx,plot_id)
@@ -2993,8 +2911,8 @@ if(!file.exists(fnm_temp)){
 
 im_temp <- 
   plot_iter_instance_match_fn(
-    ref_plots = ref_plots_list[["WFSI_EglinAFB"]]
-    , ref_pts = ref_trees_list[["WFSI_EglinAFB"]]
+    ref_plots = ref_plots_list[["usfs_manitouef_n1"]]
+    , ref_pts = ref_trees_list[["usfs_manitouef_n1"]]
     , pred_polys = pred_trees_temp
     , min_ht_m = NA
     , min_dbh_cm = 10
@@ -3004,7 +2922,7 @@ im_temp <-
 
 # add to the ref trees list
 nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(data_site_nm)
 pred_ref_tree_match_list[[nm_temp]] <- im_temp
 
@@ -3021,7 +2939,7 @@ pred_trees_list[[nm_temp]] <-
   dplyr::filter(
     ws_fn_nm %in% (
       project_data_df %>% 
-      dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
+      dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
       dplyr::pull(best_ws_fn_nm)
     )
   ) %>% 
@@ -3428,7 +3346,7 @@ We did a few things in that function to return:
 ```{r}
 # test to get the treemap data for our aoi
 treemap_data_loader_ans <-
-  pred_trees_list$WFSI_EglinAFB %>% 
+  pred_trees_list$usfs_manitouef_n1 %>% 
   dplyr::ungroup() %>% 
   sf::st_union() %>% 
   sf::st_bbox() %>% 
@@ -4011,15 +3929,15 @@ get_species_symbol_predictions <- name <- function(treemap_data_loader_ans, pred
 }
 
 # do it with our data
-pred_trees_list$WFSI_EglinAFB <- 
+pred_trees_list$usfs_manitouef_n1 <- 
   get_species_symbol_predictions(
     treemap_data_loader_ans = treemap_data_loader_ans
-    , predict_df = pred_trees_list$WFSI_EglinAFB
+    , predict_df = pred_trees_list$usfs_manitouef_n1
   ) %>% 
   # for this project we'll just rename to maintain consistent across data sources
   dplyr::rename(species_symbol=predicted_species_symbol)
 
-# pred_trees_list$WFSI_EglinAFB %>%
+# pred_trees_list$usfs_manitouef_n1 %>%
 #   sf::st_drop_geometry() %>%
 #   dplyr::count(species_symbol) %>%
 #   dplyr::arrange(desc(n)) %>%
@@ -4029,9 +3947,9 @@ pred_trees_list$WFSI_EglinAFB <-
 let's map predicted crowns in space colored by species for a single plot while also showing the field validation data species and the true positive matches (squares)
 
 ```{r, fig.height = 9.8, fig.width = 6.5}
-pred_trees_list$WFSI_EglinAFB %>%
+pred_trees_list$usfs_manitouef_n1 %>%
   dplyr::inner_join(
-    ref_plots_list$WFSI_EglinAFB %>% 
+    ref_plots_list$usfs_manitouef_n1 %>% 
       dplyr::slice(4) %>% 
       sf::st_drop_geometry() %>% 
       dplyr::select(plot_id)
@@ -4042,7 +3960,7 @@ pred_trees_list$WFSI_EglinAFB %>%
   # plt
   ggplot2::ggplot() +
     ggplot2::geom_sf(
-      data = ref_plots_list$WFSI_EglinAFB %>% dplyr::slice(4)
+      data = ref_plots_list$usfs_manitouef_n1 %>% dplyr::slice(4)
       , fill = NA, color = "blue"
     ) +
     ggplot2::geom_sf(
@@ -4051,16 +3969,16 @@ pred_trees_list$WFSI_EglinAFB %>%
     ) +
     ggplot2::geom_sf(
       data = 
-        ref_trees_list$WFSI_EglinAFB %>%
+        ref_trees_list$usfs_manitouef_n1 %>%
         dplyr::inner_join(
-          ref_plots_list$WFSI_EglinAFB %>% 
+          ref_plots_list$usfs_manitouef_n1 %>% 
             dplyr::slice(4) %>% 
             sf::st_drop_geometry() %>% 
             dplyr::select(plot_id)
           , by = "plot_id"
         ) %>% 
         dplyr::inner_join(
-          pred_ref_tree_match_list$WFSI_EglinAFB %>% 
+          pred_ref_tree_match_list$usfs_manitouef_n1 %>% 
             dplyr::filter(match_grp=="true positive") %>% 
             dplyr::select(ref_treeID)
           , by = dplyr::join_by(treeID==ref_treeID)
@@ -4069,9 +3987,9 @@ pred_trees_list$WFSI_EglinAFB %>%
     ) +
     ggplot2::geom_sf(
       data = 
-        ref_trees_list$WFSI_EglinAFB %>%
+        ref_trees_list$usfs_manitouef_n1 %>%
         dplyr::inner_join(
-          ref_plots_list$WFSI_EglinAFB %>% 
+          ref_plots_list$usfs_manitouef_n1 %>% 
             dplyr::slice(4) %>% 
             sf::st_drop_geometry() %>% 
             dplyr::select(plot_id)
@@ -4209,8 +4127,8 @@ clean_ref_species_fn <- function(
 
 }
 # update the reference tree list
-ref_trees_list$WFSI_EglinAFB <- 
-  ref_trees_list$WFSI_EglinAFB %>% 
+ref_trees_list$usfs_manitouef_n1 <- 
+  ref_trees_list$usfs_manitouef_n1 %>% 
   clean_ref_species_fn(
     my_treemap_data_loader_ans = treemap_data_loader_ans
   )
@@ -4219,7 +4137,7 @@ ref_trees_list$WFSI_EglinAFB <-
 what is the distribution of the cleaned reference field data species?
 
 ```{r}
-ref_trees_list$WFSI_EglinAFB %>% 
+ref_trees_list$usfs_manitouef_n1 %>% 
   sf::st_drop_geometry() %>% 
   dplyr::count(species_symbol)
 ```
@@ -4227,7 +4145,7 @@ ref_trees_list$WFSI_EglinAFB %>%
 eh. there is one genus only observation and many "HDWD" observations (which i assume is "hard wood"). let's just use the most common of the same genus
 
 ```{r}
-ref_trees_list$WFSI_EglinAFB <- ref_trees_list$WFSI_EglinAFB %>% 
+ref_trees_list$usfs_manitouef_n1 <- ref_trees_list$usfs_manitouef_n1 %>% 
   dplyr::mutate(
     species_symbol = dplyr::case_when(
       species_symbol %in% c("QU","HDWD") ~ "QULA2"
@@ -4664,15 +4582,15 @@ confusion_matrix_tree_class_fn <- function(pred_ref_match, pred_trees, ref_trees
 
 # test that
 confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$WFSI_EglinAFB
-  , pred_trees = pred_trees_list$WFSI_EglinAFB
-  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  pred_ref_match = pred_ref_tree_match_list$usfs_manitouef_n1
+  , pred_trees = pred_trees_list$usfs_manitouef_n1
+  , ref_trees = ref_trees_list$usfs_manitouef_n1
   , use_genus = F
 )
 confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$WFSI_EglinAFB
-  , pred_trees = pred_trees_list$WFSI_EglinAFB
-  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  pred_ref_match = pred_ref_tree_match_list$usfs_manitouef_n1
+  , pred_trees = pred_trees_list$usfs_manitouef_n1
+  , ref_trees = ref_trees_list$usfs_manitouef_n1
   , use_genus = T
 )
 ```
@@ -4931,13 +4849,13 @@ similarity_tree_class_fn <- function(
 
 # test that
 similarity_tree_species_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$WFSI_EglinAFB
-  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  pred_trees = pred_trees_list$usfs_manitouef_n1
+  , ref_trees = ref_trees_list$usfs_manitouef_n1
   , use_genus = F
 )
 similarity_tree_genus_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$WFSI_EglinAFB
-  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  pred_trees = pred_trees_list$usfs_manitouef_n1
+  , ref_trees = ref_trees_list$usfs_manitouef_n1
   , use_genus = T
 )
 

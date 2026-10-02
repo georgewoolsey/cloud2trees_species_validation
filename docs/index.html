@@ -191,7 +191,9 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="2.1.1" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#id_01_fld_dta"><i class="fa fa-check"></i><b>2.1.1</b> Field Data</a></li>
 <li class="chapter" data-level="2.1.2" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#id_02_ptcld_dta"><i class="fa fa-check"></i><b>2.1.2</b> Point Cloud Data</a></li>
 <li class="chapter" data-level="2.1.3" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#id_03_itd"><i class="fa fa-check"></i><b>2.1.3</b> Tree Detection</a></li>
-<li class="chapter" data-level="2.1.4" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#id_04_species"><i class="fa fa-check"></i><b>2.1.4</b> Species/Genera Prediction Method</a></li>
+<li class="chapter" data-level="2.1.4" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#id_04_species"><i class="fa fa-check"></i><b>2.1.4</b> Species/Genus Prediction Method</a></li>
+<li class="chapter" data-level="2.1.5" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#predict-speciesgenus-application"><i class="fa fa-check"></i><b>2.1.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="2.1.6" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html#speciesgenus-accuracy-evaluation"><i class="fa fa-check"></i><b>2.1.6</b> Species/Genus Accuracy Evaluation</a></li>
 </ul></li>
 </ul></li>
 </ul>
@@ -214,7 +216,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="header">
 <h1 class="title"><code>cloud2trees</code> Species Validation</h1>
 <p class="author"><em>George Woolsey</em></p>
-<p class="date"><em>30 September, 2026</em></p>
+<p class="date"><em>02 October, 2026</em></p>
 </div>
 <div id="introduction" class="section level1 hasAnchor" number="1">
 <h1><span class="header-section-number">1</span> Introduction<a href="index.html#introduction" class="anchor-section" aria-label="Anchor link to header"></a></h1>
@@ -231,13 +233,13 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <ol style="list-style-type: decimal">
 <li><strong>Individual Tree-Level Accuracy</strong></li>
 </ol>
-<p>This approach evaluates classification accuracy at the individual tree level. It maps every predicted tree species against the reference field-measured tree using a classical confusion matrix cross-tabulation (i.e. True Positive, False Positive, False Negative counts).</p>
-<p>The confusion matrix will allow us to calculate class-specific performance metrics, including producer’s accuracy (omission error) and user’s accuracy (commission error) and overall accuracy</p>
+<p>This approach evaluates classification accuracy at the individual tree level. It maps every predicted tree species against the reference field-measured tree using a classical confusion matrix cross-tabulation. Given that our analysis is focused on evaluating the proposed taxonomic classification algorithm (rather than the individual tree detection method), we’ll evaluate the taxonomic classification accuracy conditionally for successfully detected tree crowns (true positive matches). This conditional evaluation will allow us to isolate taxonomic classification performance from tree detection errors.</p>
+<p>The confusion matrix will allow us to calculate class-specific performance metrics, including producer’s accuracy (omission error) and user’s accuracy (commission error) and overall accuracy.</p>
 <ol start="2" style="list-style-type: decimal">
 <li><strong>Stand-Wide Compositional Accuracy</strong></li>
 </ol>
 <p>Instead of evaluating trees one by one, this accuracy evaluation aggregates the species counts or proportions across an entire plot or forest stand. It then calculates the Bray-Curtis dissimilarity index to compare the predicted species composition against the observed field composition. The index returns a value between 0 and 1, where 0 indicates identical species compositions and 1 indicates completely non-overlapping communities. Because Bray-Curtis is a dissimilarity measure, it can be interpreted as:</p>
-<p><span class="math display">\[\textrm{Bray-Curtis}_{dissimilarity} \approx 1-\textrm{Schoener}_{similarity}\]</span></p>
+<p><span class="math display">\[\textrm{Bray-Curtis}_{dissimilarity} \approx 1-\textrm{Bray-Curtis}_{similarity}\]</span></p>
 <p>The Bray-Curtis index is a widely trusted metric in <a href="https://vegandevs.github.io/vegan/reference/vegdist.html">community ecology</a>. Dissimilarity/similarity metrics tell us how well the proposed method captures the overall ecological community structure. Even if individual tree predictions are misaligned, the proposed method may still capture the correct stand-level abundance proportions, which can still be valuable for management.</p>
 </div>
 <div id="benefits-and-next-steps" class="section level2 hasAnchor" number="1.3">
