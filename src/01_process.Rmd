@@ -1122,7 +1122,7 @@ if(!file.exists(fnm_temp)){
   wfsi_eglinafb_ws_pred_trees <- 
     wfsi_eglinafb_ws_pred_trees %>% 
     dplyr::mutate(
-      join_id = dplyr::row_number()
+      join_id = dplyr::row_number() %>% as.character()
     ) %>% 
     dplyr::left_join(
       wfsi_eglinafb_ws_pred_trees_dbh_temp %>% 
@@ -1245,7 +1245,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial distance mathing of these points with the predicted tree top points using a 2 m search radius. if multiple tree points fall within a the search radius, we'll select the tree that is closest in terms of size based on whatever field data is available (height or DBH). One predicted tree will only be matched with one field reference tree and vice-versa.
+now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial intersection of these points with the predicted tree crowns. if multiple tree points fall within a single crown, we'll select the tree that is closest in terms of size based on whatever field data is available (height or DBH). One predicted tree will only be matched with one field reference tree and vice-versa.
 
 ```{r, include=F, eval=F}
 ###############################################################
@@ -2953,13 +2953,13 @@ if(!file.exists(fnm_temp)){
   pred_trees_temp <- 
     pred_trees_temp %>% 
     dplyr::mutate(
-      join_id = dplyr::row_number()
+      join_id = dplyr::row_number() %>% as.character()
     ) %>% 
     dplyr::left_join(
       pred_trees_temp_dbh_temp %>%
         sf::st_drop_geometry() %>%
         dplyr::mutate(
-          join_id = as.numeric(treeID)
+          join_id = as.character(treeID)
         ) %>%
         dplyr::select(
           join_id, tidyselect::starts_with("fia_est_dbh"), dbh_cm
@@ -4613,7 +4613,7 @@ confusion_matrix_tree_class_fn <- function(pred_ref_match, pred_trees, ref_trees
       )
       , escape = F
     ) %>% 
-    kableExtra::kable_styling(font_size = 11.5) %>% 
+    kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>% # 
     # header
     kableExtra::add_header_above(
       c(
@@ -4854,7 +4854,7 @@ similarity_tree_class_fn <- function(
       )
       , escape = F
     ) %>% 
-    kableExtra::kable_styling(font_size = 11.5) %>% 
+    kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>% # 
     kableExtra::add_header_above(
       # named numeric vector req'd for dynamic label
       setNames( c(1,nrow(species_comp_temp)), c(" ", head_temp) )
@@ -4918,7 +4918,7 @@ similarity_tree_class_fn <- function(
       caption = "Predicted vs Reference Compositional Accuracy Metrics"
       , col.names = c("","value","interpretation")
     ) %>% 
-    kableExtra::kable_styling(font_size = 12) %>% 
+    kableExtra::kable_styling(font_size = 12, bootstrap_options = c("responsive", "condensed")) %>% # 
     kableExtra::column_spec(1:2, bold = TRUE)
   
   return(list(

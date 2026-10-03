@@ -1,4 +1,4 @@
-# Another Site
+# USFS Manitou Experimental Forest (N1)
 
 Now that we have reviewed the process and evaluation method and set up functions to standardize and streamline our data processing, let's do it for another site
 
@@ -9,17 +9,16 @@ gc()
 
 ### Field Data{#01_fld_dta}
 
-Field data from this study site is from: 
+Field data from this study site is from: a stem map including all trees with a height of at least 2 m.
 
-xxxxxxx
+the sampling protocol for trees was: measure all trees at least 2 m in height for height, DBH, and species and record distance and azimuth from gridded plot centers over square study area.
 
-the sampling protocol for trees was:
-
-xxxxxxxxx
+we'll keep trees over 
 
 ```{r}
 usfs_manitouef_n1_trees <-
-  readxl::read_excel("../data/N1_2024_Field_Trees.xlsx") %>% 
+  # we have used this data before
+  readxl::read_excel("c:/data/usfs/uas_lidar_n1/data/N1_2024_Field_Trees.xlsx") %>% 
   dplyr::rename_with(
     ~ tolower(.x) %>% 
       stringr::str_squish() %>% 
@@ -36,48 +35,40 @@ usfs_manitouef_n1_trees <-
   dplyr::rename(
     # field_dbh_cm = dbh_cm
     # , field_tree_height_m = ht_m
-    field_dbh_in = dbh_24
-    , field_tree_height_ft = ht_24
+    dbh_in = dbh_24
+    , tree_height_ft = ht_24
   ) %>% 
-  # dplyr::select(field_dbh_in, field_tree_height_ft) %>% summary()
+  # dplyr::select(dbh_in, tree_height_ft) %>% summary()
   dplyr::mutate(
-    field_dbh_cm = field_dbh_in/0.394
-    , field_tree_height_m = field_tree_height_ft/3.281
+    dbh_cm = dbh_in/0.394
+    , tree_height_m = tree_height_ft/3.281
   ) %>% 
-  # dplyr::select(field_dbh_cm, field_tree_height_m) %>% summary()
+  # dplyr::select(dbh_cm, tree_height_m) %>% summary()
   sf::st_set_geometry("geometry") %>% 
-  dplyr::filter(
-    !is.na(field_dbh_cm)
-    & !is.na(field_tree_height_m)
-    & sf::st_is_valid(geometry)
-    # only keep trees that are above height threshold used for uas processing
-    & field_tree_height_m >= my_tree_ht_m
-    # & field_dbh_cm >= min_tree_dbh_cm # if know min field dbh for field sampling
-  ) %>% 
-  sf::st_transform(terra::crs(chm_rast[[1]])) %>% 
-  sf::st_intersection(
-    stand_boundary %>%
-      dplyr::select(stand_area_m2)
-  ) %>%
   dplyr::mutate(
-    field_tree_id = dplyr::row_number()
-    , tree_utm_x = sf::st_coordinates(geometry)[,1] #lon
-    , tree_utm_y = sf::st_coordinates(geometry)[,2] #lat
-    # basal area
-    , basal_area_m2 = pi * field_dbh_cm^2 / (4*10000)
+    tree_x = sf::st_coordinates(geometry)[,1] #lon
+    , tree_y = sf::st_coordinates(geometry)[,2] #lat
   ) %>% 
-  xxxx
   # make a plot_id that is unique for all so we don't have to join by multiple columns
   # and for all sites we'll just use a plot_id
   dplyr::mutate(
-    plot_id = stringr::str_c(unit,plot,sep = "_")
+    # plot_id = xxxxxx
     # also, each tree needs a treeID
-    , treeID = dplyr::row_number() %>% as.character()
+    treeID = dplyr::row_number() %>% as.character()
     # also, we need a species_symbol to match with the FIADatabase
-    , species_symbol = toupper(species) %>% stringr::str_remove_all("\\s")
+    , species_symbol = toupper(spp) %>% stringr::str_remove_all("\\s")
+  ) %>% 
+  # clean
+  dplyr::filter(
+    !is.na(dbh_cm)
+    & !is.na(tree_height_m)
+    & sf::st_is_valid(geometry)
+    & tree_height_m >= 2
+    & !is.na(species_symbol)
+    & species_symbol!=""
   )
 # huh?
-usfs_manitouef_n1_trees %>% dplyr::glimpse()
+# usfs_manitouef_n1_trees %>% dplyr::glimpse()
 # usfs_manitouef_n1_trees %>% dplyr::select(dbh_cm) %>% summary()
 ```
 
@@ -86,8 +77,8 @@ let's check those field trees out to orient ourselves to the location
 ```{r}
 usfs_manitouef_n1_trees %>% 
   mapview::mapview(
-    zcol = "species"
-    , layer.name="WFSI Eglin AFB: field trees"
+    zcol = "species_symbol"
+    , layer.name="USFS Manitou EF (N1): field trees"
     , popup=F
   )
 # usfs_manitouef_n1_trees %>%
@@ -100,96 +91,45 @@ usfs_manitouef_n1_trees %>%
 # # 30.53834,-86.7296
 ```
 
-what is the count of trees measured pre- and post-burn?
+what is the distribution of species?
 
 ```{r}
 usfs_manitouef_n1_trees %>% 
   sf::st_drop_geometry() %>% 
-  dplyr::count(burn_status)
-```
-
-so these are all post-burn samples. what is the distribution of species?
-
-```{r}
-usfs_manitouef_n1_trees %>% 
-  sf::st_drop_geometry() %>% 
-  dplyr::count(species) %>% 
+  dplyr::count(species_symbol) %>% 
   dplyr::arrange(desc(n)) %>% 
   dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
 ```
 
-how many plots have trees by unit?
+let's load in the singular plot location (it's just one large study site that we'll call a plot for this analysis)
 
 ```{r}
-usfs_manitouef_n1_trees %>% 
-  sf::st_drop_geometry() %>% 
-  dplyr::distinct(unit,plot) %>% 
-  dplyr::count(unit)
-```
-
-we need to get the plot location points and buffer them by 10 m of plot center which was said to be the field sampling protocol to "*Sample all trees ≥10 cm DBH within the plot radius and over from plot center*" ...clear as mud!
-
-```{r}
-# https://doi.org/10.60594/W4T880
 usfs_manitouef_n1_plots <-
-  readr::read_csv(
-    "../data/usfs_manitouef_n1/Macroplot_Geographical_Location_Data/data/Geographical_Macroplot_Data_Eglin_2023.csv"
-    , progress = F
-    , show_col_types = F
+   sf::st_read(
+    "c:/data/usfs/uas_lidar_n1/data/N1_Boundary/N1_Boundary.shp"
+    # "c:/data/usfs/uas_sfm_tree_detection/data/field_validation/field_data_Boundary.shp"
+    , quiet = T
   ) %>% 
-  dplyr::rename_with(~tolower(.x) %>% make.names()) %>% 
+  dplyr::rename_with(tolower) %>% 
   dplyr::filter(
-    !is.na(latitude_y)
-    , !is.na(longitude_x)
-    , !is.na(macroplot)
+    name=="N1"
+    # site=="N1"
   ) %>% 
-  # spatial that
-  sf::st_as_sf(coords = c("longitude_x", "latitude_y"), crs = 4326, remove = F) %>% 
   # converts proj to match trees and horizontal units to m
   sf::st_transform(sf::st_crs(usfs_manitouef_n1_trees)) %>% 
-  # "After the study fires in March 2023, trees within 10 m of plot center were identified..."
-  sf::st_buffer(10) %>% 
   dplyr::mutate(
     plot_area_m2 = sf::st_area(.) %>% as.numeric()
-    # this is good data mgmt: make sure to specify unit orientation in the plot data but not the tree data
-    , burn_unit = burn_unit %>% stringr::str_remove("[EWSNewsn]$")
-    # # another good practice is to format the plot id's to have padding of two zeros in the plot data but only padding of one zero in the tree data
-    , macroplot = dplyr::case_when(
-      stringr::str_sub(macroplot, 3, 4) == "00" ~ stringr::str_c( stringr::str_sub(macroplot,1,2), "0", stringr::str_sub(macroplot,5) )
-      , stringr::str_sub(macroplot, 3, 3) == "0" ~  stringr::str_c( stringr::str_sub(macroplot,1,2), stringr::str_sub(macroplot,4) )
-      , T ~ macroplot
-    )
-  ) %>% 
-  dplyr::rename(
-    plot = macroplot
-    , unit = burn_unit
+    , plot_id = name
   )
 
-# usfs_manitouef_n1_plots %>% dplyr::glimpse()
-# usfs_manitouef_n1_plots$plot %>% unique()
-
-# # check for plot and unit non-matches
-# usfs_manitouef_n1_trees %>%
-#   sf::st_drop_geometry() %>%
-#   dplyr::distinct(unit,plot) %>%
-#   dplyr::anti_join(
-#     usfs_manitouef_n1_plots %>%
-#       sf::st_drop_geometry() %>%
-#       dplyr::distinct(unit,plot,plot_area_m2)
-#     , by = dplyr::join_by(unit,plot)
-#   ) %>%
-#   dplyr::glimpse()
-  
-# lets keep only plots for which tree data exists since we know those were measured post-burn
-usfs_manitouef_n1_plots <- usfs_manitouef_n1_plots %>% 
-  dplyr::inner_join(
-    usfs_manitouef_n1_trees %>%
-      sf::st_drop_geometry() %>%
-      dplyr::distinct(unit,plot,plot_id)
-    , by = dplyr::join_by(unit,plot)
+# lets keep only trees within the plot boundar
+usfs_manitouef_n1_trees <- 
+  usfs_manitouef_n1_trees %>% 
+  sf::st_intersection(
+    usfs_manitouef_n1_plots %>% dplyr::select(plot_id)
   )
   
-# usfs_manitouef_n1_plots %>% dplyr::glimpse()
+# usfs_manitouef_n1_trees %>% dplyr::glimpse()
 
 # save to reference list
 # add to the ref trees list
@@ -197,127 +137,9 @@ nm_temp <- project_data_df %>%
   dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
   dplyr::pull(data_site_nm)
 ref_plots_list[[nm_temp]] <- usfs_manitouef_n1_plots
-# ref_plots_list
-
-```
-
-let's quickly check the trees and plots to make sure they align
-
-```{r}
-# usfs_manitouef_n1_trees %>% dplyr::glimpse()
-# plot function
-p_fn_temp <- function(nr){
-    p <- usfs_manitouef_n1_plots %>% dplyr::slice(nr)
-    t <- usfs_manitouef_n1_trees %>% 
-      dplyr::inner_join(
-          p %>% 
-          dplyr::select(unit,plot) %>%
-          sf::st_drop_geometry()
-        , by = dplyr::join_by(unit,plot)
-      )
-    ggplot2::ggplot() + 
-    ggplot2::geom_sf(
-      data = t
-      , mapping = ggplot2::aes(color = dbh_cm)
-      , size = 2.5
-    ) + 
-    ggplot2::geom_sf(
-      data = p
-      , color = "gray33"
-      , fill = NA
-      , lwd = 1.5
-    ) + 
-    ggplot2::geom_sf(
-      data = t
-      , mapping = ggplot2::aes(color = dbh_cm)
-      , size = 2.5
-    ) + 
-    ggplot2::scale_color_viridis_c(
-      option = "mako"
-      , limits = c(0, ceiling(max(usfs_manitouef_n1_trees$dbh_cm,na.rm=T)*1.01))
-      , direction = -1
-      , name = "DBH (cm)"
-    ) +
-    ggplot2::labs(
-      subtitle = paste0(p$unit, " | ", p$plot)
-    ) +
-    ggplot2::theme_void() +
-    ggplot2::theme(
-      plot.subtitle = ggplot2::element_text(size = 8, hjust = 0.5, face = "bold")
-    )
-  }
-
-pl_temp <- 
-  1:nrow(usfs_manitouef_n1_plots) %>% 
-  sample(12) %>% 
-  purrr::map(p_fn_temp)
-patchwork::wrap_plots(pl_temp,ncol=4,guides = "collect")
-```
-
-spot check of alignment between plot and tree spatial data looks good but we can quickly look at all plots and trees to see if any trees fall outside of the plot boundaries
-
-```{r}
-# usfs_manitouef_n1_trees %>% dplyr::glimpse()
-usfs_manitouef_n1_trees <- 
-  1:nrow(usfs_manitouef_n1_plots) %>% 
-  purrr::map(function(nr){
-    p <- usfs_manitouef_n1_plots %>% dplyr::slice(nr)
-    t <- usfs_manitouef_n1_trees %>% 
-      dplyr::inner_join(
-          p %>% 
-          dplyr::select(unit,plot) %>%
-          sf::st_drop_geometry()
-        , by = dplyr::join_by(unit,plot)
-      )
-    # points outside?
-    out <- t %>% sf::st_filter(p, .predicate = sf::st_disjoint)
-      
-    return(
-      t %>% 
-        dplyr::left_join(
-          out %>% 
-            sf::st_drop_geometry() %>% 
-            dplyr::select(plot,unit,tree_number) %>% 
-            dplyr::mutate(is_out_of_plot = T)
-          , by = dplyr::join_by(plot,unit,tree_number)
-        ) %>% 
-        dplyr::mutate(
-          is_out_of_plot = dplyr::coalesce(is_out_of_plot,F)
-        )
-    )
-  }) %>% 
-  purrr::list_rbind()
-
-# save to reference list
-# add to the ref trees list
-nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
-  dplyr::pull(data_site_nm)
 ref_trees_list[[nm_temp]] <- usfs_manitouef_n1_trees
-# ref_trees_list 
-
-# are there any out?
-usfs_manitouef_n1_trees %>% sf::st_drop_geometry() %>% dplyr::count(is_out_of_plot)
+# ref_plots_list
 ```
-
-uh-oh we have one tree outside of the plot
-
-```{r}
-usfs_manitouef_n1_plots %>% 
-  dplyr::mutate(rn=dplyr::row_number()) %>% 
-  dplyr::inner_join(
-    usfs_manitouef_n1_trees %>% 
-      dplyr::filter(is_out_of_plot) %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::distinct(unit,plot)
-    , by = dplyr::join_by(unit,plot) 
-  ) %>% 
-  dplyr::pull(rn) %>% 
-  purrr::map(p_fn_temp)
-
-```
-
-right on the edge, but just outside based on a slight misalignment in GPS locations or in/out determination in the field
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
@@ -326,20 +148,12 @@ gc()
 
 ### Point Cloud Data{#02_ptcld_dta}
 
-Andrew Hudak, & Benjamin Bright. (2026). *Airborne Lidar Data from the 2023 Department of Defense Wildland Fire Science Initiative Eglin Air Force Base Campaign*. WFSI Data Portal. [doi:10.60594/W4B017](https://doi.org/10.60594/W4B017)
+data was collected over the study site via a UAS-lidar flight at an altitude of 122 m (400 ft) and speed of 8.9 meters per second (20 miles per hour)
 
->This dataset contains airborne light detection and ranging (lidar) data across burn units G20, G25, and L25 in Eglin AFB, FL. Kucera International acquired airborne lidar on January 28, 2023 (before prescribed fire), and on April 26, 2023 (after prescribed fire); prescribed fires occurred from March 11 to 19, 2023. Lidar data were acquired to characterize pre- and post-fire vegetation and estimate fire-caused biomass consumption. 
-
-some other relevant notes about the data:
-
->Kucera International acquired airborne lidar data across burn units G20, G25, and L25 on January 28, 2023 (before prescribed fire), and across burn units G20 and G25 on April 26, 2023 (after prescribed fire); prescribed fires occurred from March 11 to 19, 2023. The lidar sensor, an Optech Galaxy T2000, was mounted on a PA-31 Piper Navajo Chieftain fixed-wing aircraft, which flew at an elevation of 1341 m (4400 ft) above ground level at a speed of about 150 knots, with a planned sidelap of 30%. The Optech Galaxy T2000 scanned with a laser pulse rate of 1600 kHz, a scan rate of 150 Hz, and a scan field of view of 30 degrees, which resulted in swath widths of 716 meters (2350 feet) and an average point density of 15 points per square meter.
-
->LAZ file horizontal distance units are meters, in the UTM Zone 16N NAD83 (2011) geographic coordinate system (EPSG 6345)
-
-let's check out the raw ALS data
+let's check out the raw point cloud data
 
 ```{r}
-usfs_manitouef_n1_las_f_temp <- "../data/usfs_manitouef_n1/post_fire_laz_apr2023"
+usfs_manitouef_n1_las_f_temp <- "c:/data/usfs/uas_lidar_n1/data/N1_400AGL_20MPH_TFOFF/"
 usfs_manitouef_n1_las_ctg_temp <- lidR::readLAScatalog(usfs_manitouef_n1_las_f_temp)
 usfs_manitouef_n1_las_ctg_temp
 # usfs_manitouef_n1_las_ctg_temp@data %>% dplyr::glimpse()
@@ -351,16 +165,16 @@ let's check out the lidar data coverage compared to the field plot data
 usfs_manitouef_n1_las_ctg_temp@data$geometry %>% 
   sf::st_union() %>% 
   sf::st_as_sf() %>% 
-  dplyr::mutate(data = "ALS data extent") %>% 
+  dplyr::mutate(data = "UAS-lidar data extent") %>% 
 mapview::mapview(
  zcol = "data"
-  , layer.name="WFSI Eglin AFB: ALS data"
+  , layer.name="USFS Manitou EF (N1): UAS-lidar data"
   , popup=F
 ) +
 mapview::mapview(
   usfs_manitouef_n1_trees
-  , zcol = "species"
-  , layer.name="WFSI Eglin AFB: field trees"
+  , zcol = "species_symbol"
+  , layer.name="USFS Manitou EF (N1): field trees"
   , popup=F
 )
 ```
@@ -381,86 +195,10 @@ c2t_tracking_fnm_temp <- file.path(c2t_process_dir_temp, "processed_tracking_dat
 # save to tracking df
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
-    c2t_process_dir = ifelse(data_dir==c2t_output_dir_temp, c2t_process_dir_temp, "")
-    , c2t_tracking_fnm = ifelse(data_dir==c2t_output_dir_temp, c2t_tracking_fnm_temp, "")
+    c2t_process_dir = ifelse(data_dir==c2t_output_dir_temp, c2t_process_dir_temp, c2t_process_dir)
+    , c2t_tracking_fnm = ifelse(data_dir==c2t_output_dir_temp, c2t_tracking_fnm_temp, c2t_tracking_fnm)
   )
 # project_data_df %>% print(n=nrow(project_data_df))
-
-################################################
-# use point cloud point density
-# to automatically set CHM and DTM res
-# make a fn to do this based on input LAScatalog
-################################################
-
-get_ptcld_density_chm_res_fn <- function(las_ctg, rast_res_buffer = 0.01, min_chm_res_m = 0.15, chm_factor_for_dtm = 2) {
-  rast_res_buffer <- dplyr::coalesce(as.numeric(rast_res_buffer),0)
-  min_chm_res_m <- dplyr::coalesce(as.numeric(min_chm_res_m),0.15)
-  chm_factor_for_dtm <- dplyr::coalesce(as.numeric(chm_factor_for_dtm),2)
-  
-  if(!inherits(las_ctg, "LAScatalog")){stop("must be a `LAScatalog` read with `lidR::readLAScatalog()`")}
-  if(
-    !( methods::slotNames(las_ctg) %>% stringr::str_equal("data") %>% any() )
-  ){stop("can't find `data` layer in `LAScatalog` read with `lidR::readLAScatalog()`")}
-  if(!inherits(las_ctg@data, "sf")){stop("non-sf `data` from `LAScatalog` read with `lidR::readLAScatalog()`")}
-  
-  # some point clouds have tiles with lots of overlap
-  # some point clouds have tiles with no overlap
-  
-  # union over total area will help us identify overlap
-  # high overlap >> union will be much smaller than total area (e.g., uoa ratio < 0.66)
-  # low overlap >> union will be similar to total area (e.g., uoa ratio > 0.88)
-  
-  # union area
-  las_uoa_temp <- 
-  (
-    las_ctg@data %>% 
-    dplyr::ungroup() %>% 
-    sf::st_union() %>% 
-    sf::st_area() %>% 
-    as.numeric()
-  ) /
-  # tot area
-  (
-    las_ctg@data %>% 
-    dplyr::ungroup() %>% 
-    dplyr::mutate(
-      area_m2 = sf::st_area(geometry) %>% as.numeric()
-    ) %>% 
-    dplyr::summarise(area_m2=sum(area_m2,na.rm=T)) %>% 
-    dplyr::pull(area_m2)
-  )
-  # las_uoa_temp
-  # when a lot of overlap, union and calculate density based off union
-  if(las_uoa_temp<0.66){
-    pts_m2_temp <- 
-      sum(las_ctg@data$Number.of.point.records,na.rm=T) /
-      ( las_ctg@data$geometry %>% sf::st_union() %>% sf::st_area() %>% as.numeric() )  
-  }else{
-  # when NOT a lot of overlap, calculate density as-is
-    pts_m2_temp <- 
-      las_ctg@data %>% 
-      dplyr::mutate(
-        area_m2 = sf::st_area(geometry) %>% as.numeric()
-      ) %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::ungroup() %>% 
-      dplyr::summarise(
-        pts_m2 = sum(Number.of.point.records,na.rm = T)/sum(area_m2,na.rm = T)
-      ) %>% 
-      dplyr::pull(pts_m2)
-  }
-  # pts_m2_temp
-  # 1/sqrt(pts_m2_temp)
-  
-  chm_res_m_temp <- max(round(1/sqrt(pts_m2_temp),2) + rast_res_buffer, min_chm_res_m) 
-  dtm_res_m_temp <- round(as.numeric(chm_res_m_temp)*chm_factor_for_dtm,2)
-  
-  return(list(
-    pts_m2 = pts_m2_temp
-    , chm_res_m = chm_res_m_temp
-    , dtm_res_m = dtm_res_m_temp
-  ))
-}
 
 # get point cloud density and raster resolutions
 get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(usfs_manitouef_n1_las_ctg_temp)
@@ -472,11 +210,11 @@ dtm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("dtm_",get_ptcld_density_
 # save to tracking df
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
-    las_pts_m2 = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$pts_m2, as.numeric(NA))
-    , chm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$chm_res_m, as.numeric(NA))
-    , chm_fnm = ifelse(data_dir==c2t_output_dir_temp, chm_fnm_temp, "")
-    , dtm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$dtm_res_m, as.numeric(NA))
-    , dtm_fnm = ifelse(data_dir==c2t_output_dir_temp, dtm_fnm_temp, "")
+    las_pts_m2 = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$pts_m2, las_pts_m2) # las_pts_m2
+    , chm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$chm_res_m, chm_res_m) # chm_res_m
+    , chm_fnm = ifelse(data_dir==c2t_output_dir_temp, chm_fnm_temp, chm_fnm) # chm_fnm
+    , dtm_res_m = ifelse(data_dir==c2t_output_dir_temp, get_ptcld_density_chm_res_temp$dtm_res_m, dtm_res_m) # dtm_res_m
+    , dtm_fnm = ifelse(data_dir==c2t_output_dir_temp, dtm_fnm_temp, dtm_fnm) # dtm_fnm
   )
 
 # project_data_df %>% dplyr::filter(data_dir==c2t_output_dir_temp) %>% dplyr::glimpse()
@@ -496,7 +234,7 @@ if(
     output_dir = c2t_output_dir_temp
     , input_las_dir = usfs_manitouef_n1_las_f_temp
     , accuracy_level = 2
-    , keep_intrmdt = T
+    , keep_intrmdt = F
     , dtm_res_m = get_ptcld_density_chm_res_temp$dtm_res_m # (1/sqrt(pts_m2_temp))*2
     , chm_res_m = get_ptcld_density_chm_res_temp$chm_res_m # 1/sqrt(pts_m2_temp)
     , min_height = 0 # effectively generates a DSM based on non-ground points
@@ -529,40 +267,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-we'll set the minimum CHM resolution to 0.25 m to match the `cloud2trees` default. if the automatically-determined CHM resolution based on the point cloud density used in the `cloud2trees::cloud2raster()` was lower than this level, we'll aggregate the raster using `terra::aggregate()` and `terra::resample()` to get the exact target resolution. if the determined CHM resolution was higher than this level due to low point density, we will use the CHM as-is since this is already the finest resolution possible with the point cloud density.
-
-```{r}
-min_chm_res <- 0.25
-##################################################################
-# aggregate to make raster more coarse for tree detection
-##################################################################
-agg_chm_rast_fn <- function(chm, res, dir) {
-  fp <- file.path(dir, paste0("chm_",res,"m.tif"))
-  if(terra::res(chm)[1]<res){
-    # first, we'll borrow from the `cloud2trees` codebase to get a function to change the resolution of a raster exactly
-    ###___________________________________________###
-    # adjust the resolution of a raster to be in exactly the target resolution
-    ###___________________________________________###
-    if(
-      !file.exists(fp)
-    ){
-      agg_chm_rast <- cloud2trees:::adjust_raster_resolution(
-        chm
-        , target_resolution = res
-        , fun = max
-        , resample_method = "max"
-        , ofile = fp
-      )
-    }else{
-      agg_chm_rast <- terra::rast( fp )
-    }
-  }else{
-    agg_chm_rast <- chm  
-  }
-  return(agg_chm_rast)
-}
-
-```
+we'll set the minimum CHM resolution to `r min_chm_res` m to match the `cloud2trees` default. if the automatically-determined CHM resolution based on the point cloud density used in the `cloud2trees::cloud2raster()` was lower than this level, we'll aggregate the raster using `terra::aggregate()` and `terra::resample()` to get the exact target resolution. if the determined CHM resolution was higher than this level due to low point density, we will use the CHM as-is since this is already the finest resolution possible with the point cloud density.
 
 let's aggregate the CHM for this site and put it into a list of CHM rasters that we can map over in all of the processing
 
@@ -586,8 +291,39 @@ chm_list[[nm_temp]] <- agg_chm_rast_temp
 # chm_list
 ```
 
+let's check out the CHM
+
+```{r}
+# plot to check out the fine-resolution CHM raster
+chm_list$USFS_ManitouEF_N1 %>% 
+  terra::plot(
+    col = viridis::plasma(n=100)
+    , axes=F
+    , plg = list(
+      title = "CHM (m)"
+      , cex = 0.8
+      , title.cex = 0.9
+      , shrink = 0.6 
+    )
+  )
+```
+
+and convert the reference trees and plot data to the point cloud data projection
+
+```{r}
+ref_plots_list$USFS_ManitouEF_N1 <- ref_plots_list$USFS_ManitouEF_N1 %>% sf::st_transform(terra::crs(chm_list$USFS_ManitouEF_N1))
+ref_trees_list$USFS_ManitouEF_N1 <- ref_trees_list$USFS_ManitouEF_N1 %>% 
+  sf::st_transform(terra::crs(chm_list$USFS_ManitouEF_N1)) %>% 
+  dplyr::mutate(
+    tree_x = sf::st_coordinates(geometry)[,1] #lon
+    , tree_y = sf::st_coordinates(geometry)[,2] #lat
+  )
+```
+
+
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
+remove(usfs_manitouef_n1_plots, usfs_manitouef_n1_trees)
 gc()
 ```
 
@@ -597,394 +333,7 @@ gc()
 
 because the objective of this study is to evaluate a species/genera classification method, we just want the best ITD results we can get based on the field reference data. We are not interested in evaluating tree segmentation here, that has already been done across varied input data and forest types.
 
-let's make a function to test many different window functions, compare the segmentation results to the field reference data, then select the best window function based on tree detection accuracy.
-
-```{r}
-# test a bunch of different variable window sizes within `lidR::lmf()` 
-# that cover a range of possibilities and function shapes including linear, concave up, and constant
-get_ws_fn_list <- function(min_ws = 0.5, max_ws = 6.0, n_linear = 40, n_concave = 30, n_cr = 30, max_ht = 45) {
-  
-  # empty list
-  ws_functions <- list()
-  
-  ###########################################################################
-  # linear functions over a range
-  ###########################################################################
-  # end points for the line
-  linear_targets <- base::seq(from = max_ws, to = max_ws*4*10, length.out = n_linear)
-  
-  n_linear_pad <- ceiling(n_linear*1.5)
-  
-  for (i in 1:n_linear_pad) {
-    target_height <- linear_targets[i]
-    slope <- (max_ws - min_ws) / target_height
-    
-    # Pad names with a zero (01 to 60) for clean sorting
-    func_name <- base::paste0("linear_", base::sprintf("%02d", i))
-    
-    v_min  <- base::as.numeric(min_ws)
-    v_max  <- base::as.numeric(max_ws)
-    v_slope <- base::as.numeric(slope)
-    
-    func_body <- base::substitute(
-      dplyr::case_when(
-        base::is.na(x) ~ v_min,
-        (v_min + v_slope * x) < v_min ~ v_min,
-        (v_min + v_slope * x) > v_max ~ v_max,
-        TRUE ~ (v_min + v_slope * x)
-      ),
-      list(v_min = v_min, v_max = v_max, v_slope = v_slope)
-    )
-    
-    ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
-  }
-  
-  # the flat slopes are too close together...let's remove every other one
-  # how many to remove
-  num_to_remove <- length(ws_functions) - n_linear
-  
-  # half
-  start_idx <- length(ws_functions) - (num_to_remove - 1) * 2
-  
-  # remove
-  remove_idx <- seq(from = start_idx, to = length(ws_functions), by = 2)
-  ws_functions <- ws_functions[-remove_idx]
-  names(ws_functions) <- base::paste0("linear_", base::sprintf("%02d", c(1:length(ws_functions)) ))
-  
-  # ws_functions[1]
-  # ws_functions[[1]]
-  # class(ws_functions[[1]])
-  # ws_functions[[1]](1.5)
-  # ws_functions[[1]](0)
-  # ws_functions[[1]](18)
-  # 
-  # ws_functions[[40]](1.5)
-  # ws_functions[[40]](0)
-  # ws_functions[[40]](18)
-  
-  ###########################################################################
-  # concave down functions over a range
-  ###########################################################################
-  # total potential growth (or distance) between the floor and the ceiling is: 6.0-0.5=5.5
-  # the halfway point of growth is exactly half of that distance: 5.5/2=2.75
-  # when the curve reaches its exact halfway point, the resulting window size must be the baseline floor plus that half-distance: 0.5+2.75=3.25
-  # in `half_sat`, setting the constant of 1.375 means the function will hit its halfway mark of 3.25 when the tree is only 1.375 meters tall
-    # max slope = 4 (for ever 1 m growth, ws increases by 4 m)
-    # 4 = (6.0-0.5)/c >> 4 = 5.5/c >> c = 5.5/4 >> c = 1.375
-  # how far out to look based on maximum plot/tree height? 45 m tree??
-  
-  for (i in 1:n_concave) {
-    c <- 1.375 # ~dbh height
-    max_end <- max_ht # biggest tree everrrrr
-    half_sat <- c + (i - 1) * ( (max_end-c) / (n_concave-1))
-    
-    func_name <- base::paste0("concave_down_", base::sprintf("%02d", i))
-    
-    v_min  <- base::as.numeric(min_ws)
-    v_max  <- base::as.numeric(max_ws)
-    v_half <- base::as.numeric(half_sat)
-    
-    func_body <- base::substitute(
-      dplyr::case_when(
-        base::is.na(x) ~ v_min,
-        (v_min + ((v_max - v_min) * x) / (v_half + x)) < v_min ~ v_min,
-        (v_min + ((v_max - v_min) * x) / (v_half + x)) > v_max ~ v_max,
-        TRUE ~ (v_min + ((v_max - v_min) * x) / (v_half + x))
-      ),
-      list(v_min = v_min, v_max = v_max, v_half = v_half)
-    )
-    
-    ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
-  }
-  # ws_functions[length(ws_functions)]
-  # ws_functions[length(ws_functions)-1]
-  
-  ###########################################################################
-  # constant functions over a range
-  ###########################################################################
-  # range
-  constant_values <- base::seq(from = min_ws, to = max_ws * 0.95, by = 0.5)
-  
-  for (i in base::seq_along(constant_values)) {
-    const_val <- constant_values[i]
-    
-    func_name <- base::paste0("constant_", base::sprintf("%02d", i))
-    
-    v_min <- base::as.numeric(min_ws)
-    v_val <- base::as.numeric(const_val)
-    
-    func_body <- base::substitute(
-      dplyr::case_when(
-        base::is.na(x) ~ v_min,
-        TRUE ~ v_val
-      ),
-      list(v_min = v_min, v_val = v_val)
-    )
-    
-    ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
-  }
-  # ws_functions[length(ws_functions)]
-  # ws_functions[[length(ws_functions)]](0.1)
-  # ws_functions[[length(ws_functions)]](4)
-  # ws_functions[[length(ws_functions)]](15)
-  # ws_functions[length(ws_functions)-1]
-  
-  
-  # ###########################################################################
-  # # two-step linear functions over a range
-  # ###########################################################################
-  # # how many functions to test
-  # n_temp <- 16
-  # # max tree height in CHM
-  # 
-  # # Calculate fractional boundary envelopes based on global constraints
-  # xb_min <- max_ht * 0.09   # ~5m height
-  # xb_max <- max_ht * 0.66   # ~25m height
-  # yb_min <- min_ws + (max_ws - min_ws) * 0.36  # ~2.5m window size
-  # yb_max <- min_ws + (max_ws - min_ws) * 0.88  # ~4.5m window size
-  # 
-  # xb_sequence  <- base::seq(from = xb_min, to = xb_max, length.out = n_temp)
-  # yb_sequence  <- base::seq(from = yb_min, to = yb_max, length.out = n_temp)
-  # cap_sequence <- base::seq(from = 15.0,   to = 40.0,   length.out = n_temp)
-  # 
-  # for (i in 1:n_temp) {
-  #   x_b <- xb_sequence[i]
-  #   y_b <- yb_sequence[i]
-  #   
-  #   slope1 <- (y_b - min_ws) / x_b
-  #   
-  #   target_cap_x <- x_b + cap_sequence[i]
-  #   slope2 <- (max_ws - y_b) / (target_cap_x - x_b)
-  #   
-  #   func_name <- base::paste0("twostep_linear_", base::sprintf("%02d", i))
-  #   
-  #   v_min    <- base::as.numeric(min_ws)
-  #   v_max    <- base::as.numeric(max_ws)
-  #   v_xb     <- base::as.numeric(x_b)
-  #   v_yb     <- base::as.numeric(y_b)
-  #   v_slope1 <- base::as.numeric(slope1)
-  #   v_slope2 <- base::as.numeric(slope2)
-  #   
-  #   func_body <- base::substitute(
-  #     dplyr::case_when(
-  #       base::is.na(x) ~ v_min,
-  #       x <= v_xb ~ {
-  #         val <- v_min + v_slope1 * x
-  #         dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
-  #       },
-  #       x > v_xb ~ {
-  #         val <- v_yb + v_slope2 * (x - v_xb)
-  #         dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
-  #       }
-  #     ),
-  #     list(v_min = v_min, v_max = v_max, v_xb = v_xb, v_yb = v_yb, v_slope1 = v_slope1, v_slope2 = v_slope2)
-  #   )
-  #   
-  #   ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
-  # }
-  # 
-  # 
-  # # ws_functions[length(ws_functions)]
-  # # ws_functions[[length(ws_functions)]](0.1)
-  # # ws_functions[[length(ws_functions)]](4)
-  # # ws_functions[[length(ws_functions)]](15)
-  # # ws_functions[length(ws_functions)-1]
-  
-  
-  ###########################################################################
-  # chapman richards functions over a range
-  ###########################################################################
-  # Generate parameters that smoothly spread across your MAX_CANOPY_HEIGHT
-  # Beta controls horizontal stretching; Gamma controls the sharpness of the initial lag
-  beta_sequence  <- base::seq(from = 0.15, to = 0.02, length.out = n_cr)
-  gamma_sequence <- base::seq(from = 1.5,  to = 4.0,  length.out = n_cr)
-  
-  for (i in 1:n_cr) {
-    b_param <- beta_sequence[i]
-    g_param <- gamma_sequence[i]
-    
-    func_name <- base::paste0("chapman_richards_", base::sprintf("%02d", i))
-    
-    v_min   <- base::as.numeric(min_ws)
-    v_max   <- base::as.numeric(max_ws)
-    v_beta  <- base::as.numeric(b_param)
-    v_gamma <- base::as.numeric(g_param)
-    
-    # Chapman-Richards equation with case_when boundaries
-    func_body <- base::substitute(
-      dplyr::case_when(
-        base::is.na(x) ~ v_min,
-        TRUE ~ {
-          # Core Chapman-Richards Sigmoid Formula
-          val <- v_min + (v_max - v_min) * (1 - base::exp(-v_beta * x))^v_gamma
-          dplyr::case_when(val < v_min ~ v_min, val > v_max ~ v_max, TRUE ~ val)
-        }
-      ),
-      list(v_min = v_min, v_max = v_max, v_beta = v_beta, v_gamma = v_gamma)
-    )
-    
-    ws_functions[[func_name]] <- base::as.function(c(base::alist(x = ), func_body))
-  }
-  
-  return(ws_functions)
-}
-```
-
-let's take that function for a spin to get a list of window functions for testing and plot the functions over a height range
-
-```{r}
-get_ws_fn_list_ans <- get_ws_fn_list(min_ws = 0.5, max_ws = 7.0, n_linear = 30, n_concave = 30, n_cr = 30, max_ht = 45)
-# get_ws_fn_list_ans %>% names()
-# get_ws_fn_list_ans %>% length()
-
-# cloud2trees::itd_ws_functions() %>% names()
-# get_ws_fn_list_ans %>% names()
-# 
-# cloud2trees::itd_ws_functions()[[1]] %>% class()
-# get_ws_fn_list_ans[[1]] %>% class()
-# 
-# cloud2trees::itd_ws_functions()[[1]](2.22) %>% class()
-# get_ws_fn_list_ans[[1]](2.22) %>% class()
-# 
-# cloud2trees::itd_ws_functions()[[1]](2.22)
-# get_ws_fn_list_ans[[1]](2.22)
-
-# plot that
-ht_seq_temp <- base::seq(0, 50, by = 0.25)
-
-p_dta_temp <- 
-  purrr::map_dfr(
-  names(get_ws_fn_list_ans)
-  , function(name) {
-    tibble::tibble(
-      height = ht_seq_temp
-      , window_size = get_ws_fn_list_ans[[name]](ht_seq_temp)
-      , function_id = name
-      , shape_type = dplyr::case_when(
-        stringr::str_starts(name,"linear_") ~ "linear"
-        , stringr::str_starts(name,"concave_down_") ~ "concave down"
-        , stringr::str_starts(name,"twostep_linear_") ~ "two-step linear"
-        , stringr::str_starts(name,"constant_") ~ "constant"
-        , stringr::str_starts(name,"chapman_richards_") ~ "chapman-richards"
-      )
-    )
-  }
-)
-# p_dta_temp %>% dplyr::count(shape_type)
-# p_dta_temp %>% dplyr::distinct(function_id,shape_type) %>% dplyr::count(shape_type)
-
-p_temp <- 
-  ggplot2::ggplot(
-    data = p_dta_temp
-    , mapping = ggplot2::aes(x = height, y = window_size, group = function_id, color = shape_type)
-  ) +
-    ggplot2::geom_line(alpha = 0.6, linewidth = 1) +
-    ggplot2::labs(
-      x = "CHM (m)",
-      , y = "ws diameter (m)"
-      , color = "ws type"
-    ) +
-    # ggplot2::facet_wrap(facets = dplyr::vars(shape_type)) +
-    ggplot2::scale_color_viridis_d(option = "viridis", direction = -1) +
-    ggplot2::scale_y_continuous(limits=c(0,NA), breaks = scales::breaks_extended(n=6)) +
-    ggplot2::theme_light() +
-    ggplot2::theme(
-      legend.position = "top"
-    )
-p_temp
-
-```
-
-let's look at the functions by type so they are a little easier to see since that is `r length(get_ws_fn_list_ans)` unique functions
-
-```{r}
-p_temp + 
-  ggplot2::facet_wrap(facets = dplyr::vars(shape_type))
-```
-
-now we need a function to clip the CHM to the plot plus a buffer and run `cloud2trees::raster2trees()` for each window function. the return should be a spatial tree list unique by function.
-
-```{r}
-# function to loop over ws function list in raster2trees
-ws_testtest_fn <- function(
-    chm
-    , buffer = 5
-    , plot_sf
-    , ws_fn_list # a named list of functions ex: cloud2trees::itd_ws_functions()
-  ) {
-  # min ht for chm so we can test non-na
-  min_chm_ht <- 1.37
-  # crop chm
-  chm_crop <- chm %>% 
-    terra::crop(
-      plot_sf %>% 
-        sf::st_transform(terra::crs(chm)) %>% 
-        sf::st_buffer(buffer)
-      , mask = T
-    ) %>% 
-    terra::clamp(lower = min_chm_ht, values = F)
-  
-  # terra::plot(chm_crop)
-  # terra::plot(
-  #   plot_sf %>%
-  #     sf::st_transform(terra::crs(chm))
-  #   , add = T
-  #   , border = "cyan"
-  #   , col = NA
-  # )
-
-  if( !any( terra::global(chm_crop, fun = "anynotNA") ) ){
-    return(NULL)
-  }
-  
-  # map over the function list
-  ws_tree_list <- 
-    names(ws_fn_list) %>%
-    purrr::set_names() %>%
-    purrr::map(function(nm){
-      if (exists("my_temp_dir") && dir.exists(my_temp_dir)) {
-        unlink(my_temp_dir, recursive = TRUE, force = TRUE)
-      }
-      if (exists("my_temp_dir2") && dir.exists(my_temp_dir2)) {
-        unlink(my_temp_dir2, recursive = TRUE, force = TRUE)
-      }
-      warning(paste0("making dir: ",nm,"....",Sys.time()),immediate. = T,call. = F)
-      my_temp_dir <- tempfile(pattern = nm)
-      dir.create(my_temp_dir, showWarnings = FALSE)
-      my_temp_dir2 <- tempfile(pattern = paste0("xx",nm))
-      dir.create(my_temp_dir2, showWarnings = FALSE)
-      warning(paste0("raster2trees: ",nm,"....",Sys.time()),immediate. = T,call. = F)
-      
-      safe_raster2trees <- purrr::safely( cloud2trees::raster2trees )
-      xxx_raster2trees_ans <- safe_raster2trees(
-          chm_rast = chm_crop
-          , outfolder = my_temp_dir
-          , ws = ws_fn_list[[nm]]
-          , min_height = min_chm_ht
-          , min_crown_area = 0.5
-          , tempdir = my_temp_dir2
-        )
-      
-      if(!is.null(xxx_raster2trees_ans$result)){
-        xxx_raster2trees_ans <- xxx_raster2trees_ans$result
-        # xxx_raster2trees_ans %>% names()
-        return(
-          xxx_raster2trees_ans %>% 
-            cloud2trees::simplify_multipolygon_crowns()
-            # sf::st_drop_geometry() %>% 
-            # sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(xxx_raster2trees_ans))
-        )
-      }else{return(NULL)}
-    }) %>% 
-    purrr::list_rbind(names_to = "ws_fn_nm")
-  
-  # ws_tree_list %>% dplyr::glimpse()
-  # ws_tree_list %>% sf::st_drop_geometry() %>% dplyr::count(ws_fn_nm)
-  # ws_tree_list %>% class()
-  
-  return(ws_tree_list)
-}
-```
+use our function to clip the CHM to the plot plus a buffer and run `cloud2trees::raster2trees()` for each window function. the return should be a spatial tree list unique by function.
 
 get the individual tree predictions for each window function for the area within the field reference plots with a buffer
 
@@ -996,37 +345,44 @@ c2t_process_dir_temp <-
 fnm_temp <- file.path(c2t_process_dir_temp,"ws_pred_trees.gpkg")
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
-    ws_pred_trees_fnm = ifelse(c2t_process_dir==c2t_process_dir_temp, fnm_temp, "")
+    ws_pred_trees_fnm = ifelse(c2t_process_dir==c2t_process_dir_temp, fnm_temp, ws_pred_trees_fnm)
   )
+
 if(!file.exists(fnm_temp)){
-  usfs_manitouef_n1_ws_pred_trees <- 
-    1:nrow(usfs_manitouef_n1_plots) %>% 
+  usfs_manitouef_n1_ws_pred_trees <-
+    1:nrow(ref_plots_list$USFS_ManitouEF_N1) %>%
     purrr::map(
       \(x)
       ws_testtest_fn(
-        chm = chm_list$usfs_manitouef_n1
-        , buffer = 5.5
-        , plot_sf = 
-          usfs_manitouef_n1_plots %>% 
-          dplyr::ungroup() %>% 
+        chm = chm_list$USFS_ManitouEF_N1
+        , buffer = (competition_radius_m+3) # since we only have one plot we're just going to go for it
+        , plot_sf =
+          ref_plots_list$USFS_ManitouEF_N1 %>%
+          dplyr::ungroup() %>%
           dplyr::slice(x) %>%
           sf::st_union()
         # a named list of functions ex: cloud2trees::itd_ws_functions()
-        , ws_fn_list = get_ws_fn_list_ans # cloud2trees::itd_ws_functions() # 
-      )  
-    ) %>% 
+        , ws_fn_list = get_ws_fn_list_ans # cloud2trees::itd_ws_functions() #
+      )
+    ) %>%
     purrr::list_rbind(names_to = "plot_dta_idx")
   
   # add plot id
   usfs_manitouef_n1_ws_pred_trees <- 
     usfs_manitouef_n1_ws_pred_trees %>% 
     dplyr::left_join(
-      usfs_manitouef_n1_plots %>% 
+      ref_plots_list$USFS_ManitouEF_N1 %>% 
         dplyr::mutate(plot_dta_idx=dplyr::row_number()) %>% 
         sf::st_drop_geometry() %>% 
         dplyr::select(plot_dta_idx,plot_id)
       , by = "plot_dta_idx"
-    )
+    ) %>% 
+    sf::st_set_geometry("geometry")
+  
+  # usfs_manitouef_n1_ws_pred_trees %>% sf::st_crs()
+  # usfs_manitouef_n1_ws_pred_trees %>% dplyr::glimpse()
+  # usfs_manitouef_n1_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_fn_nm)
+  
   # get dbh
   usfs_manitouef_n1_ws_pred_trees_dbh_temp <- 
     usfs_manitouef_n1_ws_pred_trees %>% 
@@ -1037,10 +393,10 @@ if(!file.exists(fnm_temp)){
     cloud2trees::trees_dbh()
   # usfs_manitouef_n1_ws_pred_trees_dbh_temp %>% dplyr::glimpse()
   # add to trees
-  usfs_manitouef_n1_ws_pred_trees <- 
+  usfs_manitouef_n1_ws_pred_trees <-
     usfs_manitouef_n1_ws_pred_trees %>% 
     dplyr::mutate(
-      join_id = dplyr::row_number()
+      join_id = dplyr::row_number() %>% as.character()
     ) %>% 
     dplyr::left_join(
       usfs_manitouef_n1_ws_pred_trees_dbh_temp %>% 
@@ -1094,11 +450,22 @@ let's check out one example field plot and a few different window function tree 
 
 ```{r, fig.height=10}
 # plot
-p_temp <- usfs_manitouef_n1_plots %>% dplyr::slice(1)
+p_temp <- ref_plots_list$USFS_ManitouEF_N1 %>% dplyr::slice(1)
+
+if(as.numeric(sf::st_area(p_temp))>2000){
+  p_temp <- p_temp %>% 
+    sf::st_centroid() %>% 
+    sf::st_buffer(sqrt(2000)/2) %>% 
+    sf::st_bbox() %>% 
+    sf::st_as_sfc() %>% 
+    sf::st_as_sf() %>% 
+    dplyr::mutate(plot_id = p_temp$plot_id[1])
+}
 # some trees
 t_temp <- 
   usfs_manitouef_n1_ws_pred_trees %>% 
   dplyr::filter(plot_id==p_temp$plot_id[1]) %>% 
+  sf::st_intersection(p_temp) %>% 
   dplyr::inner_join(
     usfs_manitouef_n1_ws_pred_trees %>% 
       sf::st_drop_geometry() %>% 
@@ -1107,7 +474,7 @@ t_temp <-
       dplyr::select(ws_fn_nm)
     , by = "ws_fn_nm"
   )
-chm_temp <- chm_list[["usfs_manitouef_n1"]] %>% 
+chm_temp <- chm_list$USFS_ManitouEF_N1 %>% 
   terra::crop(
     t_temp %>% 
       sf::st_union() %>% 
@@ -1163,1178 +530,17 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial distance mathing of these points with the predicted tree top points using a 2 m search radius. if multiple tree points fall within a the search radius, we'll select the tree that is closest in terms of size based on whatever field data is available (height or DBH). One predicted tree will only be matched with one field reference tree and vice-versa.
-
-```{r, include=F, eval=F}
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-# check df function
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-validate_df_fn <- function(data, required_cols = c("tree_height_m"), check_numeric = F) {
-  # check data
-  if(!inherits(data,"sf") && !inherits(data,"sfc")){stop("all input data requires POINT sf data")}
-  if(
-    !all( sf::st_is(data, c("POINT")) )
-  ){
-    stop("all input data requires POINT sf data")
-  }
-  # names
-  # uses base::setdiff and base::names
-  missing_cols <- setdiff(required_cols, names(data))
-  
-  if(length(missing_cols) > 0){
-    stop("all input data requires columns: ", paste(missing_cols, collapse = ", "))
-  }
-  
-  # numeric
-  if(check_numeric){
-    non_numeric <- data %>%
-      sf::st_drop_geometry() %>% 
-      dplyr::select(dplyr::all_of(required_cols)) %>%
-      dplyr::summarise(dplyr::across(dplyr::everything(), ~ !is.numeric(.x))) %>%
-      tidyr::pivot_longer(dplyr::everything()) %>%
-      dplyr::filter(value == TRUE)
-
-    if (nrow(non_numeric) > 0) {
-      stop("columns must be numeric: ", paste(non_numeric$name, collapse = ", "))
-    }
-  }
-  
-  # is.na() catches both NA and NaN; is.infinite() catches Inf
-  invalid_dta <- data %>%
-    sf::st_drop_geometry() %>% 
-    dplyr::summarise(
-      dplyr::across(
-        dplyr::all_of(required_cols)
-        , ~ sum(is.na(.x) | is.infinite(.x))
-      )
-    ) %>%
-    tidyr::pivot_longer(
-      cols = dplyr::everything()
-      , names_to = "column"
-      , values_to = "count"
-    ) %>%
-    dplyr::filter(count > 0)
-
-  if (nrow(invalid_dta) > 0) {
-    bad_cols <- paste(invalid_dta$column, collapse = ", ")
-    stop("invalid values (NA, NaN, or Inf) found in: ", bad_cols)
-  }
-  return(TRUE)
-}
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-# match function
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-reference_prediction_match <- function(
-  pred_data
-  , ref_data
-  , max_dist_m
-  , max_error_pct
-) {
-  #######################################################################
-  # threshold checks
-  #######################################################################
-  if(
-    any(is.na(max_dist_m)) || 
-    any(is.null(max_dist_m)) || 
-    !inherits(as.numeric(max_dist_m),"numeric")
-  ){
-    stop("`max_dist_m` must be numeric and not missing")
-  }else{max_dist_m <- as.numeric(max_dist_m)[1]}
-  if(
-    any(is.na(max_error_pct)) || 
-    any(is.null(max_error_pct)) || 
-    !inherits(as.numeric(max_error_pct),"numeric")
-  ){
-    stop("`max_error_pct` must be numeric and not missing")
-  }else{max_error_pct <- as.numeric(max_error_pct)[1]}
-  #######################################################################
-  # data checks
-  #######################################################################
-  # set up matching col based on what data is available
-  if(
-    any( stringr::str_equal(names(pred_data),"tree_height_m") ) &&
-    any( stringr::str_equal(names(ref_data),"tree_height_m") )
-  ){
-    pred_data <- pred_data %>% dplyr::mutate(tree_height_m = as.numeric(tree_height_m))
-    ref_data <- ref_data %>% dplyr::mutate(tree_height_m = as.numeric(tree_height_m))
-  }else if(
-    any( stringr::str_equal(names(pred_data),"dbh_cm") ) &&
-    any( stringr::str_equal(names(ref_data),"dbh_cm") )
-  ){
-    pred_data <- pred_data %>% dplyr::mutate(tree_height_m = as.numeric(dbh_cm))
-    ref_data <- ref_data %>% dplyr::mutate(tree_height_m = as.numeric(dbh_cm))
-  }else{
-    stop("both reference and predicted data must have `tree_height_m` or `dbh_cm` column")
-  }
-  
-  if(
-    !any( stringr::str_equal(names(pred_data),"treeID") ) ||
-    !any( stringr::str_equal(names(ref_data),"treeID") )
-  ){
-    stop("both reference and predicted data must have `treeID` column")
-  }
-  
-  if(nrow(pred_data)==0 | nrow(ref_data)==0){
-    warning("no data so...?????")
-    # return(NULL)
-    
-    if(nrow(pred_data)!=0){
-      pred_data <- cloud2trees:::check_spatial_points(pred_data)
-      validate_df_fn(data = pred_data, required_cols = c("tree_height_m"), check_numeric = T)
-      # sort to start with largest
-      pred_data <- pred_data %>% 
-        dplyr::arrange(desc(tree_height_m)) %>% 
-        dplyr::mutate(pred_match_idx = dplyr::row_number()) %>% 
-        # add columns
-        dplyr::mutate(
-          ref_match_idx = as.numeric(NA)
-          , pred_match_height_diff_m= as.numeric(NA)
-          , pred_match_dist_m = as.numeric(NA)
-          , ref_tree_height_m = as.numeric(NA)
-        )
-    }else{pred_data <- NULL}
-    
-    if(nrow(ref_data)!=0){
-      ref_data <- cloud2trees:::check_spatial_points(ref_data)
-      validate_df_fn(data = ref_data, required_cols = c("tree_height_m"), check_numeric = T)
-      # sort to start with largest
-      ref_data <- ref_data %>% 
-        dplyr::arrange(desc(tree_height_m)) %>% 
-        dplyr::mutate(ref_match_idx = dplyr::row_number()) %>% 
-        # add columns
-        dplyr::mutate(
-          pred_match_idx = 0
-          , pred_match_height_diff_m = as.numeric(NA)
-          , pred_tree_height_m = as.numeric(NA)
-          , pred_match_dist_m = as.numeric(NA)
-        )
-    }else{ref_data <- NULL}
-    # return
-    return(list(
-      ref_data = ref_data
-      , pred_data = pred_data
-    ))
-  }
-  pred_data <- cloud2trees:::check_spatial_points(pred_data)
-  validate_df_fn(data = pred_data, required_cols = c("tree_height_m"), check_numeric = T)
-  ref_data <- cloud2trees:::check_spatial_points(ref_data)
-  validate_df_fn(data = ref_data, required_cols = c("tree_height_m"), check_numeric = T)
-  
-  # proj
-  if(!identical(
-    sf::st_crs(pred_data, parameters = T)[["epsg"]]
-    , sf::st_crs(ref_data, parameters = T)[["epsg"]]
-  )){stop("data must have same projection. see `sf::st_crs()`")}
-  # sort to start with largest
-  pred_data <- pred_data %>% 
-    dplyr::arrange(desc(tree_height_m)) %>% 
-    dplyr::mutate(pred_match_idx = dplyr::row_number())
-  ref_data <- ref_data %>% 
-    dplyr::arrange(desc(tree_height_m)) %>% 
-    dplyr::mutate(ref_match_idx = dplyr::row_number())
-  #######################################################################
-  # build a 2D kd-tree
-  #######################################################################
-    # Use the X and Y coordinates of the predicted to build the tree.
-    pred_coords_temp <- 
-      pred_data %>% 
-      dplyr::mutate(
-        X = sf::st_coordinates(.)[,1] %>% as.numeric()
-        , Y = sf::st_coordinates(.)[,2] %>% as.numeric()
-      ) %>% 
-      dplyr::select(X,Y) %>% 
-      sf::st_drop_geometry()
-    # Use the X and Y coordinates of the reference to build the tree.
-    ref_coords_temp <- 
-      ref_data %>% 
-      dplyr::mutate(
-        X = sf::st_coordinates(.)[,1] %>% as.numeric()
-        , Y = sf::st_coordinates(.)[,2] %>% as.numeric()
-      ) %>% 
-      dplyr::select(X,Y) %>% 
-      sf::st_drop_geometry()
-    
-    # perform a fixed-radius search using RANN::nn2
-    nn_ans_temp <- RANN::nn2(
-      # the point cloud xy data (builds the kd-tree on this)
-      data = pred_coords_temp
-      # the seed point xy data (number of columns must be the same as data)
-      , query = ref_coords_temp
-      # maximum number of neighbors to find per query
-      , k = min(nrow(pred_coords_temp),nrow(ref_coords_temp))
-      # the search radius (rcyl)
-      , radius = max_dist_m
-      , searchtype = "radius"
-    )
-    # huh?
-    # nn_ans_temp %>% class()
-    # nn_ans_temp %>% names()
-    # nn_ans_temp$nn.idx %>% nrow()
-    # nrow(ref_coords_temp)
-    # nn_ans_temp$nn.idx %>% ncol()
-    # nrow(pred_coords_temp)
-    # nn_ans_temp$nn.dists %>% nrow()
-    # nrow(ref_coords_temp)
-    # nn_ans_temp$nn.dists %>% ncol()
-    # nrow(pred_coords_temp)
-    # nn_ans_temp$nn.dists[1:11,] %>% dplyr::as_tibble() %>% dplyr::glimpse()
-  #######################################################################  
-  # iterate through the kd-tree to make matches
-  #######################################################################
-    if(nrow(ref_coords_temp)!=nrow(ref_data)){stop("bad kd-tree")}
-    # add pred match tracker
-    ref_data$pred_match_idx <- 0
-    ref_data$pred_match_height_diff_m <- as.numeric(NA)
-    ref_data$pred_tree_height_m <- as.numeric(NA)
-    ref_data$pred_match_dist_m <- as.numeric(NA)
-    for(i in 1:nrow(ref_coords_temp)){
-      # get indices of points in the current cylinder (0 means no point found)
-      nn_idx_pts <- nn_ans_temp$nn.idx[i, ]
-      cyl_pts <- nn_idx_pts[nn_idx_pts > 0] 
-      # remove already matched
-      cyl_pts <- cyl_pts[!(cyl_pts %in% ref_data$pred_match_idx)] 
-      # if available matches
-      if(dplyr::coalesce(length(cyl_pts),0) >= 1) {
-        # get heights
-        # ref_data %>% dplyr::select(field_tree_id, tree_height_m) %>% dplyr::glimpse()
-        # ref_data$tree_height_m[i]
-        # pred_data$tree_height_m[cyl_pts]
-        ht_diffs <- abs(ref_data$tree_height_m[i]-pred_data$tree_height_m[cyl_pts])/ref_data$tree_height_m[i]
-        # get the minimum value among elements below the threshold
-        min_val <- min(ht_diffs[ht_diffs <= max_error_pct], na.rm = T)
-        # if not none within threshold
-        if(!is.infinite(min_val)){
-          # the index of that value in the original full vector
-          cyl_idx <- which(ht_diffs == min_val)[1] # if multiple matches, takes the nearest
-          match_idx <- cyl_pts[cyl_idx]
-          # distance
-          nn_dist_idx <- which(nn_idx_pts == match_idx)
-          nn_dist <- nn_ans_temp$nn.dists[i,nn_dist_idx]
-          # update match
-          ref_data$pred_match_height_diff_m[i] <- min_val
-          ref_data$pred_tree_height_m[i] <- pred_data$tree_height_m[match_idx]
-          ref_data$pred_match_idx[i] <- match_idx
-          ref_data$pred_match_dist_m[i] <- nn_dist
-          
-        }
-      }
-    }
-  #######################################################################
-  # add ref id to pred and return
-  #######################################################################
-  # pred_data %>% dplyr::glimpse()
-  # ref_data %>% dplyr::glimpse()
-  pred_data <- pred_data %>% 
-    # get rid of columns we'll create
-    dplyr::select( -dplyr::any_of(c(
-      "hey_xxxxxxxxxx"
-      , "pred_match_height_diff_m"
-      , "pred_match_dist_m"
-      , "ref_tree_height_m"
-      , "ref_match_idx"
-    ))) %>% 
-    dplyr::left_join(
-      ref_data %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::select(ref_match_idx, pred_match_idx, pred_match_height_diff_m, pred_match_dist_m, tree_height_m) %>% 
-        dplyr::rename(ref_tree_height_m=tree_height_m)
-      , by = "pred_match_idx"
-    )
-  return(list(
-    ref_data = ref_data
-    , pred_data = pred_data
-  ))
-}
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-# combine match to classify reference/predictions
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-ground_truth_prediction_match <- function(
-  reference_prediction_match_ans
-  , comp_cols = c("tree_height_m")
-) {
-  # check for missing both missing
-  if(
-    is.null(reference_prediction_match_ans$ref_data)
-    && is.null(reference_prediction_match_ans$pred_data)
-  ){
-    warning("no data so...?????")
-    return(NULL)
-  }
-  
-  # if reference but no predictions...they are all omissions (FN)
-  if(is.null(reference_prediction_match_ans$pred_data)){
-    return_df <-
-      reference_prediction_match_ans$ref_data %>%
-      dplyr::filter(pred_match_idx==0 | is.na(pred_match_idx)) %>% 
-      dplyr::rename(ref_treeID=treeID) %>% 
-      dplyr::mutate(pred_treeID=as.character(NA)) %>% 
-      dplyr::select(dplyr::all_of(c(
-        "ref_match_idx"
-        , "ref_treeID"
-        , "pred_match_idx"
-        , "pred_treeID"
-        , "pred_match_dist_m"
-        # , "pred_tree_height_m"
-        # , "tree_height_m"
-        , comp_cols
-      ))) %>% 
-      dplyr::rename_with(
-        .cols = dplyr::all_of(comp_cols)
-        , .fn = ~paste0("ref_", .x, recycle0 = T)
-      ) %>% 
-      sf::st_set_geometry("ref_geometry") %>% 
-      dplyr::mutate(match_grp = "omission")
-    # make match_grp factor
-    return_df <- return_df %>% 
-      dplyr::mutate(
-        match_grp = factor(
-          match_grp
-          , ordered = T
-          , levels = c(
-            "true positive"
-            , "commission"
-            , "omission"
-          )
-        ) %>% forcats::fct_rev()
-      )
-    return(return_df)
-  }
-  
-  # if predictions but no reference...they are all commissions (FP)
-  if(is.null(reference_prediction_match_ans$ref_data)){
-    return_df <-
-      reference_prediction_match_ans$pred_data %>%
-      dplyr::filter(ref_match_idx==0 | is.na(ref_match_idx)) %>% 
-      dplyr::rename(pred_treeID=treeID) %>% 
-      dplyr::mutate(ref_treeID=as.character(NA)) %>% 
-      dplyr::select(dplyr::all_of(c(
-        "ref_match_idx"
-        , "ref_treeID"
-        , "pred_match_idx"
-        , "pred_treeID"
-        , "pred_match_dist_m"
-        # , "pred_tree_height_m"
-        # , "tree_height_m"
-        , comp_cols
-      ))) %>% 
-      dplyr::rename_with(
-        .cols = dplyr::all_of(comp_cols)
-        , .fn = ~paste0("pred_", .x, recycle0 = T)
-      ) %>% 
-      dplyr::mutate(pred_geometry = sf::st_geometry(.)) %>%
-      sf::st_drop_geometry() %>% 
-      dplyr::mutate(match_grp = "commission")
-    # make match_grp factor
-    return_df <- return_df %>% 
-      dplyr::mutate(
-        match_grp = factor(
-          match_grp
-          , ordered = T
-          , levels = c(
-            "true positive"
-            , "commission"
-            , "omission"
-          )
-        ) %>% forcats::fct_rev()
-      )
-    return(return_df)
-  }
-  
-  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
-  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
-  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
-  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
-  ############# otherwise: nrow(ref_data)>0 & nrow(pred_data)>0
-  # check for comparison cols
-  comp_cols <- 
-    comp_cols %>% 
-    # remove whitespace
-    stringr::str_trim() %>% 
-    # keep only those with a value
-    stringr::str_subset(".")
-  if(inherits(comp_cols, "character") && length(comp_cols) > 0){
-    validate_df_fn(data = reference_prediction_match_ans$ref_data, required_cols = comp_cols, check_numeric = T)
-    validate_df_fn(data = reference_prediction_match_ans$pred_data, required_cols = comp_cols, check_numeric = T)
-  }
-  # tp matches
-  return_df <-
-    reference_prediction_match_ans$ref_data %>%
-    dplyr::filter(pred_match_idx!=0 & !is.na(pred_match_idx)) %>% 
-    dplyr::select(dplyr::all_of(c(
-      "ref_match_idx"
-      , "pred_match_idx"
-      , "pred_match_dist_m"
-      # , "pred_tree_height_m"
-      # , "tree_height_m"
-      , comp_cols
-    ))) %>% 
-    dplyr::rename_with(
-      .cols = dplyr::all_of(comp_cols)
-      , .fn = ~paste0("ref_", .x, recycle0 = T)
-    ) %>% 
-    sf::st_set_geometry("ref_geometry") %>% 
-    # add on pred geom
-    dplyr::inner_join(
-      reference_prediction_match_ans$pred_data %>% 
-        dplyr::select(dplyr::all_of(c(
-          "ref_match_idx"
-          , comp_cols
-        ))) %>% 
-        dplyr::rename_with(
-          .cols = dplyr::all_of(comp_cols)
-          , .fn = ~paste0("pred_", .x, recycle0 = T)
-        ) %>% 
-        dplyr::mutate(pred_geometry = sf::st_geometry(.)) %>%
-        sf::st_drop_geometry()
-      , by = "ref_match_idx"
-    ) %>% 
-    dplyr::mutate(match_grp = "true positive")
-  
-  # add omissions
-  return_df <-
-    return_df %>% 
-    dplyr::bind_rows(
-      reference_prediction_match_ans$ref_data %>%
-        dplyr::filter(pred_match_idx==0 | is.na(pred_match_idx)) %>% 
-        dplyr::select(dplyr::all_of(c(
-          "ref_match_idx"
-          , "pred_match_idx"
-          , "pred_match_dist_m"
-          # , "pred_tree_height_m"
-          # , "tree_height_m"
-          , comp_cols
-        ))) %>% 
-        dplyr::rename_with(
-          .cols = dplyr::all_of(comp_cols)
-          , .fn = ~paste0("ref_", .x, recycle0 = T)
-        ) %>% 
-        sf::st_set_geometry("ref_geometry") %>% 
-        dplyr::mutate(match_grp = "omission")
-    )
-    
-  # add commissions
-  return_df <-
-    return_df %>% 
-    dplyr::bind_rows(
-      reference_prediction_match_ans$pred_data %>%
-        dplyr::filter(ref_match_idx==0 | is.na(ref_match_idx)) %>% 
-        dplyr::select(dplyr::all_of(c(
-          "ref_match_idx"
-          , "pred_match_idx"
-          , "pred_match_dist_m"
-          # , "pred_tree_height_m"
-          # , "tree_height_m"
-          , comp_cols
-        ))) %>% 
-        dplyr::rename_with(
-          .cols = dplyr::all_of(comp_cols)
-          , .fn = ~paste0("pred_", .x, recycle0 = T)
-        ) %>% 
-        dplyr::mutate(pred_geometry = sf::st_geometry(.)) %>%
-        sf::st_drop_geometry() %>% 
-        dplyr::mutate(match_grp = "commission")
-    )
-  
-  # make match_grp factor
-  return_df <- return_df %>% 
-    dplyr::mutate(
-      match_grp = factor(
-        match_grp
-        , ordered = T
-        , levels = c(
-          "true positive"
-          , "commission"
-          , "omission"
-        )
-      ) %>% forcats::fct_rev()
-    )
-  
-  
-  if(inherits(comp_cols, "character") && length(comp_cols) > 0){
-    # add a tiny value (eps) to the denominator for pct_diff_ 
-    # calcs to prevent division by zero...where pct_diff_ is used for MAPE summary
-    eps <- 1e-5
-    return_df <- 
-      return_df %>% 
-      dplyr::mutate(
-        # 'diff_' columns are calculated as the predicted value minus the actual value
-        dplyr::across(
-          .cols = paste0(
-            "ref_"
-            , comp_cols # c("tree_height_m", "dbh_cm")
-            , recycle0 = T
-          )
-          , .fns = ~ base::get(stringr::str_replace(dplyr::cur_column(), "^ref_", "pred_")) - .x
-          , .names = "diff_{stringr::str_remove(.col, '^ref_')}"
-        )
-        # 'pct_diff_' columns are calculated as the actual value minus the predicted value divided by the actual value
-        , dplyr::across(
-          .cols = paste0(
-            "ref_"
-            , comp_cols # c("tree_height_m", "dbh_cm")
-            , recycle0 = T
-          )
-          # 
-          , .fns = ~ (.x-base::get(stringr::str_replace(dplyr::cur_column(), "^ref_", "pred_")))/(.x + eps)
-          , .names = "pct_diff_{stringr::str_remove(.col, '^ref_')}"
-        )
-      ) 
-  }
-  
-  # add treeID
-  return_df <- 
-    return_df %>% 
-    dplyr::left_join(
-      reference_prediction_match_ans$pred_data %>%
-        sf::st_drop_geometry() %>% 
-        dplyr::distinct(pred_match_idx,treeID) %>% 
-        dplyr::rename(pred_treeID=treeID)
-      , by = "pred_match_idx"
-    ) %>% 
-    dplyr::left_join(
-      reference_prediction_match_ans$ref_data %>%
-        sf::st_drop_geometry() %>% 
-        dplyr::distinct(ref_match_idx,treeID) %>% 
-        dplyr::rename(ref_treeID=treeID)
-      , by = "ref_match_idx"
-    ) %>% 
-    dplyr::relocate(ref_treeID, .after = ref_match_idx) %>% 
-    dplyr::relocate(pred_treeID, .after = pred_match_idx)
-  
-  
-  # return
-  if(nrow(return_df)==0){
-    warning("no records found for ground truth to predition matching")
-    return(NULL)
-  }else{
-    return(return_df)
-  }
-  
-}
-```
-
-```{r, include=FALSE, eval=F}
-###################################
-### test for one plot
-### test for one plot
-### test for one plot
-###################################
-xxx_temp <- 
-  reference_prediction_match(
-  pred_data = 
-    usfs_manitouef_n1_ws_pred_trees %>% 
-    dplyr::filter(
-      plot_id == usfs_manitouef_n1_plots$plot_id[1]
-      , ws_fn_nm== usfs_manitouef_n1_ws_pred_trees$ws_fn_nm[1]
-    )
-  , ref_data = 
-    usfs_manitouef_n1_trees %>% 
-    dplyr::filter(
-      plot_id == usfs_manitouef_n1_plots$plot_id[1]
-    )
-  , max_dist_m = 3
-  , max_error_pct = 0.5
-) %>% 
-ground_truth_prediction_match() 
-
-xxx_temp %>% dplyr::glimpse()
-xxx_temp %>% sf::st_drop_geometry() %>% dplyr::count(match_grp)
-
-
-ggplot2::ggplot() +
-  ggplot2::geom_sf(
-    data = xxx_temp %>% dplyr::filter(match_grp %in% c("true positive","omission"))
-    , mapping = ggplot2::aes(geometry = ref_geometry, color = match_grp)
-    , size = 3, alpha = 0.8
-  ) +
-  ggplot2::geom_sf(
-    data = xxx_temp %>% dplyr::filter(match_grp=="commission")
-    , mapping = ggplot2::aes(geometry = pred_geometry, color = match_grp)
-    , size = 3, alpha = 0.8
-  ) +
-  # ggplot2::scale_color_manual(values = pal_match_grp) +
-  ggplot2::theme_void() +
-  ggplot2::theme(legend.position = "top", legend.title = ggplot2::element_blank()) 
-
-```
+now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial intersection of these points with the predicted tree crowns. if multiple tree points fall within a single crown, we'll select the tree that is closest in terms of size based on whatever field data is available (height or DBH). One predicted tree will only be matched with one field reference tree and vice-versa.
 
 ```{r}
-###########################################################################################
-###########################################################################################
-## this is for matching predicted crowns to reference points
-## this is for matching predicted crowns to reference points
-## this is for matching predicted crowns to reference points
-## this is for matching predicted crowns to reference points
-###########################################################################################
-###########################################################################################
-
-# instance matching function for points reference and polys predictions
-# matches a single set of predictions with a single reference set
-instance_match_fn <- function(
-  pred_crowns
-  , ref_points
-){
-  # check
-  if(
-    !any( stringr::str_equal(names(pred_crowns),"treeID") ) ||
-    !any( stringr::str_equal(names(ref_points),"treeID") )
-  ){
-    stop("both reference and predicted data must have `treeID` column")
-  }
-  
-  if(nrow(ref_points)==0){return(NULL)}
-  if(nrow(pred_crowns)==0 && nrow(ref_points)>0){
-    return(
-      ref_points %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::mutate(
-          ref_match_idx = dplyr::row_number()
-          , pred_match_idx = as.numeric(NA)
-        ) %>% 
-        dplyr::select(dplyr::all_of(c(
-          "ref_match_idx"
-          , "pred_match_idx"
-        ))) %>% 
-        dplyr::mutate(
-          match_grp = "omission"
-          , match_grp = factor(
-            match_grp
-            , ordered = T
-            , levels = c(
-              "true positive"
-              , "commission"
-              , "omission"
-            )
-          ) %>% forcats::fct_rev()
-        )
-    )
-  }
-  
-  # set up matching col based on what data is available
-  if(
-    any( stringr::str_equal(names(pred_crowns),"tree_height_m") ) &&
-    any( stringr::str_equal(names(ref_points),"tree_height_m") )
-  ){
-    pred_crowns <- pred_crowns %>% dplyr::mutate(xxx_match_col = as.numeric(tree_height_m))
-    ref_points <- ref_points %>% dplyr::mutate(xxx_match_col = as.numeric(tree_height_m))
-  }else if(
-    any( stringr::str_equal(names(pred_crowns),"dbh_cm") ) &&
-    any( stringr::str_equal(names(ref_points),"dbh_cm") )
-  ){
-    pred_crowns <- pred_crowns %>% dplyr::mutate(xxx_match_col = as.numeric(dbh_cm))
-    ref_points <- ref_points %>% dplyr::mutate(xxx_match_col = as.numeric(dbh_cm))
-  }else{
-    stop("both reference and predicted data must have `tree_height_m` or `dbh_cm` column")
-  }
-  # get rid of data without data
-  pred_crowns <- pred_crowns %>% dplyr::filter(!is.na(xxx_match_col), xxx_match_col>0) %>% 
-    # make an id
-    dplyr::mutate(xxx_id = dplyr::row_number())
-  ref_points <- ref_points %>% dplyr::filter(!is.na(xxx_match_col), xxx_match_col>0) %>% 
-    # make it the same crs
-    sf::st_transform(sf::st_crs(pred_crowns)) %>% 
-    # make an id
-    dplyr::mutate(xxx_id = dplyr::row_number())
-  
-  # intersection for tp's
-  i_temp <-
-    pred_crowns %>% 
-    dplyr::rename_with(
-      .fn = ~stringr::str_replace(.x, "^xxx_", "xxx_pred_")
-      , .cols = tidyselect::starts_with("xxx_")
-    ) %>% 
-    sf::st_intersection(
-      ref_points %>% 
-        dplyr::select(xxx_id,xxx_match_col) %>% 
-        dplyr::rename_with(
-          .fn = ~stringr::str_replace(.x, "^xxx_", "xxx_ref_")
-          , .cols = tidyselect::starts_with("xxx_")
-        )
-    ) %>% 
-    sf::st_drop_geometry() %>% 
-    # absolute diff between match col
-    dplyr::mutate(
-      xxx_abs_diff = abs(xxx_pred_match_col - xxx_ref_match_col)
-    ) %>% 
-    # sorting is key to make the purrr::reduce work how we want it
-    dplyr::arrange(
-      desc(xxx_pred_match_col)
-      , xxx_pred_id
-      , xxx_abs_diff
-    )
-  # i_temp %>% dplyr::glimpse()
-  
-  # if there even are any matches
-  if(nrow(i_temp)>1){
-    # ?purrr::reduce
-    # purrr::reduce(letters[1:5], paste, sep = ".")
-    # 1:3  %>% reduce(`+`)
-    match_temp <- purrr::reduce(
-      # go through all rows except first since we start there
-      .x = c(2:nrow(i_temp))
-      # start with the first row
-      , .init = i_temp %>% dplyr::slice(1) # = iter_temp
-      , .f = function(iter_temp, i){
-        
-        #ids of curr row
-        pred_id  <- i_temp$xxx_pred_id[i]
-        ref_id <- i_temp$xxx_ref_id[i]
-        
-        # either one used?
-        pred_used  <- pred_id %in% iter_temp$xxx_pred_id
-        ref_used <- ref_id %in% iter_temp$xxx_ref_id
-        
-        # add if freee
-        if(!pred_used && !ref_used) {
-          return(
-            iter_temp %>% 
-              dplyr::bind_rows(
-                dplyr::slice(i_temp, i)
-              )
-          )
-        }else{
-          # return current state
-          return(iter_temp)
-        }
-    })
-    # match_temp %>% dplyr::glimpse()
-    # match_temp %>% dplyr::count(xxx_pred_id) %>% dplyr::filter(n>1) %>% nrow()
-    # match_temp %>% dplyr::count(xxx_ref_id) %>% dplyr::filter(n>1) %>% nrow()
-  }else{
-    match_temp <- i_temp
-  }
-  # match_temp %>% dplyr::glimpse()
-  # these are matches
-  return_df <- match_temp %>% 
-    dplyr::rename(
-      ref_match_idx = xxx_ref_id
-      , pred_match_idx = xxx_pred_id
-    ) %>% 
-    dplyr::select(dplyr::all_of(c(
-      "ref_match_idx"
-      , "pred_match_idx"
-    ))) %>% 
-    dplyr::mutate(match_grp = "true positive")
-  # return_df %>% dplyr::glimpse()
-
-  return_df <-
-    return_df %>% 
-    # if reference but no predictions...they are all omissions (FN)
-    dplyr::bind_rows(
-      ref_points %>% 
-        dplyr::filter(
-          !(xxx_id %in% match_temp$xxx_ref_id)
-        ) %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::rename(
-          ref_match_idx = xxx_id
-        ) %>% 
-        dplyr::mutate(pred_match_idx = as.numeric(NA)) %>% 
-        dplyr::select(dplyr::all_of(c(
-          "ref_match_idx"
-          , "pred_match_idx"
-        ))) %>% 
-        dplyr::mutate(match_grp = "omission")  
-    ) %>% 
-    # if predictions but no reference...they are all commissions (FP)
-    dplyr::bind_rows(
-      pred_crowns %>% 
-        dplyr::filter(
-          !(xxx_id %in% match_temp$xxx_pred_id)
-        ) %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::rename(
-          pred_match_idx = xxx_id
-        ) %>% 
-        dplyr::mutate(ref_match_idx = as.numeric(NA)) %>% 
-        dplyr::select(dplyr::all_of(c(
-          "ref_match_idx"
-          , "pred_match_idx"
-        ))) %>% 
-        dplyr::mutate(match_grp = "commission")
-    ) %>% 
-    # add on treeID
-    dplyr::left_join(
-      ref_points %>% 
-        sf::st_drop_geometry() %>%
-        dplyr::select(xxx_id, treeID) %>% 
-        dplyr::rename(
-          ref_match_idx = xxx_id
-          , ref_treeID = treeID
-        )
-      , by = "ref_match_idx"
-    ) %>% 
-    # add on treeID
-    dplyr::left_join(
-      pred_crowns %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::select(xxx_id, treeID) %>% 
-        dplyr::rename(
-          pred_match_idx = xxx_id
-          , pred_treeID = treeID
-        )
-      , by = "pred_match_idx"
-    )
-    
-  # return_df %>% dplyr::glimpse()
-  # return_df %>% View()
-  # return_df %>% dplyr::count(match_grp)
-  
-  # make match_grp factor
-    return_df <- return_df %>% 
-      dplyr::mutate(
-        match_grp = factor(
-          match_grp
-          , ordered = T
-          , levels = c(
-            "true positive"
-            , "commission"
-            , "omission"
-          )
-        ) %>% forcats::fct_rev()
-      )
-    return(return_df)
-}
-
-###################################
-### test for one plot
-### test for one plot
-### test for one plot
-###################################
-instance_match_fn(
-  pred_crowns = 
-    usfs_manitouef_n1_ws_pred_trees %>% 
-    dplyr::filter(
-      plot_id == usfs_manitouef_n1_plots$plot_id[1]
-      , ws_fn_nm==usfs_manitouef_n1_ws_pred_trees$ws_fn_nm[1]
-    )
-  , ref_points = 
-    usfs_manitouef_n1_trees %>% 
-    dplyr::filter(
-      plot_id == usfs_manitouef_n1_plots$plot_id[1]
-    )
-) %>% 
-# dplyr::glimpse()
-dplyr::count(match_grp)
-```
-
-remember, we have predictions for many different window functions for each plot. we need a function to iterate over each set of predictions (i.e. window function) for a single plot. this is where we'll filter the predictions to attempt to match the field data collection protocol (e.g. measure trees >= 10 cm DBH)
-
-```{r}
-ws_iter_instance_match_fn <- function(
-  plot_sf # needs plot_id # should be a single plot
-  , ref_pts # needs plot_id
-  , pred_polys # needs plot_id
-  # minimum tree height
-  , min_ht_m = NA
-  # -OR- minimum DBH
-  , min_dbh_cm = NA
-){
-  if(
-    !any( stringr::str_equal(names(plot_sf),"plot_id") )
-  ){
-    stop("`plot_sf` needs column named `plot_id`")
-  }
-  if(
-    !any( stringr::str_equal(names(ref_pts),"plot_id") )
-  ){
-    stop("`ref_pts` needs column named `plot_id`")
-  }
-  if(
-    !any( stringr::str_equal(names(pred_polys),"plot_id") )
-  ){
-    stop("`pred_polys` needs column named `plot_id`")
-  }
-  
-  # pred polys
-  pred_polys <- 
-    pred_polys %>% 
-    dplyr::filter(
-      plot_id == plot_sf$plot_id[1]
-    )
-  
-  # reference points
-  ref_pts <- 
-    ref_pts %>% 
-    dplyr::filter(
-      plot_id == plot_sf$plot_id[1]
-    )
-  
-  # filter based on field survey limit
-  if(
-    !is.na(as.numeric(min_dbh_cm))
-  ){
-    # do they exist? .... PRED
-    if(
-      any( stringr::str_equal(names(pred_polys),"fia_est_dbh_cm_upper") )
-    ){
-      pred_polys <- pred_polys %>% 
-        dplyr::filter(
-          dplyr::coalesce(fia_est_dbh_cm_upper,0) >= as.numeric(min_dbh_cm)
-        )
-    }else if(
-      any( stringr::str_equal(names(pred_polys),"dbh_cm") )
-    ){
-      pred_polys <- pred_polys %>% 
-        dplyr::filter(
-          dplyr::coalesce(dbh_cm,0) >= as.numeric(min_dbh_cm)
-        )
-    }else{
-      stop("`pred_polys` needs column named `dbh_cm`")
-    }
-    
-    # do they exist? .... REF
-    if(
-      any( stringr::str_equal(names(ref_pts),"dbh_cm") )
-    ){
-      ref_pts <- ref_pts %>% 
-        dplyr::filter(
-          dplyr::coalesce(dbh_cm,0) >= as.numeric(min_dbh_cm)
-        )
-    }else{
-      stop("`ref_pts` needs column named `dbh_cm`")
-    }
-  }else if(
-    !is.na(as.numeric(min_ht_m))
-  ){
-    # do they exist? .... PRED
-    if(
-      any( stringr::str_equal(names(pred_polys),"tree_height_m") )
-    ){
-      pred_polys <- pred_polys %>% 
-        dplyr::filter(
-          dplyr::coalesce(tree_height_m,0) >= as.numeric(min_ht_m)
-        )
-    }else{
-      stop("`pred_polys` needs column named `tree_height_m`")
-    }
-    
-    # do they exist? .... REF
-    if(
-      any( stringr::str_equal(names(ref_pts),"tree_height_m") )
-    ){
-      ref_pts <- ref_pts %>% 
-        dplyr::filter(
-          dplyr::coalesce(tree_height_m,0) >= as.numeric(min_ht_m)
-        )
-    }else{
-      stop("`ref_pts` needs column named `tree_height_m`")
-    }
-  }
-  
-  if(nrow(ref_pts)==0){return(NULL)}
-  
-  # map over it
-  if(
-    !any( stringr::str_equal(names(pred_polys),"ws_fn_nm") )
-  ){
-    stop("`pred_polys` needs column named `ws_fn_nm` ... see ws_testtest_fn() ")
-  }
-  if(
-    !any( stringr::str_equal(names(pred_polys),"tree_x") )
-  ){
-    stop("`pred_polys` needs column named `tree_x` ... see ws_testtest_fn() ")
-  }
-  if(
-    !any( stringr::str_equal(names(pred_polys),"tree_y") )
-  ){
-    stop("`pred_polys` needs column named `tree_y` ... see ws_testtest_fn() ")
-  }
-  
-  # map it
-  instance_match_ans <- 
-    unique(pred_polys$ws_fn_nm) %>% 
-    purrr::set_names() %>%
-    purrr::map(function(nm){
-      # which preds?
-      these_pred_polys <- 
-        pred_polys %>% 
-        dplyr::filter(
-          ws_fn_nm == nm
-        )
-      # instance match
-      ###########################################################################################
-      ## this is for matching predicted crowns to reference points
-      ###########################################################################################
-      im <-
-        instance_match_fn(
-          pred_crowns = these_pred_polys
-          , ref_points = ref_pts
-        )
-      # ###########################################################################################
-      # ## this is for matching predicted points to reference points
-      # ###########################################################################################
-      # im <- 
-      #   reference_prediction_match(
-      #     pred_data = these_pred_polys
-      #     , ref_data = ref_pts
-      #     , max_dist_m = 2
-      #     , max_error_pct = 0.5
-      #   ) %>% 
-      #   ground_truth_prediction_match()
-      # remove commission points outside plot boundary?
-      # remove commission points outside plot boundary?
-      # get rid of commissions outside of plot
-      outs <- 
-        these_pred_polys %>% 
-        dplyr::mutate(
-          pred_match_idx = dplyr::row_number()
-        ) %>% 
-        sf::st_drop_geometry() %>%
-        sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(pred_polys)) %>% 
-        sf::st_filter(
-          plot_sf %>% sf::st_union() %>% sf::st_transform(sf::st_crs(pred_polys))
-          , .predicate = sf::st_disjoint
-        ) %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::select(pred_match_idx) %>% 
-        dplyr::mutate(is_out = T)
-      
-      return_df <- 
-        im %>% 
-        dplyr::left_join(
-          outs
-          , by = "pred_match_idx"
-        ) %>% 
-        dplyr::filter(
-          !(match_grp == "commission" & dplyr::coalesce(is_out,F)==T)
-        ) %>% 
-        dplyr::select(-is_out)
-      return(return_df)
-    }) %>% 
-    purrr::list_rbind(names_to = "ws_fn_nm")
-  
-  
-  return(instance_match_ans)
-}
-```
-
-let's test that for a single plot
-
-```{r, fig.height=8.8}
-###################################
-### test for one plot
-### test for one plot
-### test for one plot
-###################################
-
-ws_iter_instance_match_fn(
-  # needs plot_id # should be a single plot
-  plot_sf = usfs_manitouef_n1_plots %>% dplyr::slice(4) 
-  # needs plot_id
-  , ref_pts = usfs_manitouef_n1_trees 
-  # needs plot_id
-  , pred_polys = usfs_manitouef_n1_ws_pred_trees %>% 
-    dplyr::inner_join(
-      usfs_manitouef_n1_ws_pred_trees %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::distinct(ws_fn_nm,ws_type) %>% 
-        dplyr::slice_sample(n = 3, by = ws_type) %>% 
-        dplyr::select(ws_fn_nm)
-      , by = "ws_fn_nm"
-    )
-  # minimum tree height
-  , min_ht_m = NA
-  # -OR- minimum DBH
-  , min_dbh_cm = 10
-) %>% 
-
-# plot
-  dplyr::count(ws_fn_nm,match_grp) %>% 
-  dplyr::group_by(ws_fn_nm) %>% 
-  dplyr::mutate(pct = n/sum(n)) %>% 
-
-  ggplot2::ggplot(
-    mapping = ggplot2::aes(x = pct, y = ws_fn_nm, fill=match_grp, group=match_grp)
-  ) +
-  ggplot2::geom_col(
-    width = 0.7, alpha=0.95
-  ) +
-  ggplot2::scale_fill_viridis_d(option = "magma", begin = 0.2, end = 0.8) +
-  ggplot2::scale_x_continuous(labels = scales::percent_format()) +
-  ggplot2::theme_light() +
-  ggplot2::theme(
-    legend.position = "top"
-    , legend.direction  = "horizontal"
-  )
-
-```
-
-```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
-remove(list = ls()[grep("_temp",ls())])
-gc()
-```
-
-now, we need to iterate over all plots at a study site
-
-```{r}
-plot_iter_instance_match_fn <- function(
-  ref_plots
-  , ref_pts
-  # needs plot_id
-  , pred_polys
-  # minimum tree height
-  , min_ht_m = NA
-  # -OR- minimum DBH
-  , min_dbh_cm = NA
-) {
-  if(
-    !any( stringr::str_equal(names(ref_plots),"plot_id") )
-  ){
-    stop("`ref_plots` needs column named `plot_id`")
-  }
-  if(
-    !any( stringr::str_equal(names(ref_pts),"plot_id") )
-  ){
-    stop("`ref_pts` needs column named `plot_id`")
-  }
-  if(
-    !any( stringr::str_equal(names(pred_polys),"plot_id") )
-  ){
-    stop("`pred_polys` needs column named `plot_id`")
-  }
-  
-  ws_iter_instance_match_ans <- 
-    unique(ref_plots$plot_id) %>% 
-    purrr::set_names() %>% 
-    purrr::map(
-      \(pid)
-      ws_iter_instance_match_fn(
-        # needs plot_id # should be a single plot
-        plot_sf = ref_plots %>% dplyr::filter(plot_id==pid) 
-        # needs plot_id
-        , ref_pts = ref_pts 
-        # needs plot_id
-        , pred_polys = pred_polys
-        # minimum tree height
-        , min_ht_m = min_ht_m
-        # -OR- minimum DBH
-        , min_dbh_cm = min_dbh_cm
-      )
-  ) %>% 
-  purrr::list_rbind(names_to = "plot_id")
-  
-  return(ws_iter_instance_match_ans)
-}
-# get the ans
+##################################################################
+##################################################################
+##################################################################
+# plot_iter_instance_match_fn
+# loop over plots and ws functions for instance match
+##################################################################
+##################################################################
+##################################################################
 c2t_process_dir_temp <- 
   project_data_df %>% 
   dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
@@ -2343,11 +549,11 @@ fnm_temp <- file.path(c2t_process_dir_temp,"ws_instance_match.csv")
 if(!file.exists(fnm_temp)){
   usfs_manitouef_n1_ws_instance_match <- 
     plot_iter_instance_match_fn(
-      ref_plots = ref_plots_list[["usfs_manitouef_n1"]]
-      , ref_pts = ref_trees_list[["usfs_manitouef_n1"]]
+      ref_plots = ref_plots_list$USFS_ManitouEF_N1
+      , ref_pts = ref_trees_list$USFS_ManitouEF_N1
       , pred_polys = usfs_manitouef_n1_ws_pred_trees
-      , min_ht_m = NA
-      , min_dbh_cm = 10
+      , min_ht_m = 2
+      , min_dbh_cm = NA
     )
   readr::write_csv(usfs_manitouef_n1_ws_instance_match, file = fnm_temp, append = F, progress = F)
 }else{
@@ -2355,178 +561,14 @@ if(!file.exists(fnm_temp)){
 }
 # huh?
 # usfs_manitouef_n1_ws_instance_match %>% dplyr::glimpse()
-```
-
-lastly, we need a function to aggregate these instance segmentation counts (TP, FP, and FN) to evaluate the overall accuracy of the tree segmentation method. then, we'll select the best window function and apply that across the entire study area.
-
-```{r}
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-# first function takes df with cols tp_n, fp_n, and fn_n to calculate rates
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-confusion_matrix_scores_fn <- function(df){
-  df %>% 
-  dplyr::mutate(
-    omission_rate = dplyr::case_when(
-      dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fn_n,0) == 0 ~ 0 # if there are no actual trees, there is nothing to miss
-      , dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fn_n,0) > 0 ~ 1 # every single actual tree was missed
-      , dplyr::coalesce(fn_n,0) == 0 & dplyr::coalesce(tp_n,0) > 0 ~ 0
-      , T ~ fn_n/(tp_n+fn_n)
-    ) # False Negative Rate or Miss Rate
-    , commission_rate = dplyr::case_when(
-      dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fp_n,0) == 0 ~ 0 # if no predictions are made, the model could not have made any commission errors
-      , dplyr::coalesce(fp_n,0) == 0 & dplyr::coalesce(tp_n,0) > 0 ~ 0
-      , T ~ fp_n/(tp_n+fp_n)
-    ) # False Positive Rate
-    , precision = dplyr::case_when(
-      dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fp_n,0) == 0 ~ 1 # if no predictions are made, the model made zero incorrect positive claims
-      , dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fp_n,0) > 0 ~ 0
-      , T ~ tp_n/(tp_n+fp_n)
-    )
-    , recall = dplyr::case_when(
-      dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fn_n,0) == 0 ~ 1 # if there are no actual trees, there is nothing to miss
-      , dplyr::coalesce(tp_n,0) == 0 & dplyr::coalesce(fn_n,0) > 0 ~ 0 # every single actual tree was missed
-      , T ~ tp_n/(tp_n+fn_n)
-    )
-    , f_score = dplyr::case_when(
-      dplyr::coalesce(precision,0) == 0 | dplyr::coalesce(recall,0) == 0 ~ 0
-      , T ~ 2 * ( (precision*recall)/(precision+recall) )
-    )    
-  ) 
-}
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-# aggregate results from ground_truth_prediction_match()
-###############################################################
-###############################################################
-###############################################################
-###############################################################
-agg_ground_truth_match <- function(ground_truth_prediction_match_ans) {
-  if(nrow(ground_truth_prediction_match_ans)==0){return(NULL)}
-  if( !(names(ground_truth_prediction_match_ans) %>% stringr::str_equal("match_grp") %>% any()) ){stop("ground_truth_prediction_match_ans must contain `match_grp` column")}
-  
-  # check for difference columns (contains "_diff") and calc rmse for only those to return a single line df with colums for each diff_rmse
-    if(
-      (ground_truth_prediction_match_ans %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::select(tidyselect::starts_with("diff_") | tidyselect::starts_with("pct_diff_")) %>% 
-        ncol() )>0
-    ){
-      # get rmse and mean difference/error for all columns with "_diff" but not "pct_diff"
-      # get mape for all columns with "pct_diff" but not "diff_"
-      rmse_df <- 
-        ground_truth_prediction_match_ans %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::ungroup() %>% 
-        dplyr::select(
-          tidyselect::starts_with("diff_")
-          | tidyselect::starts_with("pct_diff_")
-        ) %>%
-        tidyr::pivot_longer(dplyr::everything(), values_drop_na = T) %>% 
-        dplyr::group_by(name) %>% 
-        dplyr::summarise(
-          sq = sum(value^2, na.rm = T)
-          , mean = mean(value, na.rm = T)
-          , sumabs = sum(abs(value), na.rm = T)
-          , nomiss = sum(!is.na(value))
-        ) %>% 
-        dplyr::ungroup() %>% 
-        dplyr::mutate(
-          rmse = dplyr::case_when(
-            dplyr::coalesce(nomiss,0)==0 ~ as.numeric(NA)
-            , T ~ sqrt(sq/nomiss)
-          )
-          , mape = dplyr::case_when(
-            dplyr::coalesce(nomiss,0)==0 ~ as.numeric(NA)
-            , T ~ sumabs/nomiss
-          )
-        ) %>% 
-        # NA nonsense values
-        dplyr::mutate(
-          mape = dplyr::case_when(
-            stringr::str_starts(name, "pct_diff_") ~ mape
-            , T ~ as.numeric(NA)
-          )
-          , rmse = dplyr::case_when(
-            stringr::str_starts(name, "pct_diff_") ~ as.numeric(NA)
-            , T ~ rmse
-          )
-          , mean = dplyr::case_when(
-            stringr::str_starts(name, "pct_diff_") ~ as.numeric(NA)
-            , T ~ mean
-          )
-        ) %>% 
-        dplyr::select(name,rmse,mean,mape) %>% 
-        tidyr::pivot_wider(
-          names_from = name
-          , values_from = c(rmse,mean,mape)
-          , names_glue = "{name}_{.value}"
-        ) %>% 
-        # remove columns with NA in all rows
-        dplyr::select( dplyr::where( ~!all(is.na(.x)) ) )
-      
-      if(
-        dplyr::coalesce(nrow(rmse_df),0)==0
-        || dplyr::coalesce(ncol(rmse_df),0)==0
-      ){
-        # empty df
-        rmse_df <- dplyr::tibble()
-      }
-    }else{
-      # empty df
-      rmse_df <- dplyr::tibble()
-    }
-  
-  # count by match group
-    agg <-
-      ground_truth_prediction_match_ans %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::ungroup() %>% 
-      dplyr::count(match_grp) %>% 
-      dplyr::mutate(
-        match_grp = dplyr::recode_values(
-          match_grp
-          , "true positive"~"tp"
-          , "commission"~"fp"
-          , "omission"~"fn"
-        )
-      )
-    # true positive, false positive, false negative rates
-    return_df <- dplyr::tibble(match_grp = c("tp","fp","fn")) %>% 
-      dplyr::left_join(agg, by = "match_grp") %>% 
-      dplyr::mutate(dplyr::across(.cols = c(n), .fn = ~dplyr::coalesce(.x,0))) %>% 
-      tidyr::pivot_wider(
-        names_from = match_grp
-        , values_from = c(n)
-        , names_glue = "{match_grp}_{.value}"
-      )
-    # rates, precision, recall, f-score
-    return_df <- confusion_matrix_scores_fn(return_df)
-    # add rmse
-    if(nrow(rmse_df)>0){
-      return_df <- return_df %>% dplyr::bind_cols(rmse_df)
-    }
-  # return
-  return(return_df)
-}
-# agg_ground_truth_match(
-#   usfs_manitouef_n1_ws_instance_match %>% 
-#     dplyr::filter(
-#       plot_id==usfs_manitouef_n1_ws_instance_match$plot_id[1]
-#       , ws_fn_nm==usfs_manitouef_n1_ws_instance_match$ws_fn_nm[1]
-#     )
-# )
-
-# map it over
-
-# get the ans
+##################################################################
+##################################################################
+##################################################################
+# agg_ground_truth_match
+# loop over plots and ws functions for accuracy eval
+##################################################################
+##################################################################
+##################################################################
 c2t_process_dir_temp <- 
   project_data_df %>% 
   dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
@@ -2559,7 +601,7 @@ if(!file.exists(fnm_temp)){
   usfs_manitouef_n1_agg_ground_truth_match_ans <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
 }
 # huh?
-# usfs_manitouef_n1_agg_ground_truth_match_ans %>% dplyr::glimpse()
+# wfsi_eglinafb_agg_ground_truth_match_ans %>% dplyr::glimpse()
 ```
 
 aggregate the plot level data to the window function to get the answer we've been searching for
@@ -2600,7 +642,7 @@ agg_temp <-
 # agg_temp %>% dplyr::glimpse()
 ```
 
-let's check out the plot-level distribution of F-score for the top window functions
+let's check out the plot-level distribution of F-score for the top window functions (remember this particular data has one "plot", a stem map)
 
 ```{r}
 usfs_manitouef_n1_agg_ground_truth_match_ans %>% 
@@ -2639,7 +681,7 @@ we can print the raw window function definition for those that achieved the high
 
 ```{r}
 agg_temp %>% 
-  dplyr::filter(f_score_rank<=5) %>% 
+  dplyr::filter(f_score_rank<=7) %>% 
   dplyr::arrange(f_score_rank) %>% 
   dplyr::pull(ws_fn_nm) %>% 
   purrr::set_names() %>% 
@@ -2674,7 +716,7 @@ agg_temp %>%
     )
     , escape = F
   ) %>% 
-  kableExtra::kable_styling() %>% 
+  kableExtra::kable_styling(font_size = 12, bootstrap_options = c("responsive", "condensed")) %>% # 
   # make r line breaks (\n) and use monospace font for code
   kableExtra::column_spec(5, monospace = T, extra_css = "white-space: pre;")
 ```
@@ -2691,93 +733,10 @@ project_data_df <- project_data_df %>%
         dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean)) %>% 
         dplyr::slice(1) %>% 
         dplyr::pull(ws_fn_nm)
-      , ""
+      , best_ws_fn_nm
     )
   )
 # project_data_df %>% dplyr::glimpse()
-```
-
-we can process more of the CHM data using only this selected window function within `cloud2trees::raster2trees()` and we'll also estimate DBH (`cloud2trees::trees_dbh()`) and relative tree height. For relative tree height, I have defined a custom function using a highly efficient data processing routine with `RANN::nn2()` which kd-tree to find the p number of near neighbours for each point in an input/output dataset; the advantage of the kd-tree is that it runs in O(M log M) time. This custom function is for eventual integration into `cloud2trees::trees_competition()`.
-
-```{r}
-# ?RANN::nn2
-# ?cloud2trees::trees_competition
-competition_radius_m <- sqrt((30*30*2*2)/pi)
-get_relative_height_fn <- function(df, radius) {
-    # Use the X and Y coordinates of the reference to build the tree.
-    coords_temp <- 
-      df %>% 
-      sf::st_drop_geometry() %>% 
-      sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(df), remove = F) %>% 
-      dplyr::mutate(
-        X = sf::st_coordinates(.)[,1] %>% as.numeric()
-        , Y = sf::st_coordinates(.)[,2] %>% as.numeric()
-      ) %>% 
-      dplyr::select(X,Y) %>% 
-      sf::st_drop_geometry()
-    # coords_temp %>% dplyr::glimpse()
-    
-    # perform a fixed-radius search using RANN::nn2
-    # ?RANN::nn2
-    nn_ans_temp <- RANN::nn2(
-      # the point cloud xy data (builds the kd-tree on this)
-      data = coords_temp
-      # the seed point xy data (number of columns must be the same as data)
-      , query = coords_temp
-      # maximum number of neighbors to find per query
-      , k = nrow(coords_temp)
-      # the search radius (rcyl)
-      , radius = radius
-      , searchtype = "radius"
-    )
-    # nn_ans_temp %>% dplyr::glimpse()
-    # nn_ans_temp$nn.idx[1:19,2:22]
-    
-    # iterate through the results to compute metrics
-    w_ht <- 
-      1:nrow(df) %>% 
-      purrr::map(
-        function(i) {
-          # which seed?
-          which_seed <- df %>% dplyr::slice(i)
-          
-          # get indices of points in the current radius (0 means no point found)
-          # rad_pts <- nn_ans_temp$nn.idx[i, 2:ncol(nn_ans_temp$nn.idx)] # filter out self-idx in col 1
-          rad_pts <- nn_ans_temp$nn.idx[i, ] # DON'T filter out self-idx in col 1
-          rad_pts <- rad_pts[rad_pts > 0] 
-          
-          # if no other points, it's the tallest
-          if (dplyr::coalesce(length(rad_pts),0) < 2) {
-            return(
-              which_seed %>% dplyr::mutate(rel_tree_height_m = 1)
-            )
-          }
-          
-          # get ht values using the indices
-          ht_values <- df$tree_height_m[rad_pts]
-          
-          # relative ht
-          my_rel_ht <- which_seed$tree_height_m / max(ht_values,na.rm=T)
-          return(
-            which_seed %>% dplyr::mutate(rel_tree_height_m = my_rel_ht)
-          )
-        }
-      ) %>% 
-      dplyr::bind_rows()
-    
-    return(w_ht)
-}
-# get_relative_height_fn_ans_temp <- 
-#   get_relative_height_fn(
-#     df = usfs_manitouef_n1_ws_pred_trees %>% dplyr::slice_sample(n=555)
-#     # radius to roughly match area used for relative height from TreeMap training data
-#     # 30*30*3*3 = 8100 square meters = size of 30 m raster cell with moving window of 3 in terra::focal()
-#     # .... but we'll go a little smaller because we're confident in the ITD trees and heights 
-#     # .... whereas we're not so confident in the FIA TreeMap data
-#     , radius = competition_radius_m # sqrt((30*30*2*2)/pi) # a = pi*r^2 >> r = sqrt(a/pi)
-#   )
-# get_relative_height_fn_ans_temp %>% dplyr::glimpse()
-# get_relative_height_fn_ans_temp %>% sf::st_drop_geometry() %>% dplyr::select(rel_tree_height_m) %>% summary()
 ```
 
 full CHM data processing
@@ -2790,7 +749,7 @@ c2t_process_dir_temp <-
 fnm_temp <- file.path(c2t_process_dir_temp,"best_ws_pred_trees.gpkg")
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
-    best_ws_pred_trees_fnm = ifelse(c2t_process_dir==c2t_process_dir_temp, fnm_temp, "")
+    best_ws_pred_trees_fnm = ifelse(c2t_process_dir==c2t_process_dir_temp, fnm_temp, best_ws_pred_trees_fnm)
   )
 
 ###############################################################################################
@@ -2806,49 +765,13 @@ if(!file.exists(fnm_temp)){
     dplyr::pull(best_ws_fn_nm)
   
   pred_trees_temp <- 
-    1:nrow(usfs_manitouef_n1_plots) %>% 
-    # .[1:3] %>% 
-    purrr::map(
-      \(x)
-      ws_testtest_fn(
-        chm = chm_list$usfs_manitouef_n1
-        , buffer = (competition_radius_m+3) # !!!!! this is being increased significantly to get relative height + 3 for 6 m crown width buffer
-        , plot_sf = 
-          usfs_manitouef_n1_plots %>% 
-          dplyr::ungroup() %>% 
-          dplyr::slice(x) %>%
-          sf::st_union()
-        # a named list of functions ex: cloud2trees::itd_ws_functions()
-        , ws_fn_list = get_ws_fn_list_ans %>% purrr::keep_at(ws_temp) ### !!!!! only the best
-      )  
-    ) %>% 
-    purrr::list_rbind(names_to = "plot_dta_idx")
-  # pred_trees_temp %>% dplyr::glimpse()
-  
-  # add plot id
-  pred_trees_temp <- 
-    pred_trees_temp %>% 
-    dplyr::left_join(
-      usfs_manitouef_n1_plots %>% 
-        dplyr::mutate(plot_dta_idx=dplyr::row_number()) %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::select(plot_dta_idx,plot_id)
-      , by = "plot_dta_idx"
-    ) %>% 
-    # make sure geom
-    sf::st_set_geometry("geometry")
-  # pred_trees_temp %>% dplyr::glimpse()
-  
-  # get dbh
-  pred_trees_temp_dbh_temp <- 
-    pred_trees_temp %>% 
+    usfs_manitouef_n1_ws_pred_trees %>% 
+    dplyr::filter(ws_fn_nm==ws_temp) %>% 
     # this is because we did tree detection by plot
     dplyr::rename(xxxtreeID=treeID) %>% 
     dplyr::mutate(
       treeID = dplyr::row_number() %>% as.character()
-    ) %>% 
-    cloud2trees::trees_dbh()
-  # pred_trees_temp_dbh_temp %>% dplyr::glimpse()
+    )
   
   # get rh
   pred_trees_temp_rh_temp <- 
@@ -2870,21 +793,6 @@ if(!file.exists(fnm_temp)){
   # add to trees
   pred_trees_temp <- 
     pred_trees_temp %>% 
-    dplyr::mutate(
-      join_id = dplyr::row_number()
-    ) %>% 
-    dplyr::left_join(
-      pred_trees_temp_dbh_temp %>%
-        sf::st_drop_geometry() %>%
-        dplyr::mutate(
-          join_id = as.numeric(treeID)
-        ) %>%
-        dplyr::select(
-          join_id, tidyselect::starts_with("fia_est_dbh"), dbh_cm
-        )
-      , by = "join_id"
-    ) %>%
-    dplyr::select(-c(join_id)) %>% 
     dplyr::left_join(
       pred_trees_temp_rh_temp %>% 
         sf::st_drop_geometry() %>% 
@@ -2911,11 +819,11 @@ if(!file.exists(fnm_temp)){
 
 im_temp <- 
   plot_iter_instance_match_fn(
-    ref_plots = ref_plots_list[["usfs_manitouef_n1"]]
-    , ref_pts = ref_trees_list[["usfs_manitouef_n1"]]
+    ref_plots = ref_plots_list$USFS_ManitouEF_N1
+    , ref_pts = ref_trees_list$USFS_ManitouEF_N1
     , pred_polys = pred_trees_temp
-    , min_ht_m = NA
-    , min_dbh_cm = 10
+    , min_ht_m = 2
+    , min_dbh_cm = NA
   )
 
 # im_temp %>% dplyr::glimpse()
@@ -2958,7 +866,7 @@ pred_trees_list[[nm_temp]] <-
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
-remove(list = ls()[grep("^wfsi",ls())])
+remove(list = ls()[grep("^usfs_manitou",ls())])
 remove(cloud2raster_ans)
 gc()
 ```
@@ -3346,7 +1254,7 @@ We did a few things in that function to return:
 ```{r}
 # test to get the treemap data for our aoi
 treemap_data_loader_ans <-
-  pred_trees_list$usfs_manitouef_n1 %>% 
+  pred_trees_list$USFS_ManitouEF_N1 %>% 
   dplyr::ungroup() %>% 
   sf::st_union() %>% 
   sf::st_bbox() %>% 
@@ -3929,15 +1837,15 @@ get_species_symbol_predictions <- name <- function(treemap_data_loader_ans, pred
 }
 
 # do it with our data
-pred_trees_list$usfs_manitouef_n1 <- 
+pred_trees_list$USFS_ManitouEF_N1 <- 
   get_species_symbol_predictions(
     treemap_data_loader_ans = treemap_data_loader_ans
-    , predict_df = pred_trees_list$usfs_manitouef_n1
+    , predict_df = pred_trees_list$USFS_ManitouEF_N1
   ) %>% 
   # for this project we'll just rename to maintain consistent across data sources
   dplyr::rename(species_symbol=predicted_species_symbol)
 
-# pred_trees_list$usfs_manitouef_n1 %>%
+# pred_trees_list$USFS_ManitouEF_N1 %>%
 #   sf::st_drop_geometry() %>%
 #   dplyr::count(species_symbol) %>%
 #   dplyr::arrange(desc(n)) %>%
@@ -3947,9 +1855,9 @@ pred_trees_list$usfs_manitouef_n1 <-
 let's map predicted crowns in space colored by species for a single plot while also showing the field validation data species and the true positive matches (squares)
 
 ```{r, fig.height = 9.8, fig.width = 6.5}
-pred_trees_list$usfs_manitouef_n1 %>%
+pred_trees_list$USFS_ManitouEF_N1 %>%
   dplyr::inner_join(
-    ref_plots_list$usfs_manitouef_n1 %>% 
+    ref_plots_list$USFS_ManitouEF_N1 %>% 
       dplyr::slice(4) %>% 
       sf::st_drop_geometry() %>% 
       dplyr::select(plot_id)
@@ -3960,7 +1868,7 @@ pred_trees_list$usfs_manitouef_n1 %>%
   # plt
   ggplot2::ggplot() +
     ggplot2::geom_sf(
-      data = ref_plots_list$usfs_manitouef_n1 %>% dplyr::slice(4)
+      data = ref_plots_list$USFS_ManitouEF_N1 %>% dplyr::slice(4)
       , fill = NA, color = "blue"
     ) +
     ggplot2::geom_sf(
@@ -3969,16 +1877,16 @@ pred_trees_list$usfs_manitouef_n1 %>%
     ) +
     ggplot2::geom_sf(
       data = 
-        ref_trees_list$usfs_manitouef_n1 %>%
+        ref_trees_list$USFS_ManitouEF_N1 %>%
         dplyr::inner_join(
-          ref_plots_list$usfs_manitouef_n1 %>% 
+          ref_plots_list$USFS_ManitouEF_N1 %>% 
             dplyr::slice(4) %>% 
             sf::st_drop_geometry() %>% 
             dplyr::select(plot_id)
           , by = "plot_id"
         ) %>% 
         dplyr::inner_join(
-          pred_ref_tree_match_list$usfs_manitouef_n1 %>% 
+          pred_ref_tree_match_list$USFS_ManitouEF_N1 %>% 
             dplyr::filter(match_grp=="true positive") %>% 
             dplyr::select(ref_treeID)
           , by = dplyr::join_by(treeID==ref_treeID)
@@ -3987,9 +1895,9 @@ pred_trees_list$usfs_manitouef_n1 %>%
     ) +
     ggplot2::geom_sf(
       data = 
-        ref_trees_list$usfs_manitouef_n1 %>%
+        ref_trees_list$USFS_ManitouEF_N1 %>%
         dplyr::inner_join(
-          ref_plots_list$usfs_manitouef_n1 %>% 
+          ref_plots_list$USFS_ManitouEF_N1 %>% 
             dplyr::slice(4) %>% 
             sf::st_drop_geometry() %>% 
             dplyr::select(plot_id)
@@ -4127,8 +2035,8 @@ clean_ref_species_fn <- function(
 
 }
 # update the reference tree list
-ref_trees_list$usfs_manitouef_n1 <- 
-  ref_trees_list$usfs_manitouef_n1 %>% 
+ref_trees_list$USFS_ManitouEF_N1 <- 
+  ref_trees_list$USFS_ManitouEF_N1 %>% 
   clean_ref_species_fn(
     my_treemap_data_loader_ans = treemap_data_loader_ans
   )
@@ -4137,7 +2045,7 @@ ref_trees_list$usfs_manitouef_n1 <-
 what is the distribution of the cleaned reference field data species?
 
 ```{r}
-ref_trees_list$usfs_manitouef_n1 %>% 
+ref_trees_list$USFS_ManitouEF_N1 %>% 
   sf::st_drop_geometry() %>% 
   dplyr::count(species_symbol)
 ```
@@ -4145,7 +2053,7 @@ ref_trees_list$usfs_manitouef_n1 %>%
 eh. there is one genus only observation and many "HDWD" observations (which i assume is "hard wood"). let's just use the most common of the same genus
 
 ```{r}
-ref_trees_list$usfs_manitouef_n1 <- ref_trees_list$usfs_manitouef_n1 %>% 
+ref_trees_list$USFS_ManitouEF_N1 <- ref_trees_list$USFS_ManitouEF_N1 %>% 
   dplyr::mutate(
     species_symbol = dplyr::case_when(
       species_symbol %in% c("QU","HDWD") ~ "QULA2"
@@ -4582,15 +2490,15 @@ confusion_matrix_tree_class_fn <- function(pred_ref_match, pred_trees, ref_trees
 
 # test that
 confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$usfs_manitouef_n1
-  , pred_trees = pred_trees_list$usfs_manitouef_n1
-  , ref_trees = ref_trees_list$usfs_manitouef_n1
+  pred_ref_match = pred_ref_tree_match_list$USFS_ManitouEF_N1
+  , pred_trees = pred_trees_list$USFS_ManitouEF_N1
+  , ref_trees = ref_trees_list$USFS_ManitouEF_N1
   , use_genus = F
 )
 confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$usfs_manitouef_n1
-  , pred_trees = pred_trees_list$usfs_manitouef_n1
-  , ref_trees = ref_trees_list$usfs_manitouef_n1
+  pred_ref_match = pred_ref_tree_match_list$USFS_ManitouEF_N1
+  , pred_trees = pred_trees_list$USFS_ManitouEF_N1
+  , ref_trees = ref_trees_list$USFS_ManitouEF_N1
   , use_genus = T
 )
 ```
@@ -4849,13 +2757,13 @@ similarity_tree_class_fn <- function(
 
 # test that
 similarity_tree_species_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$usfs_manitouef_n1
-  , ref_trees = ref_trees_list$usfs_manitouef_n1
+  pred_trees = pred_trees_list$USFS_ManitouEF_N1
+  , ref_trees = ref_trees_list$USFS_ManitouEF_N1
   , use_genus = F
 )
 similarity_tree_genus_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$usfs_manitouef_n1
-  , ref_trees = ref_trees_list$usfs_manitouef_n1
+  pred_trees = pred_trees_list$USFS_ManitouEF_N1
+  , ref_trees = ref_trees_list$USFS_ManitouEF_N1
   , use_genus = T
 )
 
