@@ -90,6 +90,8 @@ ref_plots_list <- chm_list
 pred_ref_tree_match_list <- chm_list
 ```
 
+# Eglin Air Force Base (Florida){#site_01}
+
 We're going to use this first study site and associated data to demonstrate the entire analysis process which includes:
 
 * [Reference Field Data](#01_fld_dta): load and attempt to standardize the field reference spatial tree inventory and polygon plot data
@@ -101,8 +103,6 @@ We're going to use this first study site and associated data to demonstrate the 
 * [Species/Genus Prediction](#04_species): Predict species for the point cloud-generated tree list
 * [Tree-level Species/Genus Evaluation](#05_tree_acc): Evaluate the tree-level accuracy of the proposed classification method
 * [Site-level Species/Genus Evaluation](06_site_acc): Evaluate the site-level accuracy of the proposed classification method based on proportional distributions
-
-## Eglin Air Force Base (Florida)
 
 ### Field Data{#01_fld_dta}
 
