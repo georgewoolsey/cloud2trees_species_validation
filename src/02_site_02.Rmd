@@ -352,14 +352,14 @@ if(!file.exists(fnm_temp)){
   usfs_manitouef_n1_ws_pred_trees <-
     1:nrow(ref_plots_list$USFS_ManitouEF_N1) %>%
     purrr::map(
-      \(x)
+      \(rn)
       ws_testtest_fn(
         chm = chm_list$USFS_ManitouEF_N1
         , buffer = (competition_radius_m+3) # since we only have one plot we're just going to go for it
         , plot_sf =
           ref_plots_list$USFS_ManitouEF_N1 %>%
           dplyr::ungroup() %>%
-          dplyr::slice(x) %>%
+          dplyr::slice(rn) %>%
           sf::st_union()
         # a named list of functions ex: cloud2trees::itd_ws_functions()
         , ws_fn_list = get_ws_fn_list_ans # cloud2trees::itd_ws_functions() #

@@ -1084,14 +1084,14 @@ if(!file.exists(fnm_temp)){
   wfsi_eglinafb_ws_pred_trees <- 
     1:nrow(wfsi_eglinafb_plots) %>% 
     purrr::map(
-      \(x)
+      \(rn)
       ws_testtest_fn(
         chm = chm_list$WFSI_EglinAFB
         , buffer = 5.5
         , plot_sf = 
           wfsi_eglinafb_plots %>% 
           dplyr::ungroup() %>% 
-          dplyr::slice(x) %>%
+          dplyr::slice(rn) %>%
           sf::st_union()
         # a named list of functions ex: cloud2trees::itd_ws_functions()
         , ws_fn_list = get_ws_fn_list_ans # cloud2trees::itd_ws_functions() # 

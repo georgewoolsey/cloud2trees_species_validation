@@ -4,6 +4,9 @@ tab:unnamed-chunk-68
 tab:unnamed-chunk-97
 tab:unnamed-chunk-105
 tab:unnamed-chunk-119
+tab:unnamed-chunk-149
+tab:unnamed-chunk-157
+tab:unnamed-chunk-171
 introduction
 proposed-species-classification-method
 validation-data-and-accuracy-evaluation
@@ -29,3 +32,13 @@ predict-speciesgenus-application-1
 speciesgenus-accuracy-evaluation-1
 tree-level-accuracy
 site-level-accuracy
+site_03
+field-data-1
+point-cloud-data-1
+tree-detection-1
+speciesgenus-prediction-method-1
+training-data-2
+predict-speciesgenus-application-2
+speciesgenus-accuracy-evaluation-2
+tree-level-accuracy-1
+site-level-accuracy-1
