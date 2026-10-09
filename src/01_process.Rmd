@@ -4614,6 +4614,7 @@ confusion_matrix_tree_class_fn <- function(pred_ref_match, pred_trees, ref_trees
       , escape = F
     ) %>% 
     kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>% # 
+    kableExtra::scroll_box(width = "100%") %>% #  put a HTML kable object in a fixed-height, fixed-width or both box and make it scrollable
     # header
     kableExtra::add_header_above(
       c(
@@ -4632,7 +4633,7 @@ confusion_matrix_tree_class_fn <- function(pred_ref_match, pred_trees, ref_trees
     # borders
     kableExtra::row_spec(
       c(nrow(kbl_table_df_temp) - 2, nrow(kbl_table_df_temp) - 1, nrow(kbl_table_df_temp))
-      # , border = T, 
+      # , border = T
       , extra_css = "border-bottom: 3px solid black !important;"
     ) %>%
     kableExtra::column_spec(
@@ -4855,6 +4856,7 @@ similarity_tree_class_fn <- function(
       , escape = F
     ) %>% 
     kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>% # 
+    kableExtra::scroll_box(width = "100%") %>% #  put a HTML kable object in a fixed-height, fixed-width or both box and make it scrollable
     kableExtra::add_header_above(
       # named numeric vector req'd for dynamic label
       setNames( c(1,nrow(species_comp_temp)), c(" ", head_temp) )
@@ -4919,6 +4921,7 @@ similarity_tree_class_fn <- function(
       , col.names = c("","value","interpretation")
     ) %>% 
     kableExtra::kable_styling(font_size = 12, bootstrap_options = c("responsive", "condensed")) %>% # 
+    kableExtra::scroll_box(width = "100%") %>% #  put a HTML kable object in a fixed-height, fixed-width or both box and make it scrollable
     kableExtra::column_spec(1:2, bold = TRUE)
   
   return(list(

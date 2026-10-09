@@ -13,8 +13,6 @@ Field data from this study site is from: a stem map including all trees with a h
 
 the sampling protocol for trees was: measure all trees at least 2 m in height for height, DBH, and species and record distance and azimuth from gridded plot centers over square study area.
 
-we'll keep trees over 
-
 ```{r}
 usfs_manitouef_n1_trees <-
   # we have used this data before
@@ -1086,7 +1084,7 @@ pred_trees_list$USFS_ManitouEF_N1 <-
 
 let's check out the distribution of the predicted species
 
-```{r, fig.height = 9.8, fig.width = 6.5}
+```{r}
 pred_trees_list$USFS_ManitouEF_N1 %>%
   dplyr::inner_join(
     ref_plots_list$USFS_ManitouEF_N1 %>% 

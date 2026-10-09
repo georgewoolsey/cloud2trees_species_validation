@@ -13,12 +13,11 @@ Field data from this study site is from: a stem map including all trees with a h
 
 the sampling protocol for trees was: measure all trees at least 2 m in height for height, DBH, and species and record distance and azimuth from gridded plot centers over square study area.
 
-we'll keep trees over 
-
 ```{r}
+# ?sf::st_read
 usfs_manitouef_bigplot_trees <-
   # we have used this data before
-  sf::st_read("../data/USFS_ManitouEF_BigPlot/2021_trees_retained_&_ingrowth.shp") %>% 
+  sf::st_read("../data/USFS_ManitouEF_BigPlot/2021_trees_retained_&_ingrowth.shp", quiet = T) %>% 
   dplyr::rename_with(
     ~ tolower(.x) %>% 
       stringr::str_squish() %>% 
@@ -1008,8 +1007,6 @@ stab_temp %>%
   )
 ```
 
-this essentially means that TreeMap is fairly confident that the study area includes `r paste0(levels(forcats::fct_rev(stab_temp$f_type))[1], collapse = " and ")`
-
 lastly, we'll look at the relative height data for a sample of the data
 
 ```{r}
@@ -1083,7 +1080,7 @@ pred_trees_list$USFS_ManitouEF_BigPlot <-
 
 let's check out the distribution of the predicted species
 
-```{r, fig.height = 9.8, fig.width = 6.5}
+```{r}
 pred_trees_list$USFS_ManitouEF_BigPlot %>%
   dplyr::inner_join(
     ref_plots_list$USFS_ManitouEF_BigPlot %>% 
