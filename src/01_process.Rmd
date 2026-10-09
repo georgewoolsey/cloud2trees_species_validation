@@ -4,14 +4,14 @@ We compiled a collection of validation datasets across diverse forest conditions
 
 | Name | State | Forest Type | Point Cloud Data | Field Data |
 | :--- | :--- | :--- | :--- | :--- |
-| Penobscot Experimental Forest | Maine | northern mixed conifer | ALS | tree locations |
-| Manitou Experimental Forest (N1) | Colorado | ponderosa pine | UAS-SfM | tree locations |
+| WFSI Elgin AFB | Florida | longleaf pine | ALS | plots |
+| Manitou Experimental Forest (N1) | Colorado | ponderosa pine | UAS-lidar | tree locations |
 | Manitou Experimental Forest (Big Plot) | Colorado | western mixed conifer | UAS-SfM | tree locations |
+| Penobscot Experimental Forest | Maine | northern mixed conifer | ALS | tree locations |
 | CSFS State Forest State Park | Colorado | lodgepole pine | UAS-lidar | plots |
 | BLM Dawson Creek | Colorado | pinyon-juniper | UAS-SfM | tree locations |
 | Ute Creek | Colorado | | UAS-SfM | plots |
 | WFSI Fort Stewart | Georgia | southern yellow pine forest | UAS-lidar | plots |
-| WFSI Elgin AFB | Florida | longleaf pine | UAS-lidar | plots |
 | Wabikon Lake Forest Dynamics Plot (ForestGEO) | Wisconsin | northern mixed hardwood | ALS | tree locations |
 | UC Santa Cruz Forest Ecology Research Plot (ForestGEO) | California | coastal mixed-evergreen & coast redwood | ALS | tree locations |
 | Smithsonian Environmental Research Center (ForestGEO) | Maryland | mixed deciduous hardwood | ALS | tree locations |
@@ -104,7 +104,7 @@ We're going to use this first study site and associated data to demonstrate the 
 * [Tree-level Species/Genus Evaluation](#05_tree_acc): Evaluate the tree-level accuracy of the proposed classification method
 * [Site-level Species/Genus Evaluation](06_site_acc): Evaluate the site-level accuracy of the proposed classification method based on proportional distributions
 
-### Field Data{#01_fld_dta}
+## Field Data{#01_fld_dta}
 
 Field data from this study site is from: 
 
@@ -406,7 +406,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-### Point Cloud Data{#02_ptcld_dta}
+## Point Cloud Data{#02_ptcld_dta}
 
 Andrew Hudak, & Benjamin Bright. (2026). *Airborne Lidar Data from the 2023 Department of Defense Wildland Fire Science Initiative Eglin Air Force Base Campaign*. WFSI Data Portal. [doi:10.60594/W4B017](https://doi.org/10.60594/W4B017)
 
@@ -673,7 +673,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-### Tree Detection{#03_itd}
+## Tree Detection{#03_itd}
 
 `cloud2trees` implements a CHM-based individual tree detection method accessible via `cloud2trees::raster2trees()`. this method requires a window function used to set the search radius used to find local maxima in the CHM. These local maxima represent individual tree top points and are subsequently used to delineate individual tree crowns via a marker-controlled watershed segmentation
 
@@ -1815,9 +1815,9 @@ ground_truth_prediction_match <- function(
 
 ```{r, include=FALSE, eval=F}
 ###################################
-### test for one plot
-### test for one plot
-### test for one plot
+## test for one plot
+## test for one plot
+## test for one plot
 ###################################
 xxx_temp <- 
   reference_prediction_match(
@@ -2097,9 +2097,9 @@ instance_match_fn <- function(
 }
 
 ###################################
-### test for one plot
-### test for one plot
-### test for one plot
+## test for one plot
+## test for one plot
+## test for one plot
 ###################################
 instance_match_fn(
   pred_crowns = 
@@ -2313,9 +2313,9 @@ let's test that for a single plot
 
 ```{r, fig.height=8.8}
 ###################################
-### test for one plot
-### test for one plot
-### test for one plot
+## test for one plot
+## test for one plot
+## test for one plot
 ###################################
 
 ws_iter_instance_match_fn(
@@ -2877,7 +2877,7 @@ project_data_df <- project_data_df %>%
 
 ###############################################################################################
 ###############################################################################################
-### raster2trees that best ws fn
+## raster2trees that best ws fn
 ###############################################################################################
 ###############################################################################################
 if(!file.exists(fnm_temp)){
@@ -2986,7 +2986,7 @@ if(!file.exists(fnm_temp)){
 
 ###############################################################################################
 ###############################################################################################
-### now we need to do the matching 
+## now we need to do the matching 
 # again to only keep trees in plots for individual tree species comparisons
 ###############################################################################################
 ###############################################################################################
@@ -3010,7 +3010,7 @@ pred_ref_tree_match_list[[nm_temp]] <- im_temp
 
 ###############################################################################################
 ###############################################################################################
-### save to the pred trees
+## save to the pred trees
 ###############################################################################################
 ###############################################################################################
 # let's also save the plot-level ITD predictions for this ws
@@ -3045,7 +3045,7 @@ remove(cloud2raster_ans)
 gc()
 ```
 
-### Species/Genus Prediction Method{#04_species}
+## Species/Genus Prediction Method{#04_species}
 
 for some context of the primary objective of this analysis, here is what we said in the `cloud2trees` manuscript (a draft of the manuscript which may be different than what was actually published): 
 
@@ -3059,7 +3059,7 @@ early testing of the proposed method used a  bayesian hierarchical model grouped
 
 ultimately, if the proposed species/genera classification method achieves decent accuracy results, it could be integrated into the `cloud2trees` framework as `cloud2trees::trees_species()`, for example. this function would take an input spatial tree list and attach the predicted species/genera
 
-#### Training Data
+### Training Data
 
 load in the TreeMap data and clip to our trees as in `cloud2trees::trees_dbh()`
 
@@ -3595,7 +3595,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-### Predict Species/Genus Application
+## Predict Species/Genus Application
 
 let's implement a random forest model majority voting for species with the objective to reduce estimation time (compared to a Bayesian Softmax model)
 
@@ -4236,9 +4236,9 @@ ref_trees_list$WFSI_EglinAFB <- ref_trees_list$WFSI_EglinAFB %>%
   )
 ```
 
-### Species/Genus Accuracy Evaluation
+## Species/Genus Accuracy Evaluation
 
-#### Tree-Level Accuracy{#05_tree_acc}
+### Tree-Level Accuracy{#05_tree_acc}
 
 Given that our analysis is focused on evaluating the proposed taxonomic classification algorithm (rather than the individual tree detection method), we'll evaluate the taxonomic classification accuracy conditionally for successfully detected tree crowns (true positive matches). This conditional evaluation will allow us to isolate taxonomic model performance from tree detection errors (reviewed above [here](#03_itd)). In practice, the ITD window function would be tuned for the specific site and data being analyzed, but we implemented an automated ITD window selection process here since we will be evaluating many different sites and forest types.
 
@@ -4690,7 +4690,7 @@ and the confusion matrix at the *genus* level
 confusion_matrix_genus_temp$kbl_html_table
 ```
 
-#### Site-Level Accuracy{#06_site_acc}
+### Site-Level Accuracy{#06_site_acc}
 
 we shift away from individual item matching and use the Bray-Curtis Dissimilarity Index. This metric compares the proportional compositions of each species predicted by the model against the reference proportions within a defined area or site.
 

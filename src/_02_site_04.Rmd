@@ -1,4 +1,4 @@
-# USFS Manitou Experimental Forest: N1 (Colorado){#site_02}
+# Penobscot Experimental Forest (Maine){#site_04}
 
 Now that we have reviewed the [process and evaluation method](#site_01) and set up functions to standardize and streamline our data processing, let's do it for another site: USFS Manitou Experimental Forest ("N1" study site) 
 
@@ -9,14 +9,23 @@ gc()
 
 ## Field Data
 
-Field data from this study site is from: a stem map including all trees with a height of at least 2 m.
+Field data from this study site is from: 
 
-the sampling protocol for trees was: measure all trees at least 2 m in height for height, DBH, and species and record distance and azimuth from gridded plot centers over square study area.
+* Kenefic, Laura S.; Allogio, Jeanette A.; Gerndt, Kathryn M.; Knapp, Rachel A.; Rogers, Nicole S.; Puhlick, Joshua J. 2025. Overstory tree and regeneration data from the "Silvicultural Effects on Composition, Structure, and Growth" study at Penobscot Experimental Forest. 3rd Edition. Fort Collins, CO: Forest Service Research Data Archive. [https://doi.org/10.2737/RDS-2012-0008-3](https://doi.org/10.2737/RDS-2012-0008-3)
+
+>Data were collected on a series of permanent sample plots distributed across management units receiving various silvicultural treatments. Plot data are available in eight separate data sets. Overstory tree and sapling data include tree species, condition (e.g., merchantability status and cause of mortality), and diameter at breast height of living and dead trees, 1952 to 2023...Tree location data include the distance and azimuth from plot center of a subsample of trees, 2003 to 2023. Height and crown radius data include total height, height to crown base, and crown radius measurements for a subsample of live trees, 2003 to 2020 (heights) and 2003 to 2017 (radii)...Permanent sample plot location data include geospatial coordinates for permanent sample plots, 2018 and 2020...Future inventories are planned for this study indefinitely.
+
+> 1/5th Acre Plots (were used to measure) Trees ≥ 4.5 inches DBH (with a) 52.7-foot plot radius
+
+let's load in the plot data first here since we have distance and azimuth from plot center for some trees
 
 ```{r}
-usfs_manitouef_n1_trees <-
-  # we have used this data before
-  readxl::read_excel("c:/data/usfs/uas_lidar_n1/data/N1_2024_Field_Trees.xlsx") %>% 
+ft_to_m_temp <- 3.280839895
+usfs_penobscotef_plots <- readr::read_csv(
+    "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_PlotLocationsData.csv"
+    , progress = F
+    , show_col_types = F
+  ) %>% 
   dplyr::rename_with(
     ~ tolower(.x) %>% 
       stringr::str_squish() %>% 
@@ -25,21 +34,114 @@ usfs_manitouef_n1_trees <-
       stringr::str_remove( "\\.$") %>% 
       stringr::str_replace_all( "\\.", "_")
   ) %>% 
-  sf::st_as_sf(
-    coords = c("easting", "northing")
-    , crs = 26913
-    , remove=F
+  dplyr::filter(
+    geodoubt == "N"
+    , active == 1
+    , !is.na(utm_east)
+    , !is.na(utm_north)
+  ) %>% 
+  dplyr::mutate(
+    plot_id = 
+      mu %>%
+        stringr::str_squish() %>% 
+        stringr::str_c("-", as.character(plot))
+  ) %>% 
+  # spatial that
+  sf::st_as_sf(coords = c("utm_east", "utm_north"), crs = 26919, remove = F) %>% 
+  dplyr::mutate(
+    plot_area_ac = 1/5
+    # 1 ha = 2.47105 acres
+    , plot_area_ha = plot_area_ac/2.47105
+    , plot_area_m2 = plot_area_ha*10000
+    , plot_radius_meters = 52.7/ft_to_m_temp
+  ) %>% 
+  sf::st_buffer(.$plot_radius_meters) %>% 
+  dplyr::select(
+    plot_id, plot_area_m2, plot_radius_meters
+    , latitude, longitude
+    , utm_east, utm_north
+    , mu,plot
+  )
+# huh?
+# usfs_penobscotef_plots %>% dplyr::count(projection)
+# usfs_penobscotef_plots %>% dplyr::glimpse()
+# usfs_penobscotef_plots %>% sf::st_drop_geometry() %>% dplyr::count(mu,plot) %>% dplyr::filter(n>1)
+# usfs_penobscotef_plots %>% sf::st_drop_geometry() %>% dplyr::count(plot_id) %>% dplyr::filter(n>1)
+```
+
+load in the trees
+
+```{r}
+usfs_penobscotef_trees <- 
+  readr::read_csv(
+    "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_TreeLocationData.csv"
+    , progress = F
+    , show_col_types = F
+  ) %>% 
+  dplyr::rename_with(
+    ~ tolower(.x) %>% 
+      stringr::str_squish() %>% 
+      make.names() %>% 
+      stringr::str_replace_all( "\\.{2,}", ".") %>% 
+      stringr::str_remove( "\\.$") %>% 
+      stringr::str_replace_all( "\\.", "_")
+  ) %>% 
+  dplyr::left_join(
+    usfs_penobscotef_plots %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::select(plot_id,mu,plot,plot_utm_north=utm_north,plot_utm_east=utm_east)
+    , by = dplyr::join_by(mu,plot)
+  ) %>% 
+  # convert from dist and azimuth to coords
+  dplyr::mutate(
+    # dist to m
+    dist_m = dist/ft_to_m_temp
+    # convert azimuth from degrees to radians
+    , az_rad = az * pi / 180
+    , tree_utm_east = plot_utm_east + (dist_m * sin(az_rad)),
+    , tree_utm_north = plot_utm_north + (dist_m * cos(az_rad))
+  ) %>% 
+  # filter
+  dplyr::filter(
+    !is.na(tree_utm_east)
+    , !is.na(tree_utm_north)
+  ) %>% 
+  # what if a tree has multiple locations? ... take the most recent
+  dplyr::arrange(mu,plot,treenum,desc(year),desc(month),desc(inv)) %>% 
+  dplyr::group_by(mu,plot,treenum) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(plot_id,mu,plot,treenum,tidyselect::starts_with("tree_utm_")) %>% 
+  # spatial that
+  sf::st_as_sf(coords = c("tree_utm_east", "tree_utm_north"), crs = sf::st_crs(usfs_penobscotef_plots), remove = F)
+
+# read and attach tree information
+usfs_penobscotef_trees <-
+  usfs_penobscotef_trees %>% 
+  dplyr::inner_join(
+    readr::read_csv(
+        "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_TreeData.csv"
+        , progress = F
+        , show_col_types = F
+      ) %>% 
+      dplyr::rename_with(
+        ~ tolower(.x) %>% 
+          stringr::str_squish() %>% 
+          make.names() %>% 
+          stringr::str_replace_all( "\\.{2,}", ".") %>% 
+          stringr::str_remove( "\\.$") %>% 
+          stringr::str_replace_all( "\\.", "_")
+      )
+    , by = dplyr::join_by(mu,plot,treenum)
+    , relationship = "one-to-many"
   ) %>% 
   dplyr::rename(
-    # field_dbh_cm = dbh_cm
-    # , field_tree_height_m = ht_m
-    dbh_in = dbh_24
-    , tree_height_ft = ht_24
+    dbh_in = dbh
   ) %>% 
   # dplyr::select(dbh_in, tree_height_ft) %>% summary()
   dplyr::mutate(
     dbh_cm = dbh_in/0.394
-    , tree_height_m = tree_height_ft/3.281
+    # , tree_height_m = tree_height_ft/3.281
   ) %>% 
   # dplyr::select(dbh_cm, tree_height_m) %>% summary()
   sf::st_set_geometry("geometry") %>% 
@@ -53,33 +155,178 @@ usfs_manitouef_n1_trees <-
     # plot_id = xxxxxx
     # also, each tree needs a treeID
     treeID = dplyr::row_number() %>% as.character()
-    # also, we need a species_symbol to match with the FIADatabase
-    , species_symbol = toupper(spp) %>% stringr::str_remove_all("\\s")
+    # # also, we need a species_symbol to match with the FIADatabase
+    # , species_symbol = toupper(spp) %>% stringr::str_remove_all("\\s")
+    
+    , usfsspid = ifelse(
+      usfsspid < 100
+      , str_pad(usfsspid, width = 2, pad = "0")
+      , as.character(usfsspid)
+    )
   ) %>% 
   # clean
   dplyr::filter(
     !is.na(dbh_cm)
-    & !is.na(tree_height_m)
     & sf::st_is_valid(geometry)
-    & tree_height_m >= 2
-    & !is.na(species_symbol)
-    & species_symbol!=""
+    & dbh_cm >= 4.5/0.394 # measured trees >= 4.5 in
+    # & !is.na(species_symbol)
+    # & species_symbol!=""
   )
+  
+  
+```
+
+unfortunately, the researchers for this project chose to use a custom species code with a custom lookup table. this means that we have to do all of the work to tie the species in this research to a common, standardized data framework used to organize species level information
+
+```{r}
+#### now we need to get the species data........
+## ....................................................
+###                    :|
+
+# for each tree, use only the most recent species
+# ...on the assumption that the data collection process has improved over time
+usfs_penobscotef_trees <-
+  usfs_penobscotef_trees %>% 
+  dplyr::select(-usfsspid) %>% 
+  dplyr::inner_join(
+    usfs_penobscotef_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::filter(
+        !is.na(dplyr::na_if(usfsspid,""))
+        , !is.na(year)
+        , !is.na(month)
+      ) %>% 
+      dplyr::arrange(plot_id,treenum,desc(year),desc(month)) %>% 
+      dplyr::group_by(plot_id,treenum) %>% 
+      dplyr::slice(1) %>% 
+      dplyr::ungroup() %>% 
+      dplyr::select(plot_id,treenum,usfsspid)
+    , by = dplyr::join_by(plot_id,treenum)
+    , relationship = "many-to-one"
+  )
+
+
+# what is this custom lookup table?
+# oh, it's in a pdf???? so.great.
+library(pdftools)
+# read
+species_lookup_temp <- 
+  pdftools::pdf_text("../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Supplements/PEF_CompartmentStudy_SpeciesCodes.pdf") %>% 
+  .[1] %>% 
+  # get the unique lines of the pdf
+  stringr::str_split("\n") %>% 
+  purrr::pluck(1) %>% 
+  # keep lines that begin with number
+  purrr::keep(
+    \(x) 
+    # regular expression that matches a string starting with 
+    # two, three, or four digits, followed by either a tab character or multiple spaces
+    stringr::str_detect(stringr::str_trim(x), "^[0-9]{2,4}(\t| {2,})")
+  ) %>% 
+  # table that
+  tibble::tibble() %>% 
+  setNames(c("line")) %>% 
+  dplyr::mutate(
+    line = stringr::str_trim(line)
+    , usfsspid = stringr::str_extract(line, "^[0-9]{2,4}?")
+    # remaining, then next col
+    , rest = stringr::str_remove(line, paste0("^",usfsspid)) %>% stringr::str_trim()
+    , common_name = rest %>% 
+      # everything from the beginning of a string up until (but not including) a tab or multiple spaces
+      stringr::str_extract("^.*?(?=\\t| {2,})")
+    # remaining, then next col
+    , rest = stringr::str_remove(rest, paste0("^",common_name)) %>% stringr::str_trim()
+    , sci_name = rest %>% 
+      # everything from the beginning of a string up until (but not including) a tab or multiple spaces
+      stringr::str_extract("^.*?(?=\\t| {2,})")
+  ) %>% 
+  #thats all we want
+  dplyr::select(
+    usfsspid, common_name, sci_name
+  ) %>% 
+  dplyr::mutate(
+    dplyr::across(dplyr::where(is.character), stringr::str_squish)
+    , genus = stringr::word(sci_name,1)
+    , species = 
+      stringr::word(sci_name,2) %>% 
+      stringr::str_remove("spp.$") %>% 
+      dplyr::na_if("")
+  )
+# species_lookup_temp %>% dplyr::glimpse()
+# match with the actual FIA lookup
+species_lookup_temp %>% 
+  dplyr::mutate(
+    join_species = species %>% tolower() %>% stringr::str_squish()
+    , join_genus = genus %>% tolower() %>% stringr::str_squish()
+  ) %>% 
+  dplyr::left_join(
+    fia_species_lookup %>% 
+      dplyr::mutate(
+        join_species = species %>% tolower() %>% stringr::str_squish()
+        , join_genus = genus %>% tolower() %>% stringr::str_squish()
+        , sym_len = stringr::str_length(species_symbol)
+      ) %>% 
+      dplyr::select(spcd,species_symbol,join_genus,join_species,sym_len) %>% 
+      dplyr::filter(!is.na(join_genus), !is.na(join_species)) %>% 
+      dplyr::arrange(join_genus,join_species,sym_len) %>% 
+      dplyr::group_by(join_genus,join_species) %>% 
+      dplyr::slice(1) %>% 
+      dplyr::select(-sym_len) %>% 
+      dplyr::ungroup()
+    , by = dplyr::join_by(join_genus,join_species)
+    , relationship = "many-to-one"
+  ) %>% 
+  View()
+  dplyr::glimpse()
+
+fia_species_lookup %>% 
+  dplyr::select(spcd,species_symbol,genus,species) %>% 
+  dplyr::slice(1869)
+  dplyr::mutate(
+    join_species = species %>% tolower() %>% stringr::str_squish()
+    , join_genus = genus %>% tolower() %>% stringr::str_squish()
+  ) %>% 
+  dplyr::count(join_genus,join_species) %>% 
+  dplyr::filter(n>1) %>% 
+  dplyr::inner_join(
+    fia_species_lookup %>% 
+      dplyr::select(spcd,species_symbol,genus,species) %>% 
+      dplyr::mutate(
+        join_species = species %>% tolower() %>% stringr::str_squish()
+        , join_genus = genus %>% tolower() %>% stringr::str_squish()
+      )
+  ) %>% 
+  View()
+  
+
+
+
+
+
+
+
 # huh?
-# usfs_manitouef_n1_trees %>% dplyr::glimpse()
-# usfs_manitouef_n1_trees %>% dplyr::select(dbh_cm) %>% summary()
+usfs_penobscotef_trees %>% dplyr::glimpse()
+# only keep plots we have trees for
+usfs_penobscotef_plots <- usfs_penobscotef_plots %>% 
+  dplyr::inner_join(
+    usfs_penobscotef_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::distinct(mu,plot)
+    , by = dplyr::join_by(mu,plot)
+  )
 ```
 
 let's check those field trees out to orient ourselves to the location
 
 ```{r}
-usfs_manitouef_n1_trees %>% 
+usfs_penobscotef_trees %>% 
   mapview::mapview(
     zcol = "species_symbol"
-    , layer.name="USFS Manitou EF (N1): field trees"
+    , layer.name="USFS Penobscot EF: field trees"
     , popup=F
   )
-# usfs_manitouef_n1_trees %>%
+# usfs_penobscotef_trees %>%
 #   sf::st_union() %>%
 #   sf::st_bbox() %>%
 #   sf::st_as_sfc() %>%
@@ -92,9 +339,9 @@ usfs_manitouef_n1_trees %>%
 what is the distribution of species?
 
 ```{r}
-usfs_manitouef_n1_trees %>% 
+usfs_penobscotef_trees %>% 
   sf::st_drop_geometry() %>% 
-  dplyr::count(species_symbol) %>% 
+  dplyr::count(usfsspid) %>% 
   dplyr::arrange(desc(n)) %>% 
   dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
 ```
@@ -102,7 +349,7 @@ usfs_manitouef_n1_trees %>%
 let's load in the singular plot location (it's just one large study site that we'll call a plot for this analysis)
 
 ```{r}
-usfs_manitouef_n1_plots <-
+usfs_penobscotef_plots <-
    sf::st_read(
     "c:/data/usfs/uas_lidar_n1/data/N1_Boundary/N1_Boundary.shp"
     # "c:/data/usfs/uas_sfm_tree_detection/data/field_validation/field_data_Boundary.shp"
@@ -114,28 +361,28 @@ usfs_manitouef_n1_plots <-
     # site=="N1"
   ) %>% 
   # converts proj to match trees and horizontal units to m
-  sf::st_transform(sf::st_crs(usfs_manitouef_n1_trees)) %>% 
+  sf::st_transform(sf::st_crs(usfs_penobscotef_trees)) %>% 
   dplyr::mutate(
     plot_area_m2 = sf::st_area(.) %>% as.numeric()
     , plot_id = name
   )
 
 # lets keep only trees within the plot boundar
-usfs_manitouef_n1_trees <- 
-  usfs_manitouef_n1_trees %>% 
+usfs_penobscotef_trees <- 
+  usfs_penobscotef_trees %>% 
   sf::st_intersection(
-    usfs_manitouef_n1_plots %>% dplyr::select(plot_id)
+    usfs_penobscotef_plots %>% dplyr::select(plot_id)
   )
   
-# usfs_manitouef_n1_trees %>% dplyr::glimpse()
+# usfs_penobscotef_trees %>% dplyr::glimpse()
 
 # save to reference list
 # add to the ref trees list
 nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(data_site_nm)
-ref_plots_list[[nm_temp]] <- usfs_manitouef_n1_plots
-ref_trees_list[[nm_temp]] <- usfs_manitouef_n1_trees
+ref_plots_list[[nm_temp]] <- usfs_penobscotef_plots
+ref_trees_list[[nm_temp]] <- usfs_penobscotef_trees
 # ref_plots_list
 ```
 
@@ -151,28 +398,28 @@ data was collected over the study site via a UAS-lidar flight at an altitude of 
 let's check out the raw point cloud data
 
 ```{r}
-usfs_manitouef_n1_las_f_temp <- "c:/data/usfs/uas_lidar_n1/data/N1_400AGL_20MPH_TFOFF/"
-usfs_manitouef_n1_las_ctg_temp <- lidR::readLAScatalog(usfs_manitouef_n1_las_f_temp)
-usfs_manitouef_n1_las_ctg_temp
-# usfs_manitouef_n1_las_ctg_temp@data %>% dplyr::glimpse()
+usfs_penobscotef_las_f_temp <- "c:/data/usfs/uas_lidar_n1/data/N1_400AGL_20MPH_TFOFF/"
+usfs_penobscotef_las_ctg_temp <- lidR::readLAScatalog(usfs_penobscotef_las_f_temp)
+usfs_penobscotef_las_ctg_temp
+# usfs_penobscotef_las_ctg_temp@data %>% dplyr::glimpse()
 ```
 
 let's check out the lidar data coverage compared to the field plot data
 
 ```{r}
-usfs_manitouef_n1_las_ctg_temp@data$geometry %>% 
+usfs_penobscotef_las_ctg_temp@data$geometry %>% 
   sf::st_union() %>% 
   sf::st_as_sf() %>% 
   dplyr::mutate(data = "UAS-lidar data extent") %>% 
 mapview::mapview(
  zcol = "data"
-  , layer.name="USFS Manitou EF (N1): UAS-lidar data"
+  , layer.name="USFS Penobscot EF: UAS-lidar data"
   , popup=F
 ) +
 mapview::mapview(
-  usfs_manitouef_n1_trees
+  usfs_penobscotef_trees
   , zcol = "species_symbol"
-  , layer.name="USFS Manitou EF (N1): field trees"
+  , layer.name="USFS Penobscot EF: field trees"
   , popup=F
 )
 ```
@@ -185,7 +432,7 @@ use `cloud2trees` to process the raw point cloud data to generate a CHM for use 
 ################################################
 # outdir
 c2t_output_dir_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(data_dir)
 c2t_process_dir_temp <- file.path(c2t_output_dir_temp, "point_cloud_processing_delivery")
 # timer file
@@ -199,7 +446,7 @@ project_data_df <- project_data_df %>%
 # project_data_df %>% print(n=nrow(project_data_df))
 
 # get point cloud density and raster resolutions
-get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(usfs_manitouef_n1_las_ctg_temp)
+get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(usfs_penobscotef_las_ctg_temp)
 # get_ptcld_density_chm_res_temp
 
 # fnm
@@ -230,7 +477,7 @@ if(
   # cloud2trees
   cloud2raster_ans <- cloud2trees::cloud2raster(
     output_dir = c2t_output_dir_temp
-    , input_las_dir = usfs_manitouef_n1_las_f_temp
+    , input_las_dir = usfs_penobscotef_las_f_temp
     , accuracy_level = 2
     , keep_intrmdt = F
     , dtm_res_m = get_ptcld_density_chm_res_temp$dtm_res_m # (1/sqrt(pts_m2_temp))*2
@@ -275,7 +522,7 @@ agg_chm_rast_temp <- agg_chm_rast_fn(
   , res = min_chm_res
   , dir = 
     project_data_df %>% 
-    dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+    dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
     dplyr::pull(c2t_process_dir)
 )
 # agg_chm_rast_temp
@@ -283,7 +530,7 @@ agg_chm_rast_temp <- agg_chm_rast_fn(
 
 # add to the chm list
 nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(data_site_nm)
 chm_list[[nm_temp]] <- agg_chm_rast_temp
 # chm_list
@@ -293,7 +540,7 @@ let's check out the CHM
 
 ```{r}
 # plot to check out the fine-resolution CHM raster
-chm_list$USFS_ManitouEF_N1 %>% 
+chm_list$USFS_PenobscotEF %>% 
   terra::plot(
     col = viridis::plasma(n=100)
     , axes=F
@@ -309,9 +556,9 @@ chm_list$USFS_ManitouEF_N1 %>%
 and convert the reference trees and plot data to the point cloud data projection
 
 ```{r}
-ref_plots_list$USFS_ManitouEF_N1 <- ref_plots_list$USFS_ManitouEF_N1 %>% sf::st_transform(terra::crs(chm_list$USFS_ManitouEF_N1))
-ref_trees_list$USFS_ManitouEF_N1 <- ref_trees_list$USFS_ManitouEF_N1 %>% 
-  sf::st_transform(terra::crs(chm_list$USFS_ManitouEF_N1)) %>% 
+ref_plots_list$USFS_PenobscotEF <- ref_plots_list$USFS_PenobscotEF %>% sf::st_transform(terra::crs(chm_list$USFS_PenobscotEF))
+ref_trees_list$USFS_PenobscotEF <- ref_trees_list$USFS_PenobscotEF %>% 
+  sf::st_transform(terra::crs(chm_list$USFS_PenobscotEF)) %>% 
   dplyr::mutate(
     tree_x = sf::st_coordinates(geometry)[,1] #lon
     , tree_y = sf::st_coordinates(geometry)[,2] #lat
@@ -321,7 +568,7 @@ ref_trees_list$USFS_ManitouEF_N1 <- ref_trees_list$USFS_ManitouEF_N1 %>%
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
-remove(usfs_manitouef_n1_plots, usfs_manitouef_n1_trees)
+remove(usfs_penobscotef_plots, usfs_penobscotef_trees)
 gc()
 ```
 
@@ -338,7 +585,7 @@ get the individual tree predictions for each window function for the area within
 ```{r}
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(c2t_process_dir)
 fnm_temp <- file.path(c2t_process_dir_temp,"ws_pred_trees.gpkg")
 project_data_df <- project_data_df %>% 
@@ -347,15 +594,15 @@ project_data_df <- project_data_df %>%
   )
 
 if(!file.exists(fnm_temp)){
-  usfs_manitouef_n1_ws_pred_trees <-
-    1:nrow(ref_plots_list$USFS_ManitouEF_N1) %>%
+  usfs_penobscotef_ws_pred_trees <-
+    1:nrow(ref_plots_list$USFS_PenobscotEF) %>%
     purrr::map(
       \(rn)
       ws_testtest_fn(
-        chm = chm_list$USFS_ManitouEF_N1
+        chm = chm_list$USFS_PenobscotEF
         , buffer = (competition_radius_m+3) # since we only have one plot we're just going to go for it
         , plot_sf =
-          ref_plots_list$USFS_ManitouEF_N1 %>%
+          ref_plots_list$USFS_PenobscotEF %>%
           dplyr::ungroup() %>%
           dplyr::slice(rn) %>%
           sf::st_union()
@@ -366,10 +613,10 @@ if(!file.exists(fnm_temp)){
     purrr::list_rbind(names_to = "plot_dta_idx")
   
   # add plot id
-  usfs_manitouef_n1_ws_pred_trees <- 
-    usfs_manitouef_n1_ws_pred_trees %>% 
+  usfs_penobscotef_ws_pred_trees <- 
+    usfs_penobscotef_ws_pred_trees %>% 
     dplyr::left_join(
-      ref_plots_list$USFS_ManitouEF_N1 %>% 
+      ref_plots_list$USFS_PenobscotEF %>% 
         dplyr::mutate(plot_dta_idx=dplyr::row_number()) %>% 
         sf::st_drop_geometry() %>% 
         dplyr::select(plot_dta_idx,plot_id)
@@ -377,27 +624,27 @@ if(!file.exists(fnm_temp)){
     ) %>% 
     sf::st_set_geometry("geometry")
   
-  # usfs_manitouef_n1_ws_pred_trees %>% sf::st_crs()
-  # usfs_manitouef_n1_ws_pred_trees %>% dplyr::glimpse()
-  # usfs_manitouef_n1_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_fn_nm)
+  # usfs_penobscotef_ws_pred_trees %>% sf::st_crs()
+  # usfs_penobscotef_ws_pred_trees %>% dplyr::glimpse()
+  # usfs_penobscotef_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_fn_nm)
   
   # get dbh
-  usfs_manitouef_n1_ws_pred_trees_dbh_temp <- 
-    usfs_manitouef_n1_ws_pred_trees %>% 
+  usfs_penobscotef_ws_pred_trees_dbh_temp <- 
+    usfs_penobscotef_ws_pred_trees %>% 
     dplyr::rename(xxxtreeID=treeID) %>% 
     dplyr::mutate(
       treeID = dplyr::row_number() %>% as.character()
     ) %>% 
     cloud2trees::trees_dbh()
-  # usfs_manitouef_n1_ws_pred_trees_dbh_temp %>% dplyr::glimpse()
+  # usfs_penobscotef_ws_pred_trees_dbh_temp %>% dplyr::glimpse()
   # add to trees
-  usfs_manitouef_n1_ws_pred_trees <-
-    usfs_manitouef_n1_ws_pred_trees %>% 
+  usfs_penobscotef_ws_pred_trees <-
+    usfs_penobscotef_ws_pred_trees %>% 
     dplyr::mutate(
       join_id = dplyr::row_number() %>% as.character()
     ) %>% 
     dplyr::left_join(
-      usfs_manitouef_n1_ws_pred_trees_dbh_temp %>% 
+      usfs_penobscotef_ws_pred_trees_dbh_temp %>% 
         sf::st_drop_geometry() %>% 
         dplyr::mutate(
           join_id = as.character(treeID)
@@ -407,10 +654,10 @@ if(!file.exists(fnm_temp)){
         )
       , by = "join_id"
     )
-  # usfs_manitouef_n1_ws_pred_trees %>% dplyr::glimpse()
+  # usfs_penobscotef_ws_pred_trees %>% dplyr::glimpse()
   
   # # plot real quick
-  # usfs_manitouef_n1_ws_pred_trees %>% 
+  # usfs_penobscotef_ws_pred_trees %>% 
   #   sf::st_drop_geometry() %>% 
   #   dplyr::slice_sample(n = 9999) %>% 
   #   ggplot2::ggplot(mapping = ggplot2::aes(x=tree_height_m,y=dbh_cm)) + 
@@ -419,11 +666,11 @@ if(!file.exists(fnm_temp)){
   #   ggplot2::geom_point(mapping = ggplot2::aes(y=fia_est_dbh_cm_upper),color="gray")
 
   # save
-  sf::st_write(usfs_manitouef_n1_ws_pred_trees, dsn = fnm_temp, quiet = T, append = F)
+  sf::st_write(usfs_penobscotef_ws_pred_trees, dsn = fnm_temp, quiet = T, append = F)
 }else{
-  usfs_manitouef_n1_ws_pred_trees <- sf::st_read(fnm_temp, quiet = T)
+  usfs_penobscotef_ws_pred_trees <- sf::st_read(fnm_temp, quiet = T)
 }
-usfs_manitouef_n1_ws_pred_trees <- usfs_manitouef_n1_ws_pred_trees %>% 
+usfs_penobscotef_ws_pred_trees <- usfs_penobscotef_ws_pred_trees %>% 
   dplyr::mutate(
     ws_type = 
       ws_fn_nm %>% 
@@ -435,8 +682,8 @@ usfs_manitouef_n1_ws_pred_trees <- usfs_manitouef_n1_ws_pred_trees %>%
       forcats::fct_inorder(ordered = T)
     , treeID = as.character(treeID)
   )
-# usfs_manitouef_n1_ws_pred_trees %>% dplyr::glimpse()
-# usfs_manitouef_n1_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_type)
+# usfs_penobscotef_ws_pred_trees %>% dplyr::glimpse()
+# usfs_penobscotef_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_type)
 ```
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
@@ -448,7 +695,7 @@ let's check out one example field plot and a few different window function tree 
 
 ```{r, fig.height=10}
 # plot
-p_temp <- ref_plots_list$USFS_ManitouEF_N1 %>% dplyr::slice(1)
+p_temp <- ref_plots_list$USFS_PenobscotEF %>% dplyr::slice(1)
 
 if(as.numeric(sf::st_area(p_temp))>2000){
   p_temp <- p_temp %>% 
@@ -461,18 +708,18 @@ if(as.numeric(sf::st_area(p_temp))>2000){
 }
 # some trees
 t_temp <- 
-  usfs_manitouef_n1_ws_pred_trees %>% 
+  usfs_penobscotef_ws_pred_trees %>% 
   dplyr::filter(plot_id==p_temp$plot_id[1]) %>% 
   sf::st_intersection(p_temp) %>% 
   dplyr::inner_join(
-    usfs_manitouef_n1_ws_pred_trees %>% 
+    usfs_penobscotef_ws_pred_trees %>% 
       sf::st_drop_geometry() %>% 
       dplyr::distinct(ws_fn_nm,ws_type) %>% 
       dplyr::slice_sample(n = 3, by = ws_type) %>% 
       dplyr::select(ws_fn_nm)
     , by = "ws_fn_nm"
   )
-chm_temp <- chm_list$USFS_ManitouEF_N1 %>% 
+chm_temp <- chm_list$USFS_PenobscotEF %>% 
   terra::crop(
     t_temp %>% 
       sf::st_union() %>% 
@@ -541,24 +788,24 @@ now we need a function to perform instance matching of the predictions and refer
 ##################################################################
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(c2t_process_dir)
 fnm_temp <- file.path(c2t_process_dir_temp,"ws_instance_match.csv")
 if(!file.exists(fnm_temp)){
-  usfs_manitouef_n1_ws_instance_match <- 
+  usfs_penobscotef_ws_instance_match <- 
     plot_iter_instance_match_fn(
-      ref_plots = ref_plots_list$USFS_ManitouEF_N1
-      , ref_pts = ref_trees_list$USFS_ManitouEF_N1
-      , pred_polys = usfs_manitouef_n1_ws_pred_trees
+      ref_plots = ref_plots_list$USFS_PenobscotEF
+      , ref_pts = ref_trees_list$USFS_PenobscotEF
+      , pred_polys = usfs_penobscotef_ws_pred_trees
       , min_ht_m = 2
       , min_dbh_cm = NA
     )
-  readr::write_csv(usfs_manitouef_n1_ws_instance_match, file = fnm_temp, append = F, progress = F)
+  readr::write_csv(usfs_penobscotef_ws_instance_match, file = fnm_temp, append = F, progress = F)
 }else{
-  usfs_manitouef_n1_ws_instance_match <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
+  usfs_penobscotef_ws_instance_match <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
 }
 # huh?
-# usfs_manitouef_n1_ws_instance_match %>% dplyr::glimpse()
+# usfs_penobscotef_ws_instance_match %>% dplyr::glimpse()
 ##################################################################
 ##################################################################
 ##################################################################
@@ -569,21 +816,21 @@ if(!file.exists(fnm_temp)){
 ##################################################################
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(c2t_process_dir)
 fnm_temp <- file.path(c2t_process_dir_temp,"agg_ground_truth_match_ans.csv")
 if(!file.exists(fnm_temp)){
   # ?purrr::pmap
   # A data frame is an important special case of .l. It will cause .f to be called once for each row.
-  usfs_manitouef_n1_agg_ground_truth_match_ans <- 
-    usfs_manitouef_n1_ws_instance_match %>% 
+  usfs_penobscotef_agg_ground_truth_match_ans <- 
+    usfs_penobscotef_ws_instance_match %>% 
     dplyr::distinct(plot_id,ws_fn_nm) %>% 
     purrr::pmap(function(plot_id, ws_fn_nm) {
       # the unique row data
       d <- dplyr::tibble(plot_id = plot_id, ws_fn_nm = ws_fn_nm)
       # filter full set based on the data
       j <- 
-        usfs_manitouef_n1_ws_instance_match %>% 
+        usfs_penobscotef_ws_instance_match %>% 
         dplyr::inner_join(
           d   
           , by = dplyr::join_by("plot_id","ws_fn_nm")
@@ -594,9 +841,9 @@ if(!file.exists(fnm_temp)){
       
     }) %>% 
     list_rbind()
-  readr::write_csv(usfs_manitouef_n1_agg_ground_truth_match_ans, file = fnm_temp, append = F, progress = F)
+  readr::write_csv(usfs_penobscotef_agg_ground_truth_match_ans, file = fnm_temp, append = F, progress = F)
 }else{
-  usfs_manitouef_n1_agg_ground_truth_match_ans <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
+  usfs_penobscotef_agg_ground_truth_match_ans <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
 }
 # huh?
 # wfsi_eglinafb_agg_ground_truth_match_ans %>% dplyr::glimpse()
@@ -605,11 +852,11 @@ if(!file.exists(fnm_temp)){
 aggregate the plot level data to the window function to get the answer we've been searching for
 
 ```{r}
-# usfs_manitouef_n1_agg_ground_truth_match_ans %>% 
+# usfs_penobscotef_agg_ground_truth_match_ans %>% 
 #   dplyr::count(ws_fn_nm) %>% 
 #   dplyr::count(n)
 agg_temp <- 
-  usfs_manitouef_n1_agg_ground_truth_match_ans %>% 
+  usfs_penobscotef_agg_ground_truth_match_ans %>% 
   dplyr::group_by(ws_fn_nm) %>% 
   dplyr::summarize(
     n_plots = dplyr::n()
@@ -623,7 +870,7 @@ agg_temp <-
   ) %>% 
   dplyr::ungroup() %>% 
   dplyr::left_join(
-    usfs_manitouef_n1_ws_pred_trees %>% 
+    usfs_penobscotef_ws_pred_trees %>% 
       sf::st_drop_geometry() %>% 
       dplyr::distinct(ws_fn_nm, ws_type)
     , by = "ws_fn_nm"
@@ -643,7 +890,7 @@ agg_temp <-
 let's check out the plot-level distribution of F-score for the top window functions (remember this particular data has one "plot", a stem map)
 
 ```{r}
-usfs_manitouef_n1_agg_ground_truth_match_ans %>% 
+usfs_penobscotef_agg_ground_truth_match_ans %>% 
   # add agg data
   dplyr::inner_join(
     agg_temp %>% 
@@ -725,7 +972,7 @@ nice, we'll select the best non-constant window function for use in evaluation o
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
     best_ws_fn_nm = ifelse(
-      tolower(data_site_nm)=="usfs_manitouef_n1"
+      tolower(data_site_nm)=="usfs_penobscotef"
       , agg_temp %>% 
         dplyr::filter(ws_type!="constant") %>% 
         dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean)) %>% 
@@ -742,7 +989,7 @@ full CHM data processing
 ```{r}
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(c2t_process_dir)
 fnm_temp <- file.path(c2t_process_dir_temp,"best_ws_pred_trees.gpkg")
 project_data_df <- project_data_df %>% 
@@ -763,7 +1010,7 @@ if(!file.exists(fnm_temp)){
     dplyr::pull(best_ws_fn_nm)
   
   pred_trees_temp <- 
-    usfs_manitouef_n1_ws_pred_trees %>% 
+    usfs_penobscotef_ws_pred_trees %>% 
     dplyr::filter(ws_fn_nm==ws_temp) %>% 
     # this is because we did tree detection by plot
     dplyr::rename(xxxtreeID=treeID) %>% 
@@ -817,8 +1064,8 @@ if(!file.exists(fnm_temp)){
 
 im_temp <- 
   plot_iter_instance_match_fn(
-    ref_plots = ref_plots_list$USFS_ManitouEF_N1
-    , ref_pts = ref_trees_list$USFS_ManitouEF_N1
+    ref_plots = ref_plots_list$USFS_PenobscotEF
+    , ref_pts = ref_trees_list$USFS_PenobscotEF
     , pred_polys = pred_trees_temp
     , min_ht_m = 2
     , min_dbh_cm = NA
@@ -828,7 +1075,7 @@ im_temp <-
 
 # add to the ref trees list
 nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(data_site_nm)
 pred_ref_tree_match_list[[nm_temp]] <- im_temp
 
@@ -845,7 +1092,7 @@ pred_trees_list[[nm_temp]] <-
   dplyr::filter(
     ws_fn_nm %in% (
       project_data_df %>% 
-      dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+      dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
       dplyr::pull(best_ws_fn_nm)
     )
   ) %>% 
@@ -864,7 +1111,7 @@ pred_trees_list[[nm_temp]] <-
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
-remove(list = ls()[grep("^usfs_manitou",ls())])
+remove(list = ls()[grep("^usfs_penobscot",ls())])
 remove(cloud2raster_ans)
 gc()
 ```
@@ -890,7 +1137,7 @@ load in the TreeMap data and clip to our trees as in `cloud2trees::trees_dbh()`
 ```{r}
 # test to get the treemap data for our aoi
 treemap_data_loader_ans <-
-  pred_trees_list$USFS_ManitouEF_N1 %>% 
+  pred_trees_list$USFS_PenobscotEF %>% 
   dplyr::ungroup() %>% 
   sf::st_union() %>% 
   sf::st_bbox() %>% 
@@ -1067,15 +1314,15 @@ let's estimate the RF using data subsampling and model averaging for a computati
 
 ```{r}
 # do it with our data
-pred_trees_list$USFS_ManitouEF_N1 <- 
+pred_trees_list$USFS_PenobscotEF <- 
   get_species_symbol_predictions(
     treemap_data_loader_ans = treemap_data_loader_ans
-    , predict_df = pred_trees_list$USFS_ManitouEF_N1
+    , predict_df = pred_trees_list$USFS_PenobscotEF
   ) %>% 
   # for this project we'll just rename to maintain consistent across data sources
   dplyr::rename(species_symbol=predicted_species_symbol)
 
-# pred_trees_list$USFS_ManitouEF_N1 %>%
+# pred_trees_list$USFS_PenobscotEF %>%
 #   sf::st_drop_geometry() %>%
 #   dplyr::count(species_symbol) %>%
 #   dplyr::arrange(desc(n)) %>%
@@ -1085,9 +1332,9 @@ pred_trees_list$USFS_ManitouEF_N1 <-
 let's check out the distribution of the predicted species
 
 ```{r}
-pred_trees_list$USFS_ManitouEF_N1 %>%
+pred_trees_list$USFS_PenobscotEF %>%
   dplyr::inner_join(
-    ref_plots_list$USFS_ManitouEF_N1 %>% 
+    ref_plots_list$USFS_PenobscotEF %>% 
       dplyr::slice(1) %>% 
       sf::st_drop_geometry() %>% 
       dplyr::select(plot_id)
@@ -1150,8 +1397,8 @@ make sure the reference species data is clean
 
 ```{r}
 # update the reference tree list
-ref_trees_list$USFS_ManitouEF_N1 <- 
-  ref_trees_list$USFS_ManitouEF_N1 %>% 
+ref_trees_list$USFS_PenobscotEF <- 
+  ref_trees_list$USFS_PenobscotEF %>% 
   clean_ref_species_fn(
     my_treemap_data_loader_ans = treemap_data_loader_ans
   )
@@ -1160,7 +1407,7 @@ ref_trees_list$USFS_ManitouEF_N1 <-
 what is the distribution of the cleaned reference field data species?
 
 ```{r}
-ref_trees_list$USFS_ManitouEF_N1 %>% 
+ref_trees_list$USFS_PenobscotEF %>% 
   sf::st_drop_geometry() %>% 
   dplyr::count(species_symbol) %>% 
   dplyr::arrange(desc(n))
@@ -1188,15 +1435,15 @@ let's make a function to get the confusion matrix and those accuracy metrics
 ```{r}
 # test that
 confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$USFS_ManitouEF_N1
-  , pred_trees = pred_trees_list$USFS_ManitouEF_N1
-  , ref_trees = ref_trees_list$USFS_ManitouEF_N1
+  pred_ref_match = pred_ref_tree_match_list$USFS_PenobscotEF
+  , pred_trees = pred_trees_list$USFS_PenobscotEF
+  , ref_trees = ref_trees_list$USFS_PenobscotEF
   , use_genus = F
 )
 confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$USFS_ManitouEF_N1
-  , pred_trees = pred_trees_list$USFS_ManitouEF_N1
-  , ref_trees = ref_trees_list$USFS_ManitouEF_N1
+  pred_ref_match = pred_ref_tree_match_list$USFS_PenobscotEF
+  , pred_trees = pred_trees_list$USFS_PenobscotEF
+  , ref_trees = ref_trees_list$USFS_PenobscotEF
   , use_genus = T
 )
 ```
@@ -1220,13 +1467,13 @@ we shift away from individual item matching and use the Bray-Curtis Dissimilarit
 ```{r}
 # test that
 similarity_tree_species_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$USFS_ManitouEF_N1
-  , ref_trees = ref_trees_list$USFS_ManitouEF_N1
+  pred_trees = pred_trees_list$USFS_PenobscotEF
+  , ref_trees = ref_trees_list$USFS_PenobscotEF
   , use_genus = F
 )
 similarity_tree_genus_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$USFS_ManitouEF_N1
-  , ref_trees = ref_trees_list$USFS_ManitouEF_N1
+  pred_trees = pred_trees_list$USFS_PenobscotEF
+  , ref_trees = ref_trees_list$USFS_PenobscotEF
   , use_genus = T
 )
 

@@ -57,7 +57,7 @@ The Bray-Curtis index is a widely trusted metric in [community ecology](https://
 
 ## Benefits and Next Steps
 
-Integrating species identification directly into the `cloud2trees` framework would enable the direct assign individual tree species before modeling secondary biophysical attributes (e.g., DBH, CrBH, CrBD) could improve tree-level precision (Weiskittel et al., 2011) and management decisions that require consideration of individual tree species for removal and retention during silvicultural treatment design or in modeling tree-level fire effects. Ultimately, these methods could enable the integration of species-specific allometries and fire behavior parameters at scale, supporting management needs where explicit tree-level species identification is less critical.
+Integrating species identification directly into the `cloud2trees` framework would enable the direct assignment of individual tree species (or genus) before modeling secondary biophysical attributes (e.g., DBH, CrBH, CrBD) which could improve tree-level precision (Weiskittel et al., 2011) and management decisions that require consideration of individual tree species for removal and retention during silvicultural treatment design or in modeling tree-level fire effects. Ultimately, these methods could enable the integration of species-specific allometries and fire behavior parameters at scale, supporting management needs where explicit tree-level species identification is less critical.
 
 * **Species-Specific Allometry**: Attaching species to the point cloud-derived tree list enables the application of targeted allometric equations such as those currently used to predict DBH from tree height.
 

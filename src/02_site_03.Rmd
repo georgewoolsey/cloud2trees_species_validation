@@ -7,7 +7,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-### Field Data
+## Field Data
 
 Field data from this study site is from: a stem map including all trees with a height of at least 2 m.
 
@@ -132,7 +132,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-### Point Cloud Data
+## Point Cloud Data
 
 data was collected over the study site via a UAS-DAP (digital aerial photogrammetry) flight at an altitude of xxx m (xxxx ft) and speed of xxx meters per second (xx miles per hour) processed using DAP methods in Pix4D to create the point cloud
 
@@ -322,7 +322,7 @@ remove(usfs_manitouef_bigplot_plots, usfs_manitouef_bigplot_trees)
 gc()
 ```
 
-### Tree Detection
+## Tree Detection
 
 `cloud2trees` implements a CHM-based individual tree detection method accessible via `cloud2trees::raster2trees()`. this method requires a window function used to set the search radius used to find local maxima in the CHM. These local maxima represent individual tree top points and are subsequently used to delineate individual tree crowns via a marker-controlled watershed segmentation
 
@@ -750,7 +750,7 @@ project_data_df <- project_data_df %>%
 
 ###############################################################################################
 ###############################################################################################
-### raster2trees that best ws fn
+## raster2trees that best ws fn
 ###############################################################################################
 ###############################################################################################
 if(!file.exists(fnm_temp)){
@@ -808,7 +808,7 @@ if(!file.exists(fnm_temp)){
 
 ###############################################################################################
 ###############################################################################################
-### now we need to do the matching 
+## now we need to do the matching 
 # again to only keep trees in plots for individual tree species comparisons
 ###############################################################################################
 ###############################################################################################
@@ -832,7 +832,7 @@ pred_ref_tree_match_list[[nm_temp]] <- im_temp
 
 ###############################################################################################
 ###############################################################################################
-### save to the pred trees
+## save to the pred trees
 ###############################################################################################
 ###############################################################################################
 # let's also save the plot-level ITD predictions for this ws
@@ -867,7 +867,7 @@ remove(cloud2raster_ans)
 gc()
 ```
 
-### Species/Genus Prediction Method
+## Species/Genus Prediction Method
 
 for some context of the primary objective of this analysis, here is what we said in the `cloud2trees` manuscript (a draft of the manuscript which may be different than what was actually published): 
 
@@ -881,7 +881,7 @@ early testing of the proposed method used a  bayesian hierarchical model grouped
 
 ultimately, if the proposed species/genera classification method achieves decent accuracy results, it could be integrated into the `cloud2trees` framework as `cloud2trees::trees_species()`, for example. this function would take an input spatial tree list and attach the predicted species/genera
 
-#### Training Data
+### Training Data
 
 load in the TreeMap data and clip to our trees as in `cloud2trees::trees_dbh()`
 
@@ -1053,7 +1053,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-### Predict Species/Genus Application
+## Predict Species/Genus Application
 
 let's implement a random forest model majority voting for species with the objective to reduce estimation time (compared to a Bayesian Softmax model)
 
@@ -1162,9 +1162,9 @@ ref_trees_list$USFS_ManitouEF_BigPlot %>%
   dplyr::arrange(desc(n))
 ```
 
-### Species/Genus Accuracy Evaluation
+## Species/Genus Accuracy Evaluation
 
-#### Tree-Level Accuracy
+### Tree-Level Accuracy
 
 we're going to use the tree-level prediction and reference data for all TP (true positive) predictions to perform confusion matrix accuracy evaluation of the species predictions. 
 
@@ -1209,7 +1209,7 @@ and the confusion matrix at the *genus* level
 confusion_matrix_genus_temp$kbl_html_table
 ```
 
-#### Site-Level Accuracy
+### Site-Level Accuracy
 
 we shift away from individual item matching and use the Bray-Curtis Dissimilarity Index. This metric compares the proportional compositions of each species predicted by the model against the reference proportions within a defined area or site.
 
