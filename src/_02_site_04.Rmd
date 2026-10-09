@@ -183,29 +183,6 @@ unfortunately, the researchers for this project chose to use a custom species co
 ## ....................................................
 ###                    :|
 
-# for each tree, use only the most recent species
-# ...on the assumption that the data collection process has improved over time
-usfs_penobscotef_trees <-
-  usfs_penobscotef_trees %>% 
-  dplyr::select(-usfsspid) %>% 
-  dplyr::inner_join(
-    usfs_penobscotef_trees %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::filter(
-        !is.na(dplyr::na_if(usfsspid,""))
-        , !is.na(year)
-        , !is.na(month)
-      ) %>% 
-      dplyr::arrange(plot_id,treenum,desc(year),desc(month)) %>% 
-      dplyr::group_by(plot_id,treenum) %>% 
-      dplyr::slice(1) %>% 
-      dplyr::ungroup() %>% 
-      dplyr::select(plot_id,treenum,usfsspid)
-    , by = dplyr::join_by(plot_id,treenum)
-    , relationship = "many-to-one"
-  )
-
-
 # what is this custom lookup table?
 # oh, it's in a pdf???? so.great.
 library(pdftools)
@@ -254,7 +231,8 @@ species_lookup_temp <-
   )
 # species_lookup_temp %>% dplyr::glimpse()
 # match with the actual FIA lookup
-species_lookup_temp %>% 
+species_lookup_temp <- 
+  species_lookup_temp %>% 
   dplyr::mutate(
     join_species = species %>% tolower() %>% stringr::str_squish()
     , join_genus = genus %>% tolower() %>% stringr::str_squish()
@@ -276,34 +254,49 @@ species_lookup_temp %>%
     , by = dplyr::join_by(join_genus,join_species)
     , relationship = "many-to-one"
   ) %>% 
-  View()
-  dplyr::glimpse()
-
-fia_species_lookup %>% 
-  dplyr::select(spcd,species_symbol,genus,species) %>% 
-  dplyr::slice(1869)
+  # for the missings...we'll manual it
   dplyr::mutate(
-    join_species = species %>% tolower() %>% stringr::str_squish()
-    , join_genus = genus %>% tolower() %>% stringr::str_squish()
+    species_symbol = dplyr::case_when(
+      usfsspid == "33" ~ "POTR5" # only other aspen in list
+      , usfsspid == "02" ~ "PIGL" # most common based on tree count of spruce
+      , usfsspid == "36" ~ "QURU" # https://research.fs.usda.gov/treesearch/45567
+      , usfsspid == "23" ~ "ULRU" # https://research.fs.usda.gov/treesearch/45567
+      , T ~ species_symbol
+    )
   ) %>% 
-  dplyr::count(join_genus,join_species) %>% 
-  dplyr::filter(n>1) %>% 
+  dplyr::group_by(usfsspid) %>% 
+  dplyr::summarise(species_symbol=dplyr::first(species_symbol)) %>% 
+  dplyr::ungroup()
+# species_lookup_temp
+
+### adddd it
+# for each tree, use only the most recent species
+# ...on the assumption that the data collection process has improved over time
+usfs_penobscotef_trees <-
+  usfs_penobscotef_trees %>% 
+  dplyr::select(-usfsspid) %>% 
   dplyr::inner_join(
-    fia_species_lookup %>% 
-      dplyr::select(spcd,species_symbol,genus,species) %>% 
-      dplyr::mutate(
-        join_species = species %>% tolower() %>% stringr::str_squish()
-        , join_genus = genus %>% tolower() %>% stringr::str_squish()
-      )
+    usfs_penobscotef_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::filter(
+        !is.na(dplyr::na_if(usfsspid,""))
+        , !is.na(year)
+        , !is.na(month)
+      ) %>% 
+      dplyr::arrange(plot_id,treenum,desc(year),desc(month)) %>% 
+      dplyr::group_by(plot_id,treenum) %>% 
+      dplyr::slice(1) %>% 
+      dplyr::ungroup() %>% 
+      dplyr::select(plot_id,treenum,usfsspid)
+    , by = dplyr::join_by(plot_id,treenum)
+    , relationship = "many-to-one"
   ) %>% 
-  View()
-  
-
-
-
-
-
-
+  dplyr::left_join(species_lookup_temp, by = "usfsspid") %>% 
+  dplyr::filter(
+    !is.na(species_symbol)
+    & species_symbol!=""
+  ) %>% 
+  dplyr::select(plot_id, treeID, tree_x, tree_y, species_symbol, dbh_cm, inv, month, year)
 
 # huh?
 usfs_penobscotef_trees %>% dplyr::glimpse()
@@ -312,15 +305,34 @@ usfs_penobscotef_plots <- usfs_penobscotef_plots %>%
   dplyr::inner_join(
     usfs_penobscotef_trees %>% 
       sf::st_drop_geometry() %>% 
-      dplyr::distinct(mu,plot)
-    , by = dplyr::join_by(mu,plot)
+      dplyr::distinct(plot_id)
+    , by = dplyr::join_by(plot_id)
   )
+
+# save to reference list
+# add to the ref trees list
+nm_temp <- project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
+  dplyr::pull(data_site_nm)
+ref_plots_list[[nm_temp]] <- usfs_penobscotef_plots
+ref_trees_list[[nm_temp]] <- usfs_penobscotef_trees
+
 ```
 
 let's check those field trees out to orient ourselves to the location
 
 ```{r}
 usfs_penobscotef_trees %>% 
+  dplyr::inner_join(
+    usfs_penobscotef_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::arrange(plot_id,desc(year),desc(month)) %>% 
+      dplyr::group_by(plot_id) %>% 
+      dplyr::slice(1) %>% 
+      dplyr::ungroup() %>% 
+      dplyr::select(plot_id,inv)
+    , by = dplyr::join_by(plot_id,inv)
+  ) %>% 
   mapview::mapview(
     zcol = "species_symbol"
     , layer.name="USFS Penobscot EF: field trees"
@@ -333,7 +345,7 @@ usfs_penobscotef_trees %>%
 #   sf::st_centroid() %>%
 #   sf::st_transform(crs=4326) %>%
 #   sf::st_coordinates()
-# # 30.53834,-86.7296
+# # # 44.85681,-68.62513
 ```
 
 what is the distribution of species?
@@ -341,49 +353,19 @@ what is the distribution of species?
 ```{r}
 usfs_penobscotef_trees %>% 
   sf::st_drop_geometry() %>% 
-  dplyr::count(usfsspid) %>% 
+  dplyr::inner_join(
+    usfs_penobscotef_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::arrange(plot_id,desc(year),desc(month)) %>% 
+      dplyr::group_by(plot_id) %>% 
+      dplyr::slice(1) %>% 
+      dplyr::ungroup() %>% 
+      dplyr::select(plot_id,inv)
+    , by = dplyr::join_by(plot_id,inv)
+  ) %>% 
+  dplyr::count(species_symbol) %>% 
   dplyr::arrange(desc(n)) %>% 
   dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
-```
-
-let's load in the singular plot location (it's just one large study site that we'll call a plot for this analysis)
-
-```{r}
-usfs_penobscotef_plots <-
-   sf::st_read(
-    "c:/data/usfs/uas_lidar_n1/data/N1_Boundary/N1_Boundary.shp"
-    # "c:/data/usfs/uas_sfm_tree_detection/data/field_validation/field_data_Boundary.shp"
-    , quiet = T
-  ) %>% 
-  dplyr::rename_with(tolower) %>% 
-  dplyr::filter(
-    name=="N1"
-    # site=="N1"
-  ) %>% 
-  # converts proj to match trees and horizontal units to m
-  sf::st_transform(sf::st_crs(usfs_penobscotef_trees)) %>% 
-  dplyr::mutate(
-    plot_area_m2 = sf::st_area(.) %>% as.numeric()
-    , plot_id = name
-  )
-
-# lets keep only trees within the plot boundar
-usfs_penobscotef_trees <- 
-  usfs_penobscotef_trees %>% 
-  sf::st_intersection(
-    usfs_penobscotef_plots %>% dplyr::select(plot_id)
-  )
-  
-# usfs_penobscotef_trees %>% dplyr::glimpse()
-
-# save to reference list
-# add to the ref trees list
-nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
-  dplyr::pull(data_site_nm)
-ref_plots_list[[nm_temp]] <- usfs_penobscotef_plots
-ref_trees_list[[nm_temp]] <- usfs_penobscotef_trees
-# ref_plots_list
 ```
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
@@ -392,6 +374,13 @@ gc()
 ```
 
 ## Point Cloud Data
+
+we need to identify the most recent survey for the majority of the plots so that we can try to find the most chronologically proximal ALS data
+ 
+```{r}
+xxxxxxxxx
+```
+
 
 data was collected over the study site via a UAS-lidar flight at an altitude of 122 m (400 ft) and speed of 8.9 meters per second (20 miles per hour)
 
