@@ -72,6 +72,7 @@ usfs_penobscotef_plots <- readr::read_csv(
 load in the trees
 
 ```{r}
+# read locations first
 usfs_penobscotef_trees <- 
   readr::read_csv(
     "../data/USFS_PenobscotEF/USFS_PenobscotEF_trees/Data/PEF_CompartmentStudy_TreeLocationData.csv"
@@ -107,15 +108,15 @@ usfs_penobscotef_trees <-
     , !is.na(tree_utm_north)
   ) %>% 
   # what if a tree has multiple locations? ... take the most recent
-  dplyr::arrange(mu,plot,treenum,desc(year),desc(month),desc(inv)) %>% 
-  dplyr::group_by(mu,plot,treenum) %>% 
+  dplyr::arrange(plot_id,treenum,desc(inv)) %>% 
+  dplyr::group_by(plot_id,treenum) %>% 
   dplyr::slice(1) %>% 
   dplyr::ungroup() %>% 
   dplyr::select(plot_id,mu,plot,treenum,tidyselect::starts_with("tree_utm_")) %>% 
   # spatial that
   sf::st_as_sf(coords = c("tree_utm_east", "tree_utm_north"), crs = sf::st_crs(usfs_penobscotef_plots), remove = F)
 
-# read and attach tree information
+# read and attach tree information to expand tree locations to unique by tree and inventory number
 usfs_penobscotef_trees <-
   usfs_penobscotef_trees %>% 
   dplyr::inner_join(
@@ -274,16 +275,16 @@ species_lookup_temp <-
 # ...on the assumption that the data collection process has improved over time
 usfs_penobscotef_trees <-
   usfs_penobscotef_trees %>% 
+  # if a tree has many species, use the most recent
   dplyr::select(-usfsspid) %>% 
   dplyr::inner_join(
     usfs_penobscotef_trees %>% 
       sf::st_drop_geometry() %>% 
       dplyr::filter(
         !is.na(dplyr::na_if(usfsspid,""))
-        , !is.na(year)
-        , !is.na(month)
+        , !is.na(inv)
       ) %>% 
-      dplyr::arrange(plot_id,treenum,desc(year),desc(month)) %>% 
+      dplyr::arrange(plot_id,treenum,desc(inv)) %>% 
       dplyr::group_by(plot_id,treenum) %>% 
       dplyr::slice(1) %>% 
       dplyr::ungroup() %>% 
@@ -296,10 +297,10 @@ usfs_penobscotef_trees <-
     !is.na(species_symbol)
     & species_symbol!=""
   ) %>% 
-  dplyr::select(plot_id, treeID, tree_x, tree_y, species_symbol, dbh_cm, inv, month, year)
+  dplyr::select(plot_id, treenum, treeID, tree_x, tree_y, species_symbol, dbh_cm, inv, month, year)
 
 # huh?
-usfs_penobscotef_trees %>% dplyr::glimpse()
+# usfs_penobscotef_trees %>% dplyr::glimpse()
 # only keep plots we have trees for
 usfs_penobscotef_plots <- usfs_penobscotef_plots %>% 
   dplyr::inner_join(
@@ -326,7 +327,7 @@ usfs_penobscotef_trees %>%
   dplyr::inner_join(
     usfs_penobscotef_trees %>% 
       sf::st_drop_geometry() %>% 
-      dplyr::arrange(plot_id,desc(year),desc(month)) %>% 
+      dplyr::arrange(plot_id,desc(inv)) %>% 
       dplyr::group_by(plot_id) %>% 
       dplyr::slice(1) %>% 
       dplyr::ungroup() %>% 
@@ -356,7 +357,7 @@ usfs_penobscotef_trees %>%
   dplyr::inner_join(
     usfs_penobscotef_trees %>% 
       sf::st_drop_geometry() %>% 
-      dplyr::arrange(plot_id,desc(year),desc(month)) %>% 
+      dplyr::arrange(plot_id,desc(inv)) %>% 
       dplyr::group_by(plot_id) %>% 
       dplyr::slice(1) %>% 
       dplyr::ungroup() %>% 
@@ -376,11 +377,61 @@ gc()
 ## Point Cloud Data
 
 we need to identify the most recent survey for the majority of the plots so that we can try to find the most chronologically proximal ALS data
+
+what is the distribution of plots by the most recent year measured?
  
 ```{r}
-xxxxxxxxx
+usfs_penobscotef_trees %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::arrange(plot_id,desc(inv)) %>% 
+  dplyr::group_by(plot_id) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  # dplyr::select(year) %>% summary()
+  dplyr::count(year) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    pct = n/sum(n)
+    , year = ordered(year)
+    , lab = ifelse(
+      pct>0.0005
+      , paste0(
+        scales::percent(pct,accuracy=1) 
+        ,"\n("
+        , scales::comma(n,accuracy=1) 
+        , ")"
+      )
+      , ""
+    )
+  ) %>% 
+  dplyr::ungroup() %>% 
+  # dplyr::glimpse()
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(y = pct, x = year)
+  ) +
+  ggplot2::geom_col(
+    mapping = ggplot2::aes(fill = year)
+    , width = 0.6
+    , fill = "gray", alpha = 0.8
+  ) +
+  ggplot2::geom_text(
+    mapping = ggplot2::aes(label = lab)
+    , color = "black", size = 2.5, vjust = -0.2
+  ) +
+  ggplot2::scale_x_discrete(drop = F) +
+  ggplot2::scale_y_continuous(
+    # breaks = seq(0,1,by=0.2)
+    labels = scales::percent
+    , expand = ggplot2::expansion(mult = c(0,0.15))
+  ) +
+  ggplot2::labs(
+    x = "", y = "", fill = ""
+    , subtitle = "Most recent plot measurement year"
+  ) +
+  ggplot2::theme_light()
 ```
 
+the average most recent plot measurement year was `r usfs_penobscotef_trees %>% sf::st_drop_geometry() %>% dplyr::arrange(plot_id,desc(inv)) %>% dplyr::group_by(plot_id) %>% dplyr::slice(1) %>% dplyr::ungroup() %>% dplyr::summarise(year=mean(year)) %>% dplyr::pull(year) %>% round()`
 
 data was collected over the study site via a UAS-lidar flight at an altitude of 122 m (400 ft) and speed of 8.9 meters per second (20 miles per hour)
 
