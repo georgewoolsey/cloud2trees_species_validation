@@ -1,9 +1,10 @@
 # Penobscot Experimental Forest (Maine){#site_04}
 
-Now that we have reviewed the [process and evaluation method](#site_01) and set up functions to standardize and streamline our data processing, let's do it for another site: USFS Manitou Experimental Forest ("N1" study site) 
+Now that we have reviewed the [process and evaluation method](#site_01) and set up functions to standardize and streamline our data processing, let's do it for another site: USFS Penobscot Experimental Forest
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
+remove(this_data_site_nm)
 gc()
 ```
 
@@ -469,10 +470,10 @@ let's check out the lidar data coverage compared to the field plot data
 usfs_penobscotef_las_ctg_temp@data$geometry %>% 
   sf::st_union() %>% 
   sf::st_as_sf() %>% 
-  dplyr::mutate(data = "UAS-lidar data extent") %>% 
+  dplyr::mutate(data = "ALS data extent") %>% 
 mapview::mapview(
  zcol = "data"
-  , layer.name="USFS Penobscot EF: UAS-lidar data"
+  , layer.name="USFS Penobscot EF: ALS data"
   , popup=F
 ) +
 mapview::mapview(
@@ -1367,8 +1368,6 @@ stab_temp %>%
   )
 ```
 
-this essentially means that TreeMap is fairly confident that the study area includes `r paste0(levels(forcats::fct_rev(stab_temp$f_type))[1], collapse = " and ")`
-
 lastly, we'll look at the relative height data for a sample of the data
 
 ```{r}
@@ -1446,7 +1445,7 @@ let's check out the distribution of the predicted species
 pred_trees_list$USFS_PenobscotEF %>%
   dplyr::inner_join(
     ref_plots_list$USFS_PenobscotEF %>% 
-      dplyr::slice(1) %>% 
+      # dplyr::slice(1) %>% 
       sf::st_drop_geometry() %>% 
       dplyr::select(plot_id)
     , by = "plot_id"
