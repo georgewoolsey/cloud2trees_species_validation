@@ -704,7 +704,7 @@ agg_temp %>%
   ) %>% 
   dplyr::relocate(def,.after = dplyr::everything()) %>% 
   kableExtra::kbl(
-    caption = "WFSI Eglin Air Force Base top ITD window functions"
+    caption = "USFS Manitou EF (N1) top ITD window functions"
     , col.names = c(
       "function<br>name"
       , "F-score<br>(mean)"
