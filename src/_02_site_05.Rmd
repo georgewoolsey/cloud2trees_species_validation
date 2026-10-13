@@ -57,6 +57,7 @@ csfs_swe_plots <-
 load in the trees
 
 ```{r}
+this_min_dbh_cm <- 5/0.394 # measured trees >= 5 in
 # read locations first
 csfs_swe_trees <-
   readr::read_csv(
@@ -86,7 +87,7 @@ csfs_swe_trees <-
   # filter
   dplyr::filter(
     !is.na(dbh_cm)
-    & dbh_cm >= 5/0.394 # measured trees >= 5 in
+    & dbh_cm >= this_min_dbh_cm # measured trees >= 5 in
     & !is.na(species)
   ) %>% 
   # keep only trees with a matching plot
@@ -151,6 +152,7 @@ csfs_swe_trees %>%
   dplyr::arrange(desc(n)) %>% 
   dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
 
+csfs_swe_trees %>% sf::st_drop_geometry() %>% dplyr::count(plot_id)
 # save to reference list
 # add to the ref trees list
 this_data_site_nm <- project_data_df %>% 
@@ -568,27 +570,25 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-since we don't have reference tree location data, we are going to pick the best window function to use for tree detection based on tree density (i.e. TPH) and mean DBH at the plot level against the reference plot values. we'll calculate mean absolute percent error for TPH and mean DBH over the plot-level data and then equally weight these error metrics for selecting the best window function for ITD.
+since we don't have reference tree location data, we are going to pick the best window function to use for tree detection based on tree density (i.e. TPH) at the plot level against the reference plot values. we'll calculate mean absolute percent error for TPH over the plot-level data for selecting the best window function for ITD.
+
+since we need to align the predicted trees with the reference trees, we need to filter the predicted trees based on the modeled DBH to match with the field sampling protocol. this introduces an additional reliance on the DBH model in combination with the ITD process. For example, if the DBH estimation method generally underpredicts DBH, then we will filter out trees that potentially should not be filtered out.
 
 ```{r}
 # # function using plot spatial, predicted trees, and reference trees
 # # ws_iter_instance_match_fn <- function(
     
-# ws_plot_level_fn <- function(
-#   plot_sf # needs plot_id # should be a single plot
-#   , ref_pts # needs plot_id
-#   , pred_polys # needs plot_id
-#   # minimum tree height
-#   , min_ht_m = NA
-#   # -OR- minimum DBH
-#   , min_dbh_cm = NA
-# ){
-  
-ref_plots = ref_plots_list[[this_data_site_nm]]
-ref_pts = ref_trees_list[[this_data_site_nm]]
-pred_polys = csfs_swe_ws_pred_trees
-min_ht_m = NA
-min_dbh_cm = 5/0.394 # measured trees >= 5 in
+ws_plot_level_fn <- function(
+  ref_plots
+  , ref_pts # needs plot_id
+  , pred_polys # needs plot_id
+  # minimum tree height
+  , min_ht_m = NA
+  # -OR- minimum DBH
+  , min_dbh_cm = NA
+  , tph_mape_only = F
+){
+
 
 
 if(
@@ -614,12 +614,18 @@ if(
     # do they exist? .... PRED
     if(
       any( stringr::str_equal(names(pred_polys),"dbh_cm") )
+      # && any( stringr::str_equal(names(pred_polys),"fia_est_dbh_cm_lower") )
+      # && any( stringr::str_equal(names(pred_polys),"fia_est_dbh_cm_upper") )
     ){
       pred_polys <- pred_polys %>% 
         dplyr::filter(
+          # dplyr::coalesce(fia_est_dbh_cm_lower,0) <= as.numeric(min_dbh_cm)
+          # , dplyr::coalesce(fia_est_dbh_cm_upper,0) >= as.numeric(min_dbh_cm)
           dplyr::coalesce(dbh_cm,0) >= as.numeric(min_dbh_cm)
-        )
+        ) %>% 
+        dplyr::mutate(xxx_comp=dbh_cm)
     }else{
+      # stop("`pred_polys` needs column named `dbh_cm`, `fia_est_dbh_cm_lower`, `fia_est_dbh_cm_upper`")
       stop("`pred_polys` needs column named `dbh_cm`")
     }
     
@@ -630,7 +636,8 @@ if(
       ref_pts <- ref_pts %>% 
         dplyr::filter(
           dplyr::coalesce(dbh_cm,0) >= as.numeric(min_dbh_cm)
-        )
+        ) %>% 
+        dplyr::mutate(xxx_comp=dbh_cm)
     }else{
       stop("`ref_pts` needs column named `dbh_cm`")
     }
@@ -644,7 +651,8 @@ if(
       pred_polys <- pred_polys %>% 
         dplyr::filter(
           dplyr::coalesce(tree_height_m,0) >= as.numeric(min_ht_m)
-        )
+        ) %>% 
+        dplyr::mutate(xxx_comp=tree_height_m)
     }else{
       stop("`pred_polys` needs column named `tree_height_m`")
     }
@@ -656,7 +664,8 @@ if(
       ref_pts <- ref_pts %>% 
         dplyr::filter(
           dplyr::coalesce(tree_height_m,0) >= as.numeric(min_ht_m)
-        )
+        ) %>% 
+        dplyr::mutate(xxx_comp=tree_height_m)
     }else{
       stop("`ref_pts` needs column named `tree_height_m`")
     }
@@ -706,238 +715,139 @@ if(
     dplyr::filter(
       plot_id==hey_sp_plot_id
     )
-  i_pred %>% dplyr::glimpse()
+  # i_pred %>% dplyr::glimpse()
   # # row unique by: plot_id,ws_fn_nm,treeID
   # i_pred %>% 
   #   sf::st_drop_geometry() %>% 
   #   dplyr::group_by(plot_id,ws_fn_nm,treeID) %>% 
   #   dplyr::count() %>% 
   #   dplyr::filter(n>1)
-  
-  ref_plots %>% 
-    dplyr::distinct(plot_id) %>% 
-    dplyr::left_join()
-  dplyr::group_by()
-  xxxxxx
-  
-  
-  
-  # map it
-  instance_match_ans <- 
-    unique(pred_polys$ws_fn_nm) %>% 
-    purrr::set_names() %>%
-    purrr::map(function(nm){
-      # which preds?
-      these_pred_polys <- 
-        pred_polys %>% 
-        dplyr::filter(
-          ws_fn_nm == nm
-        )
-      # instance match
-      ###########################################################################################
-      ## this is for matching predicted crowns to reference points
-      ###########################################################################################
-      im <-
-        instance_match_fn(
-          pred_crowns = these_pred_polys
-          , ref_points = ref_pts
-        )
-      # ###########################################################################################
-      # ## this is for matching predicted points to reference points
-      # ###########################################################################################
-      # im <- 
-      #   reference_prediction_match(
-      #     pred_data = these_pred_polys
-      #     , ref_data = ref_pts
-      #     , max_dist_m = 2
-      #     , max_error_pct = 0.5
-      #   ) %>% 
-      #   ground_truth_prediction_match()
-      # remove commission points outside plot boundary?
-      # remove commission points outside plot boundary?
-      # get rid of commissions outside of plot
-      outs <- 
-        these_pred_polys %>% 
-        dplyr::mutate(
-          pred_match_idx = dplyr::row_number()
-        ) %>% 
-        sf::st_drop_geometry() %>%
-        sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(pred_polys)) %>% 
-        sf::st_filter(
-          plot_sf %>% sf::st_union() %>% sf::st_transform(sf::st_crs(pred_polys))
-          , .predicate = sf::st_disjoint
-        ) %>% 
+  pct_diff_df <- 
+    tidyr::crossing(
+      ref_pts %>% sf::st_drop_geometry() %>% dplyr::distinct(plot_id)
+      , pred_polys %>% sf::st_drop_geometry() %>% dplyr::distinct(ws_fn_nm)
+    ) %>% 
+    # sum predictions
+    dplyr::left_join(
+      i_pred %>% 
         sf::st_drop_geometry() %>% 
-        dplyr::select(pred_match_idx) %>% 
-        dplyr::mutate(is_out = T)
-      
-      return_df <- 
-        im %>% 
-        dplyr::left_join(
-          outs
-          , by = "pred_match_idx"
+        dplyr::group_by(plot_id,ws_fn_nm) %>% 
+        dplyr::summarise(
+          pred_n = dplyr::n()
+          , pred_xxx_comp = mean(xxx_comp,na.rm=T)
         ) %>% 
-        dplyr::filter(
-          !(match_grp == "commission" & dplyr::coalesce(is_out,F)==T)
+        dplyr::ungroup()
+      , by = dplyr::join_by(plot_id,ws_fn_nm)
+      , relationship = "one-to-one"
+    ) %>% 
+    # sum reference
+    dplyr::left_join(
+      ref_pts %>% 
+        sf::st_drop_geometry() %>% 
+        dplyr::group_by(plot_id) %>% 
+        dplyr::summarise(
+          ref_n = dplyr::n()
+          , ref_xxx_comp = mean(xxx_comp,na.rm=T)
         ) %>% 
-        dplyr::select(-is_out)
-      return(return_df)
-    }) %>% 
-    purrr::list_rbind(names_to = "ws_fn_nm")
+        dplyr::ungroup()
+      , by = dplyr::join_by(plot_id)
+      , relationship = "many-to-one"
+    ) %>% 
+    dplyr::mutate(
+      dplyr::across(
+        tidyselect::ends_with("_n")
+        , ~ dplyr::coalesce(.x,0)
+      )
+      # symmetric mean absolute percentage error (sMAPE)
+      , abs_pct_diff_n = dplyr::case_when(
+        ref_n==0 & pred_n==0 ~ 0
+        , T ~ abs(ref_n-pred_n) / ( (abs(ref_n)+abs(pred_n))/2 )
+      )
+      , abs_pct_diff_xxx_comp = dplyr::case_when(
+        ref_xxx_comp==0 & pred_xxx_comp==0 ~ 0
+        , T ~ abs(ref_xxx_comp-pred_xxx_comp) / ( (abs(ref_xxx_comp)+abs(pred_xxx_comp))/2 )
+      )
+    ) 
+  # pct_diff_df %>% dplyr::filter(ws_fn_nm=="linear_01") %>% View()
+  
+  mape_df <- 
+    pct_diff_df %>% 
+    # dplyr::filter(ws_fn_nm=="chapman_richards_01") %>% View()
+    # aggregate by window fn
+    dplyr::group_by(ws_fn_nm) %>% 
+    dplyr::summarise(
+      n = dplyr::n()
+      , nomiss_xxx_comp = sum(!is.na(ref_xxx_comp) & !is.na(pred_xxx_comp))
+      , dplyr::across(
+        tidyselect::starts_with("abs_pct_diff_")
+        , ~sum(.x,na.rm=T)
+      )
+    ) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(
+      mape = dplyr::case_when(
+        tph_mape_only ~ (abs_pct_diff_n/n)
+        , nomiss_xxx_comp==0 ~ (abs_pct_diff_n/n)*2
+        , T ~ ( (abs_pct_diff_n/n) + (abs_pct_diff_xxx_comp/nomiss_xxx_comp) ) / 2
+      )
+    ) %>% 
+    # dplyr::glimpse()
+    dplyr::select(ws_fn_nm,mape)
   
   
-  return(instance_match_ans)
+  # mape_df %>% dplyr::glimpse()
+  # mape_df %>% dplyr::slice_min(n=10,order_by = mape)
+  # mape_df %>% dplyr::slice_min(n=1,order_by = mape,with_ties = F) %>% dplyr::inner_join(pct_diff_df)
+  
+  return(mape_df)
+}
+```
 
-##################################################################
-##################################################################
-##################################################################
-# plot_iter_instance_match_fn
-# loop over plots and ws functions for instance match
-##################################################################
-##################################################################
-##################################################################
-c2t_process_dir_temp <- 
-  project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
-  dplyr::pull(c2t_process_dir)
-fnm_temp <- file.path(c2t_process_dir_temp,"ws_instance_match.csv")
-if(!file.exists(fnm_temp)){
-  csfs_swe_ws_instance_match <- 
-    plot_iter_instance_match_fn(
-      ref_plots = ref_plots_list[[this_data_site_nm]]
-      , ref_pts = ref_trees_list[[this_data_site_nm]]
-      , pred_polys = csfs_swe_ws_pred_trees
-      , min_ht_m = NA
-      , min_dbh_cm = 4.5/0.394 # measured trees >= 4.5 in
-    )
-  readr::write_csv(csfs_swe_ws_instance_match, file = fnm_temp, append = F, progress = F)
-}else{
-  csfs_swe_ws_instance_match <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
-}
-# huh?
-# csfs_swe_ws_instance_match %>% dplyr::glimpse()
-##################################################################
-##################################################################
-##################################################################
-# agg_ground_truth_match
-# loop over plots and ws functions for accuracy eval
-##################################################################
-##################################################################
-##################################################################
-c2t_process_dir_temp <- 
-  project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
-  dplyr::pull(c2t_process_dir)
-fnm_temp <- file.path(c2t_process_dir_temp,"agg_ground_truth_match_ans.csv")
-if(!file.exists(fnm_temp)){
-  # ?purrr::pmap
-  # A data frame is an important special case of .l. It will cause .f to be called once for each row.
-  csfs_swe_agg_ground_truth_match_ans <- 
-    csfs_swe_ws_instance_match %>% 
-    dplyr::distinct(plot_id,ws_fn_nm) %>% 
-    purrr::pmap(function(plot_id, ws_fn_nm) {
-      # the unique row data
-      d <- dplyr::tibble(plot_id = plot_id, ws_fn_nm = ws_fn_nm)
-      # filter full set based on the data
-      j <- 
-        csfs_swe_ws_instance_match %>% 
-        dplyr::inner_join(
-          d   
-          , by = dplyr::join_by("plot_id","ws_fn_nm")
-        )
-      # agg_ground_truth_match
-      d %>% 
-        dplyr::bind_cols(agg_ground_truth_match(j))
-      
-    }) %>% 
-    list_rbind()
-  readr::write_csv(csfs_swe_agg_ground_truth_match_ans, file = fnm_temp, append = F, progress = F)
-}else{
-  csfs_swe_agg_ground_truth_match_ans <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
-}
-# huh?
-# csfs_swe_agg_ground_truth_match_ans %>% dplyr::glimpse()
+```{r, include = F, eval = F}
+chm_list[[this_data_site_nm]] %>% 
+  terra::crop(
+    ref_plots_list[[this_data_site_nm]] %>% 
+      dplyr::filter(plot_id=="LNS_003") %>% 
+      sf::st_buffer(5) %>% 
+      sf::st_bbox() %>% 
+      sf::st_as_sfc()
+    , mask = T
+  ) %>% 
+  terra::plot()
+ref_plots_list[[this_data_site_nm]] %>% 
+  dplyr::filter(plot_id=="LNS_003") %>% 
+  terra::plot(add = T, border = "black", col = NA)
+csfs_swe_ws_pred_trees %>% 
+  dplyr::filter(plot_id=="LNS_003",ws_fn_nm=="chapman_richards_24") %>% 
+  terra::plot(add = T, border = "cyan", col = NA,lwd = 0.5)
+
+csfs_swe_ws_pred_trees %>% 
+  dplyr::filter(plot_id=="LNS_003",ws_fn_nm=="chapman_richards_24") %>% 
+  dplyr::pull(dbh_cm) %>% 
+  summary()
+# this_min_dbh_cm
 ```
 
 aggregate the plot level data to the window function to get the answer we've been searching for
 
 ```{r}
-# csfs_swe_agg_ground_truth_match_ans %>% 
-#   dplyr::count(ws_fn_nm) %>% 
-#   dplyr::count(n)
-agg_temp <- 
-  csfs_swe_agg_ground_truth_match_ans %>% 
-  dplyr::group_by(ws_fn_nm) %>% 
-  dplyr::summarize(
-    n_plots = dplyr::n()
-    , dplyr::across(
-      .cols = c(precision,recall,f_score,tidyselect::ends_with("_rate"))
-      , list( 
-        mean= ~ mean(.x,na.rm=T)
-        , median= ~ median(.x,na.rm=T)
-      )
-    )
-  ) %>% 
-  dplyr::ungroup() %>% 
-  dplyr::left_join(
-    csfs_swe_ws_pred_trees %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::distinct(ws_fn_nm, ws_type)
-    , by = "ws_fn_nm"
-  ) %>% 
-  dplyr::mutate(
-    f_score_rank = dplyr::min_rank(-f_score_mean)
-    , ws_fn_nm_fact = forcats::fct_reorder(ws_fn_nm, f_score_rank)
-    # , dplyr::across(
-    #   .cols = dplyr::where(is.numeric)
-    #   , ~ round(.x,2) %>% as.character() %>% as.numeric()
-    # )
-  ) %>% 
-  dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean))
-# agg_temp %>% dplyr::glimpse()
-```
-
-let's check out the plot-level distribution of F-score for the top window functions (remember this particular data has one "plot", a stem map)
-
-```{r}
-csfs_swe_agg_ground_truth_match_ans %>% 
-  # add agg data
-  dplyr::inner_join(
-    agg_temp %>% 
-      dplyr::filter(f_score_rank<=12) %>% 
-      dplyr::select(ws_fn_nm, ws_fn_nm_fact, ws_type)
-    , by = "ws_fn_nm"
-  ) %>% 
-  dplyr::arrange(ws_fn_nm_fact) %>% 
-  dplyr::mutate(ws_fn_nm_fact=forcats::fct_rev(ws_fn_nm_fact)) %>% 
-  # dplyr::pull(ws_fn_nm) %>% levels()
-  # View()
-  ggplot2::ggplot(
-    mapping = ggplot2::aes(x = f_score, y = ws_fn_nm_fact, fill=ws_type)
-  ) +
-  ggplot2::geom_boxplot(
-    width = 0.4
-    , alpha=0.9
-    , outliers = F
-    , color = "black"
-  ) +
-  ggplot2::geom_point(color = "gray77") +
-  ggplot2::scale_fill_viridis_d() +
-  ggplot2::scale_x_continuous(labels = scales::percent_format()) +
-  ggplot2::labs(x="F-score", y="") +
-  ggplot2::theme_light() +
-  ggplot2::theme(
-    legend.position = "none"
-    , legend.direction  = "horizontal"
+ws_plot_level_fn_ans_temp <- 
+  ws_plot_level_fn(
+    ref_plots = ref_plots_list[[this_data_site_nm]]
+    , ref_pts = ref_trees_list[[this_data_site_nm]]
+    , pred_polys = csfs_swe_ws_pred_trees
+    , min_ht_m = NA
+    , min_dbh_cm = this_min_dbh_cm # measured trees >= 5 in
+    , tph_mape_only = T
   )
+# ws_plot_level_fn_ans_temp %>% dplyr::glimpse()
 ```
 
-we can print the raw window function definition for those that achieved the highest F-score
+we can print the raw window function definition for those that achieved the lowest TPH MAPE
 
 ```{r}
-agg_temp %>% 
-  dplyr::filter(f_score_rank<=7) %>% 
-  dplyr::arrange(f_score_rank) %>% 
+ws_plot_level_fn_ans_temp %>% 
+  dplyr::slice_min(n = 7, order_by = mape, with_ties = F) %>% 
   dplyr::pull(ws_fn_nm) %>% 
   purrr::set_names() %>% 
   # purrr::map(\(nm) purrr::pluck(get_ws_fn_list_ans, nm))
@@ -950,8 +860,8 @@ agg_temp %>%
   }) %>%
   purrr::list_rbind() %>% 
   dplyr::inner_join(
-    agg_temp %>% 
-      dplyr::select(ws_fn_nm, f_score_mean, recall_mean, precision_mean) %>% 
+    ws_plot_level_fn_ans_temp %>% 
+      dplyr::select(ws_fn_nm,mape) %>% 
       dplyr::mutate(
         dplyr::across(
           dplyr::where(is.numeric)
@@ -964,16 +874,14 @@ agg_temp %>%
     caption = "CSFS SWE top ITD window functions"
     , col.names = c(
       "function<br>name"
-      , "F-score<br>(mean)"
-      , "recall<br>(mean)"
-      , "precision<br>(mean)"
+      , "TPH MAPE<br>(mean)"
       , "function<br>definition"
     )
     , escape = F
   ) %>% 
   kableExtra::kable_styling(font_size = 12, bootstrap_options = c("responsive", "condensed")) %>% # 
   # make r line breaks (\n) and use monospace font for code
-  kableExtra::column_spec(5, monospace = T, extra_css = "white-space: pre;")
+  kableExtra::column_spec(3, monospace = T, extra_css = "white-space: pre;")
 ```
 
 nice, we'll select the best non-constant window function for use in evaluation of the species accuracy. if we were to use the constant functions, even if they are the best performing, we would likely be overfitting to this specific data set. in addition to being more in-line with real-world tree height-to-crown relationships, the variable window functions are likely more broadly applicable
@@ -983,15 +891,26 @@ project_data_df <- project_data_df %>%
   dplyr::mutate(
     best_ws_fn_nm = ifelse(
       tolower(data_site_nm)=="csfs_swe"
-      , agg_temp %>% 
+      , ws_plot_level_fn_ans_temp %>% 
+        dplyr::inner_join(
+          csfs_swe_ws_pred_trees %>% 
+            sf::st_drop_geometry() %>% 
+            dplyr::distinct(ws_fn_nm,ws_type)
+          , by = "ws_fn_nm"
+        ) %>% 
         dplyr::filter(ws_type!="constant") %>% 
-        dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean)) %>% 
+        dplyr::arrange(mape) %>% 
         dplyr::slice(1) %>% 
         dplyr::pull(ws_fn_nm)
       , best_ws_fn_nm
     )
   )
 # project_data_df %>% dplyr::glimpse()
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
 ```
 
 full CHM data processing
@@ -1114,28 +1033,33 @@ if(!file.exists(fnm_temp)){
 }else{
   pred_trees_temp <- sf::st_read(fnm_temp, quiet = T)
 }
-# pred_trees_temp %>% dplyr::glimpse()
+```
 
+we'll only keep predicted trees with tree top points that fall within the plot boundary since we aren't doing instance matching
+
+```{r}
 ###############################################################################################
 ###############################################################################################
-## now we need to do the matching 
 # again to only keep trees in plots for individual tree species comparisons
 ###############################################################################################
 ###############################################################################################
-
-im_temp <- 
-  plot_iter_instance_match_fn(
-    ref_plots = ref_plots_list[[this_data_site_nm]]
-    , ref_pts = ref_trees_list[[this_data_site_nm]]
-    , pred_polys = pred_trees_temp
-    , min_ht_m = NA
-    , min_dbh_cm = 10
-  )
-
-# im_temp %>% dplyr::glimpse()
-
-# add to the ref trees list
-pred_ref_tree_match_list[[this_data_site_nm]] <- im_temp
+# intersect
+i_temp <- 
+  pred_trees_temp %>% 
+  sf::st_drop_geometry() %>% 
+  sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(pred_trees_temp), remove = F) %>% 
+  sf::st_intersection(
+    ref_plots_list[[this_data_site_nm]] %>% 
+      sf::st_transform(sf::st_crs(pred_trees_temp)) %>% 
+      dplyr::select(hey_sp_plot_id=plot_id)
+  ) %>% 
+  # ensure we keep only trees intended
+  dplyr::filter(
+    plot_id==hey_sp_plot_id
+    , dbh_cm >= this_min_dbh_cm # measured trees >= 5 in
+  ) %>% 
+  dplyr::select(-hey_sp_plot_id)
+# i_temp %>% dplyr::glimpse()
 
 ###############################################################################################
 ###############################################################################################
@@ -1145,7 +1069,7 @@ pred_ref_tree_match_list[[this_data_site_nm]] <- im_temp
 # let's also save the plot-level ITD predictions for this ws
 
 pred_trees_list[[this_data_site_nm]] <-
-  pred_trees_temp %>% 
+  i_temp %>% 
   # which ws
   dplyr::filter(
     ws_fn_nm %in% (
@@ -1153,23 +1077,14 @@ pred_trees_list[[this_data_site_nm]] <-
       dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
       dplyr::pull(best_ws_fn_nm)
     )
-  ) %>% 
-  # filter for trees used in instance matching 
-    # which included thresholds used for measuring field trees 
-    # and plot spatial alignment
-  dplyr::inner_join(
-    pred_ref_tree_match_list[[this_data_site_nm]] %>% 
-      dplyr::select(plot_id,ws_fn_nm,pred_treeID) %>% 
-      dplyr::filter(!is.na(pred_treeID)) %>% 
-      dplyr::rename(treeID=pred_treeID)
-    , by = dplyr::join_by(plot_id,ws_fn_nm,treeID)
   )
 # pred_trees_list
+pred_trees_list[[this_data_site_nm]] %>% dplyr::glimpse()
 ```
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
-remove(list = ls()[grep("^usfs_penobscot",ls())])
+remove(list = ls()[grep("^csfs_swe",ls())])
 remove(cloud2raster_ans)
 gc()
 ```
@@ -1193,6 +1108,7 @@ ultimately, if the proposed species/genera classification method achieves decent
 load in the TreeMap data and clip to our trees as in `cloud2trees::trees_dbh()`
 
 ```{r}
+xxxxx
 # test to get the treemap data for our aoi
 treemap_data_loader_ans <-
   pred_trees_list[[this_data_site_nm]] %>% 
