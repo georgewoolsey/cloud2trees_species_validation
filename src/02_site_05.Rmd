@@ -1108,7 +1108,6 @@ ultimately, if the proposed species/genera classification method achieves decent
 load in the TreeMap data and clip to our trees as in `cloud2trees::trees_dbh()`
 
 ```{r}
-xxxxx
 # test to get the treemap data for our aoi
 treemap_data_loader_ans <-
   pred_trees_list[[this_data_site_nm]] %>% 
@@ -1305,13 +1304,6 @@ let's check out the distribution of the predicted species
 
 ```{r}
 pred_trees_list[[this_data_site_nm]] %>%
-  dplyr::inner_join(
-    ref_plots_list[[this_data_site_nm]] %>% 
-      # dplyr::slice(1) %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::select(plot_id)
-    , by = "plot_id"
-  ) %>% 
   dplyr::arrange(desc(species_symbol)) %>% 
   sf::st_drop_geometry() %>% 
   dplyr::ungroup() %>% 
@@ -1365,17 +1357,6 @@ pred_trees_list[[this_data_site_nm]] %>%
   )
 ```
 
-make sure the reference species data is clean
-
-```{r}
-# update the reference tree list
-ref_trees_list[[this_data_site_nm]] <- 
-  ref_trees_list[[this_data_site_nm]] %>% 
-  clean_ref_species_fn(
-    my_treemap_data_loader_ans = treemap_data_loader_ans
-  )
-```
-
 what is the distribution of the cleaned reference field data species?
 
 ```{r}
@@ -1389,48 +1370,8 @@ ref_trees_list[[this_data_site_nm]] %>%
 
 ### Tree-Level Accuracy
 
-we're going to use the tree-level prediction and reference data for all TP (true positive) predictions to perform confusion matrix accuracy evaluation of the species predictions. 
-
-using the confusion matrix evaluation we'll calculate the following metrics: 
-
-* **Overall Accuracy**: Measures the global percentage of all correctly classified trees out of the entire dataset of true positive (TP) observations. Provides an overall summary metric but can mask performance on uncommon species.
-* **User's Accuracy** (precision): Measures the reliability of specific predicted species. For example, if the method predicts a tree is a ponderosa pine, how often it is actually true.
-* **Producer's Accuracy** (recall): Measures how well the model successfully aligns with what was measured on the ground. For example, out of all real ponderosa pine trees measured in the field, what percentage did the method correctly identify.
-
-```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
-remove(list = ls()[grep("_temp",ls())])
-gc()
-```
-
-let's make a function to get the confusion matrix and those accuracy metrics
-
-```{r}
-# test that
-confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list[[this_data_site_nm]]
-  , pred_trees = pred_trees_list[[this_data_site_nm]]
-  , ref_trees = ref_trees_list[[this_data_site_nm]]
-  , use_genus = F
-)
-confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list[[this_data_site_nm]]
-  , pred_trees = pred_trees_list[[this_data_site_nm]]
-  , ref_trees = ref_trees_list[[this_data_site_nm]]
-  , use_genus = T
-)
-```
-
-let's check out the confusion matrix at the *species* level
-
-```{r, results='asis'}
-confusion_matrix_species_temp$kbl_html_table
-```
-
-and the confusion matrix at the *genus* level
-
-```{r, results='asis'}
-confusion_matrix_genus_temp$kbl_html_table
-```
+**Important Detail**
+Note that this is the first data set we have reviewed that does not include tree location data, we only have information on trees within plots. As such, we will only be able to evaluate the proportional compositions of each species predicted by the model against the reference proportions within the measured plot area (i.e. using Bray-Curtis dissimilarity/similarity index ).
 
 ### Site-Level Accuracy
 
