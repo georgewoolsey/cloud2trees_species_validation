@@ -4,14 +4,14 @@ We compiled a collection of validation datasets across diverse forest conditions
 
 | Name | State | Forest Type | Point Cloud Data | Field Data |
 | :--- | :--- | :--- | :--- | :--- |
-| WFSI Elgin AFB | Florida | longleaf pine | ALS | plots |
+| WFSI Elgin AFB | Florida | longleaf pine | ALS | tree locations |
 | Manitou Experimental Forest (N1) | Colorado | ponderosa pine | UAS-lidar | tree locations |
 | Manitou Experimental Forest (Big Plot) | Colorado | western mixed conifer | UAS-SfM | tree locations |
 | Penobscot Experimental Forest | Maine | northern mixed conifer | ALS | tree locations |
+| Ute Creek | Colorado | dry-mesic mixed conifer | UAS-SfM | tree locations |
 | CSFS State Forest State Park | Colorado | lodgepole pine | UAS-lidar | plots |
-| BLM Dawson Creek | Colorado | pinyon-juniper | UAS-SfM | tree locations |
-| Ute Creek | Colorado | | UAS-SfM | plots |
 | WFSI Fort Stewart | Georgia | southern yellow pine forest | UAS-lidar | plots |
+| BLM Dawson Creek | Colorado | pinyon-juniper | UAS-SfM | tree locations |
 | Wabikon Lake Forest Dynamics Plot (ForestGEO) | Wisconsin | northern mixed hardwood | ALS | tree locations |
 | UC Santa Cruz Forest Ecology Research Plot (ForestGEO) | California | coastal mixed-evergreen & coast redwood | ALS | tree locations |
 | Smithsonian Environmental Research Center (ForestGEO) | Maryland | mixed deciduous hardwood | ALS | tree locations |
@@ -4135,7 +4135,41 @@ clean_ref_species_fn <- function(
   df_to_clean
   , my_treemap_data_loader_ans
 ) {
-
+  
+  # do we even need to clean it?
+  fia_match <- 
+    df_to_clean %>% 
+    dplyr::left_join(
+      fia_species_lookup %>% 
+        dplyr::select(species_symbol) %>% 
+        dplyr::mutate(xxx_is_match = T)
+      , by = "species_symbol"
+    ) %>% 
+    dplyr::mutate(
+      xxx_is_match = dplyr::case_when(
+        # if it doesn't even have one
+        is.na( dplyr::na_if(stringr::str_squish(species_symbol),"") ) ~ T
+        # otherwise
+        , is.na(xxx_is_match) ~ F
+        , T ~ xxx_is_match
+      )
+    )
+  
+  if(
+    nrow( fia_match %>% dplyr::filter(xxx_is_match) ) == nrow(df_to_clean)
+  ){
+    return(df_to_clean)
+  }
+  
+  # which need cleaning then?
+  need_clean <- 
+    fia_match %>% 
+    dplyr::filter(!xxx_is_match) %>% 
+    sf::st_drop_geometry() %>% 
+    dplyr::distinct(species_symbol) %>% 
+    dplyr::mutate(xxx_need_clean=T)
+    
+  
   # species probs
   species_probs <-
     my_treemap_data_loader_ans$treemap_trees_df %>% 
@@ -4152,6 +4186,7 @@ clean_ref_species_fn <- function(
   # match with df
   ret_df <- 
     df_to_clean %>% 
+    dplyr::left_join(need_clean, by = "species_symbol") %>% 
     dplyr::left_join(
       species_probs %>% 
         dplyr::select(species_symbol) %>% 
@@ -4172,11 +4207,12 @@ clean_ref_species_fn <- function(
     ) %>% 
     # update species_symbol
     dplyr::mutate(
-      xxx_is_match = dplyr::coalesce(xxx_is_match,F)
+      xxx_need_clean = dplyr::coalesce(xxx_need_clean,F)
+      , xxx_is_match = dplyr::coalesce(xxx_is_match,F)
       , xxx_is_match4 = dplyr::coalesce(xxx_is_match4,F)
       , species_symbol = dplyr::case_when(
-        xxx_is_match ~ species_symbol
-        , xxx_is_match4 ~ xxx_new_species_symbol
+        xxx_need_clean & xxx_is_match ~ species_symbol
+        , xxx_need_clean & xxx_is_match4 ~ xxx_new_species_symbol
         , T ~ species_symbol
       )
     ) %>% 
@@ -4185,6 +4221,13 @@ clean_ref_species_fn <- function(
   # some still don't match FIAdb
   # just take the first one from the fiadb if not found based on the 4 characters
   ret_df %>% 
+    dplyr::left_join(
+      fia_species_lookup %>% 
+        dplyr::select(species_symbol) %>% 
+        dplyr::mutate(xxx_is_match = T)
+      , by = "species_symbol"
+    ) %>% 
+    dplyr::mutate(xxx_is_match = dplyr::coalesce(xxx_is_match,F)) %>% 
     dplyr::left_join(
       fia_species_lookup %>% 
         dplyr::select(species_symbol) %>% 
@@ -4201,11 +4244,11 @@ clean_ref_species_fn <- function(
     dplyr::mutate(
       xxx_is_match4 = dplyr::coalesce(xxx_is_match4,F)
       , species_symbol = dplyr::case_when(
-        xxx_is_match4 ~ xxx_new_species_symbol
+        xxx_need_clean & !xxx_is_match & xxx_is_match4 ~ xxx_new_species_symbol
         , T ~ species_symbol
       )
     ) %>% 
-    dplyr::select(-c(xxx_is_match4,xxx_new_species_symbol))
+    dplyr::select(-c(xxx_need_clean,xxx_is_match,xxx_is_match4,xxx_new_species_symbol))
 
 }
 # update the reference tree list
@@ -4678,13 +4721,13 @@ confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
 )
 ```
 
-let's check out the confusion matrix at the *species* level
+let's check out the confusion matrix at the **species** level
 
 ```{r, results='asis'}
 confusion_matrix_species_temp$kbl_html_table
 ```
 
-and the confusion matrix at the *genus* level
+and the confusion matrix at the **genus** level
 
 ```{r, results='asis'}
 confusion_matrix_genus_temp$kbl_html_table
@@ -4819,6 +4862,7 @@ similarity_tree_class_fn <- function(
   kbl_html_table_temp <-
     kbl_df_temp %>% 
     dplyr::mutate(diff_pct = pred_pct-ref_pct) %>% 
+    dplyr::arrange(desc(ref_pct),desc(pred_pct)) %>% 
     dplyr::mutate(
       # # one column for diff/pct
       diff_pct = scales::percent(diff_pct,accuracy=0.1)
@@ -4946,27 +4990,27 @@ similarity_tree_genus_temp <- similarity_tree_class_fn(
 
 ```
 
-let's check out the proportional comparisons at the *species* level
+let's check out the proportional comparisons at the **species** level
 
 ```{r, results='asis'}
 similarity_tree_species_temp$kbl_html_comp_table
 # similarity_tree_species_temp$species_comp_df %>% dplyr::glimpse()
 ```
 
-also, the site-wide *species* compositional accuracy metrics
+also, the site-wide **species** compositional accuracy metrics
 
 ```{r}
 similarity_tree_species_temp$kbl_html_sim_table
 ```
 
-let's check out the proportional comparisons at the *genus* level
+let's check out the proportional comparisons at the **genus** level
 
 ```{r, results='asis'}
 similarity_tree_genus_temp$kbl_html_comp_table
 # similarity_tree_genus_temp$genus_comp_df %>% dplyr::glimpse()
 ```
 
-also, the site-wide *genus* compositional accuracy metrics
+also, the site-wide **genus** compositional accuracy metrics
 
 ```{r}
 similarity_tree_genus_temp$kbl_html_sim_table

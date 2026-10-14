@@ -1198,13 +1198,13 @@ confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
 )
 ```
 
-let's check out the confusion matrix at the *species* level
+let's check out the confusion matrix at the **species** level
 
 ```{r, results='asis'}
 confusion_matrix_species_temp$kbl_html_table
 ```
 
-and the confusion matrix at the *genus* level
+and the confusion matrix at the **genus** level
 
 ```{r, results='asis'}
 confusion_matrix_genus_temp$kbl_html_table
@@ -1229,27 +1229,27 @@ similarity_tree_genus_temp <- similarity_tree_class_fn(
 
 ```
 
-let's check out the proportional comparisons at the *species* level
+let's check out the proportional comparisons at the **species** level
 
 ```{r, results='asis'}
 similarity_tree_species_temp$kbl_html_comp_table
 # similarity_tree_species_temp$species_comp_df %>% dplyr::glimpse()
 ```
 
-also, the site-wide *species* compositional accuracy metrics
+also, the site-wide **species** compositional accuracy metrics
 
 ```{r}
 similarity_tree_species_temp$kbl_html_sim_table
 ```
 
-let's check out the proportional comparisons at the *genus* level
+let's check out the proportional comparisons at the **genus** level
 
 ```{r, results='asis'}
 similarity_tree_genus_temp$kbl_html_comp_table
 # similarity_tree_genus_temp$genus_comp_df %>% dplyr::glimpse()
 ```
 
-also, the site-wide *genus* compositional accuracy metrics
+also, the site-wide **genus** compositional accuracy metrics
 
 ```{r}
 similarity_tree_genus_temp$kbl_html_sim_table

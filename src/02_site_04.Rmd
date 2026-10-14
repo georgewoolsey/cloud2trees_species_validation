@@ -431,11 +431,11 @@ save only that most recent data per plot to our reference list
 ```{r}
 # save to reference list
 # add to the ref trees list
-nm_temp <- project_data_df %>% 
+this_data_site_nm <- project_data_df %>% 
   dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(data_site_nm)
-ref_plots_list[[nm_temp]] <- usfs_penobscotef_plots
-ref_trees_list[[nm_temp]] <- usfs_penobscotef_trees %>% 
+ref_plots_list[[this_data_site_nm]] <- usfs_penobscotef_plots
+ref_trees_list[[this_data_site_nm]] <- usfs_penobscotef_trees %>% 
   dplyr::inner_join(
     usfs_penobscotef_trees %>% 
       sf::st_drop_geometry() %>% 
@@ -592,7 +592,7 @@ agg_chm_rast_temp <- agg_chm_rast_fn(
 nm_temp <- project_data_df %>% 
   dplyr::filter(tolower(data_site_nm)=="usfs_penobscotef") %>% 
   dplyr::pull(data_site_nm)
-chm_list[[nm_temp]] <- agg_chm_rast_temp
+chm_list[[this_data_site_nm]] <- agg_chm_rast_temp
 # chm_list
 ```
 
@@ -600,7 +600,7 @@ let's check out the CHM
 
 ```{r}
 # plot to check out the fine-resolution CHM raster
-chm_list$USFS_PenobscotEF %>% 
+chm_list[[this_data_site_nm]] %>% 
   terra::plot(
     col = viridis::plasma(n=100)
     , axes=F
@@ -616,9 +616,9 @@ chm_list$USFS_PenobscotEF %>%
 and convert the reference trees and plot data to the point cloud data projection
 
 ```{r}
-ref_plots_list$USFS_PenobscotEF <- ref_plots_list$USFS_PenobscotEF %>% sf::st_transform(terra::crs(chm_list$USFS_PenobscotEF))
-ref_trees_list$USFS_PenobscotEF <- ref_trees_list$USFS_PenobscotEF %>% 
-  sf::st_transform(terra::crs(chm_list$USFS_PenobscotEF)) %>% 
+ref_plots_list[[this_data_site_nm]] <- ref_plots_list[[this_data_site_nm]] %>% sf::st_transform(terra::crs(chm_list[[this_data_site_nm]]))
+ref_trees_list[[this_data_site_nm]] <- ref_trees_list[[this_data_site_nm]] %>% 
+  sf::st_transform(terra::crs(chm_list[[this_data_site_nm]])) %>% 
   dplyr::mutate(
     tree_x = sf::st_coordinates(geometry)[,1] #lon
     , tree_y = sf::st_coordinates(geometry)[,2] #lat
@@ -655,14 +655,14 @@ project_data_df <- project_data_df %>%
 
 if(!file.exists(fnm_temp)){
   usfs_penobscotef_ws_pred_trees <-
-    1:nrow(ref_plots_list$USFS_PenobscotEF) %>%
+    1:nrow(ref_plots_list[[this_data_site_nm]]) %>%
     purrr::map(
       \(rn)
       ws_testtest_fn(
-        chm = chm_list$USFS_PenobscotEF
+        chm = chm_list[[this_data_site_nm]]
         , buffer = 6 # since we only have one plot we're just going to go for it
         , plot_sf =
-          ref_plots_list$USFS_PenobscotEF %>%
+          ref_plots_list[[this_data_site_nm]] %>%
           dplyr::ungroup() %>%
           dplyr::slice(rn) %>%
           sf::st_union()
@@ -676,7 +676,7 @@ if(!file.exists(fnm_temp)){
   usfs_penobscotef_ws_pred_trees <- 
     usfs_penobscotef_ws_pred_trees %>% 
     dplyr::left_join(
-      ref_plots_list$USFS_PenobscotEF %>% 
+      ref_plots_list[[this_data_site_nm]] %>% 
         dplyr::mutate(plot_dta_idx=dplyr::row_number()) %>% 
         sf::st_drop_geometry() %>% 
         dplyr::select(plot_dta_idx,plot_id)
@@ -755,7 +755,7 @@ let's check out one example field plot and a few different window function tree 
 
 ```{r, fig.height=10}
 # plot
-p_temp <- ref_plots_list$USFS_PenobscotEF %>% dplyr::slice(1)
+p_temp <- ref_plots_list[[this_data_site_nm]] %>% dplyr::slice(1)
 
 if(as.numeric(sf::st_area(p_temp))>2000){
   p_temp <- p_temp %>% 
@@ -779,7 +779,7 @@ t_temp <-
       dplyr::select(ws_fn_nm)
     , by = "ws_fn_nm"
   )
-chm_temp <- chm_list$USFS_PenobscotEF %>% 
+chm_temp <- chm_list[[this_data_site_nm]] %>% 
   terra::crop(
     t_temp %>% 
       sf::st_union() %>% 
@@ -854,8 +854,8 @@ fnm_temp <- file.path(c2t_process_dir_temp,"ws_instance_match.csv")
 if(!file.exists(fnm_temp)){
   usfs_penobscotef_ws_instance_match <- 
     plot_iter_instance_match_fn(
-      ref_plots = ref_plots_list$USFS_PenobscotEF
-      , ref_pts = ref_trees_list$USFS_PenobscotEF
+      ref_plots = ref_plots_list[[this_data_site_nm]]
+      , ref_pts = ref_trees_list[[this_data_site_nm]]
       , pred_polys = usfs_penobscotef_ws_pred_trees
       , min_ht_m = NA
       , min_dbh_cm = 4.5/0.394 # measured trees >= 4.5 in
@@ -1074,15 +1074,15 @@ if(!file.exists(fnm_temp)){
     dplyr::pull(best_ws_fn_nm)
   
   pred_trees_temp <- 
-    1:nrow(ref_plots_list[[nm_temp]]) %>% 
+    1:nrow(ref_plots_list[[this_data_site_nm]]) %>% 
     # .[1:3] %>% 
     purrr::map(
       \(x)
       ws_testtest_fn(
-        chm = chm_list[[nm_temp]]
+        chm = chm_list[[this_data_site_nm]]
         , buffer = (competition_radius_m+3) # !!!!! this is being increased significantly to get relative height + 3 for 6 m crown width buffer
         , plot_sf = 
-          ref_plots_list[[nm_temp]] %>% 
+          ref_plots_list[[this_data_site_nm]] %>% 
           dplyr::ungroup() %>% 
           dplyr::slice(x) %>%
           sf::st_union()
@@ -1097,7 +1097,7 @@ if(!file.exists(fnm_temp)){
   pred_trees_temp <- 
     pred_trees_temp %>% 
     dplyr::left_join(
-      ref_plots_list[[nm_temp]] %>% 
+      ref_plots_list[[this_data_site_nm]] %>% 
         dplyr::mutate(plot_dta_idx=dplyr::row_number()) %>% 
         sf::st_drop_geometry() %>% 
         dplyr::select(plot_dta_idx,plot_id)
@@ -1179,8 +1179,8 @@ if(!file.exists(fnm_temp)){
 
 im_temp <- 
   plot_iter_instance_match_fn(
-    ref_plots = ref_plots_list[[nm_temp]]
-    , ref_pts = ref_trees_list[[nm_temp]]
+    ref_plots = ref_plots_list[[this_data_site_nm]]
+    , ref_pts = ref_trees_list[[this_data_site_nm]]
     , pred_polys = pred_trees_temp
     , min_ht_m = NA
     , min_dbh_cm = 10
@@ -1189,7 +1189,7 @@ im_temp <-
 # im_temp %>% dplyr::glimpse()
 
 # add to the ref trees list
-pred_ref_tree_match_list[[nm_temp]] <- im_temp
+pred_ref_tree_match_list[[this_data_site_nm]] <- im_temp
 
 ###############################################################################################
 ###############################################################################################
@@ -1198,7 +1198,7 @@ pred_ref_tree_match_list[[nm_temp]] <- im_temp
 ###############################################################################################
 # let's also save the plot-level ITD predictions for this ws
 
-pred_trees_list[[nm_temp]] <-
+pred_trees_list[[this_data_site_nm]] <-
   pred_trees_temp %>% 
   # which ws
   dplyr::filter(
@@ -1212,7 +1212,7 @@ pred_trees_list[[nm_temp]] <-
     # which included thresholds used for measuring field trees 
     # and plot spatial alignment
   dplyr::inner_join(
-    pred_ref_tree_match_list[[nm_temp]] %>% 
+    pred_ref_tree_match_list[[this_data_site_nm]] %>% 
       dplyr::select(plot_id,ws_fn_nm,pred_treeID) %>% 
       dplyr::filter(!is.na(pred_treeID)) %>% 
       dplyr::rename(treeID=pred_treeID)
@@ -1249,7 +1249,7 @@ load in the TreeMap data and clip to our trees as in `cloud2trees::trees_dbh()`
 ```{r}
 # test to get the treemap data for our aoi
 treemap_data_loader_ans <-
-  pred_trees_list$USFS_PenobscotEF %>% 
+  pred_trees_list[[this_data_site_nm]] %>% 
   dplyr::ungroup() %>% 
   sf::st_union() %>% 
   sf::st_bbox() %>% 
@@ -1424,15 +1424,15 @@ let's estimate the RF using data subsampling and model averaging for a computati
 
 ```{r}
 # do it with our data
-pred_trees_list$USFS_PenobscotEF <- 
+pred_trees_list[[this_data_site_nm]] <- 
   get_species_symbol_predictions(
     treemap_data_loader_ans = treemap_data_loader_ans
-    , predict_df = pred_trees_list$USFS_PenobscotEF
+    , predict_df = pred_trees_list[[this_data_site_nm]]
   ) %>% 
   # for this project we'll just rename to maintain consistent across data sources
   dplyr::rename(species_symbol=predicted_species_symbol)
 
-# pred_trees_list$USFS_PenobscotEF %>%
+# pred_trees_list[[this_data_site_nm]] %>%
 #   sf::st_drop_geometry() %>%
 #   dplyr::count(species_symbol) %>%
 #   dplyr::arrange(desc(n)) %>%
@@ -1442,9 +1442,9 @@ pred_trees_list$USFS_PenobscotEF <-
 let's check out the distribution of the predicted species
 
 ```{r}
-pred_trees_list$USFS_PenobscotEF %>%
+pred_trees_list[[this_data_site_nm]] %>%
   dplyr::inner_join(
-    ref_plots_list$USFS_PenobscotEF %>% 
+    ref_plots_list[[this_data_site_nm]] %>% 
       # dplyr::slice(1) %>% 
       sf::st_drop_geometry() %>% 
       dplyr::select(plot_id)
@@ -1507,8 +1507,8 @@ make sure the reference species data is clean
 
 ```{r}
 # update the reference tree list
-ref_trees_list$USFS_PenobscotEF <- 
-  ref_trees_list$USFS_PenobscotEF %>% 
+ref_trees_list[[this_data_site_nm]] <- 
+  ref_trees_list[[this_data_site_nm]] %>% 
   clean_ref_species_fn(
     my_treemap_data_loader_ans = treemap_data_loader_ans
   )
@@ -1517,7 +1517,7 @@ ref_trees_list$USFS_PenobscotEF <-
 what is the distribution of the cleaned reference field data species?
 
 ```{r}
-ref_trees_list$USFS_PenobscotEF %>% 
+ref_trees_list[[this_data_site_nm]] %>% 
   sf::st_drop_geometry() %>% 
   dplyr::count(species_symbol) %>% 
   dplyr::arrange(desc(n))
@@ -1545,26 +1545,26 @@ let's make a function to get the confusion matrix and those accuracy metrics
 ```{r}
 # test that
 confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$USFS_PenobscotEF
-  , pred_trees = pred_trees_list$USFS_PenobscotEF
-  , ref_trees = ref_trees_list$USFS_PenobscotEF
+  pred_ref_match = pred_ref_tree_match_list[[this_data_site_nm]]
+  , pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
   , use_genus = F
 )
 confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$USFS_PenobscotEF
-  , pred_trees = pred_trees_list$USFS_PenobscotEF
-  , ref_trees = ref_trees_list$USFS_PenobscotEF
+  pred_ref_match = pred_ref_tree_match_list[[this_data_site_nm]]
+  , pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
   , use_genus = T
 )
 ```
 
-let's check out the confusion matrix at the *species* level
+let's check out the confusion matrix at the **species** level
 
 ```{r, results='asis'}
 confusion_matrix_species_temp$kbl_html_table
 ```
 
-and the confusion matrix at the *genus* level
+and the confusion matrix at the **genus** level
 
 ```{r, results='asis'}
 confusion_matrix_genus_temp$kbl_html_table
@@ -1577,39 +1577,39 @@ we shift away from individual item matching and use the Bray-Curtis Dissimilarit
 ```{r}
 # test that
 similarity_tree_species_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$USFS_PenobscotEF
-  , ref_trees = ref_trees_list$USFS_PenobscotEF
+  pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
   , use_genus = F
 )
 similarity_tree_genus_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$USFS_PenobscotEF
-  , ref_trees = ref_trees_list$USFS_PenobscotEF
+  pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
   , use_genus = T
 )
 
 ```
 
-let's check out the proportional comparisons at the *species* level
+let's check out the proportional comparisons at the **species** level
 
 ```{r, results='asis'}
 similarity_tree_species_temp$kbl_html_comp_table
 # similarity_tree_species_temp$species_comp_df %>% dplyr::glimpse()
 ```
 
-also, the site-wide *species* compositional accuracy metrics
+also, the site-wide **species** compositional accuracy metrics
 
 ```{r}
 similarity_tree_species_temp$kbl_html_sim_table
 ```
 
-let's check out the proportional comparisons at the *genus* level
+let's check out the proportional comparisons at the **genus** level
 
 ```{r, results='asis'}
 similarity_tree_genus_temp$kbl_html_comp_table
 # similarity_tree_genus_temp$genus_comp_df %>% dplyr::glimpse()
 ```
 
-also, the site-wide *genus* compositional accuracy metrics
+also, the site-wide **genus** compositional accuracy metrics
 
 ```{r}
 similarity_tree_genus_temp$kbl_html_sim_table
@@ -1712,6 +1712,7 @@ similarity_tree_species_temp$species_comp_df %>%
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
+remove(this_data_site_nm)
 gc()
 ```
 
