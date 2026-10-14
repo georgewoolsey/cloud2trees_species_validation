@@ -485,6 +485,9 @@ get_ptcld_density_chm_res_fn <- function(las_ctg, rast_res_buffer = 0.01, min_ch
   ){stop("can't find `data` layer in `LAScatalog` read with `lidR::readLAScatalog()`")}
   if(!inherits(las_ctg@data, "sf")){stop("non-sf `data` from `LAScatalog` read with `lidR::readLAScatalog()`")}
   
+  ### some point clouds are corrupt
+  las_ctg <- cloud2trees:::check_las_ctg_empty(las_ctg)
+  
   # some point clouds have tiles with lots of overlap
   # some point clouds have tiles with no overlap
   

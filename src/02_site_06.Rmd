@@ -333,7 +333,7 @@ chm_list[[this_data_site_nm]] %>%
   )
 ```
 
-what if we filter the CHM to height values >= 2 m?
+what if we filter the CHM to height values >= 2 m and add the plot boundaries?
 
 ```{r}
 # plot to check out the fine-resolution CHM raster
@@ -350,6 +350,10 @@ chm_list[[this_data_site_nm]] %>%
       , shrink = 0.6 
     )
   )
+ref_plots_list[[this_data_site_nm]] %>% 
+  sf::st_transform(terra::crs(chm_list[[this_data_site_nm]])) %>% 
+  terra::vect() %>% 
+  terra::plot(add=T, col = NA, border = "cyan")
 ```
 
 and convert the reference trees and plot data to the point cloud data projection
