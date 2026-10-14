@@ -37,7 +37,7 @@ To train the predictive model, trees from the selected FIA lists are assigned to
 
 ## Validation Data and Accuracy Evaluation
 
-To test this propsed species classification method, we compiled a collection of validation datasets across diverse forest conditions for this specific analysis project. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.
+To test this proposed species classification method, we compiled a collection of validation datasets across diverse forest conditions for this specific analysis project. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.
 
 We'll evaluate the species classification method using two approaches:
 
@@ -47,7 +47,7 @@ This approach evaluates classification accuracy at the individual tree level. It
 
 The confusion matrix will allow us to calculate class-specific performance metrics, including producer's accuracy (omission error) and user's accuracy (commission error) and overall accuracy.
 
-2. **Stand-Wide Compositional Accuracy**
+2. **Site-Wide Compositional Accuracy**
 
 Instead of evaluating trees one by one, this accuracy evaluation aggregates the species counts or proportions across an entire plot or forest stand. It then calculates the Bray-Curtis dissimilarity index to compare the predicted species composition against the observed field composition. The index returns a value between 0 and 1, where 0 indicates identical species compositions and 1 indicates completely non-overlapping communities. Because Bray-Curtis is a dissimilarity measure, it can be interpreted as: 
 

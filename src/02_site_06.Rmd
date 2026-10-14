@@ -1434,7 +1434,7 @@ also, the site-wide **genus** compositional accuracy metrics
 similarity_tree_genus_temp$kbl_html_sim_table
 ```
 
-plot the proportion of total by *species*
+plot the proportion of total by **species**
 
 ```{r}
 similarity_tree_species_temp$species_comp_df %>% 
@@ -1480,7 +1480,7 @@ similarity_tree_species_temp$species_comp_df %>%
   ggplot2::theme(legend.position = "top")
 ```
 
-plot the proportion of total by *genus*
+plot the proportion of total by **genus**
 
 ```{r}
 similarity_tree_species_temp$species_comp_df %>% 
@@ -1529,9 +1529,56 @@ similarity_tree_species_temp$species_comp_df %>%
   ggplot2::theme(legend.position = "top")
 ```
 
+lastly, we'll update our tracking data to include these accuracy metrics
+
+```{r}
+project_data_df <-
+  project_data_df %>% 
+  ## site level: species
+  ### for the other times, just dplyr::rows_patch...
+  dplyr::rows_patch(
+    similarity_tree_species_temp$sim_table_df %>% 
+      # reshape
+      dplyr::mutate(
+        metric_nm = dplyr::recode_values(
+          metric
+          , "Bray-Curtis Dissimilarity Index" ~ "bc_dissimilarity"
+          , "Bray-Curtis Similarity" ~ "bc_similarity"
+          , "Proportional RMSE" ~ "prop_rmse"
+        )
+      ) %>% 
+      dplyr::select(metric_nm,value) %>% 
+      tidyr::pivot_wider(names_from = metric_nm, values_from = value) %>% 
+      dplyr::rename_with(.fn = ~paste0("acc_site_species_",.x,recycle0 = T)) %>% 
+      dplyr::mutate(data_site_nm=this_data_site_nm)
+    , by = "data_site_nm"
+  ) %>% 
+  ## site level: genus
+  ### for the other times, just dplyr::rows_patch...
+  dplyr::rows_patch(
+    similarity_tree_genus_temp$sim_table_df %>% 
+      # reshape
+      dplyr::mutate(
+        metric_nm = dplyr::recode_values(
+          metric
+          , "Bray-Curtis Dissimilarity Index" ~ "bc_dissimilarity"
+          , "Bray-Curtis Similarity" ~ "bc_similarity"
+          , "Proportional RMSE" ~ "prop_rmse"
+        )
+      ) %>% 
+      dplyr::select(metric_nm,value) %>% 
+      tidyr::pivot_wider(names_from = metric_nm, values_from = value) %>% 
+      dplyr::rename_with(.fn = ~paste0("acc_site_genus_",.x,recycle0 = T)) %>% 
+      dplyr::mutate(data_site_nm=this_data_site_nm)
+    , by = "data_site_nm"
+  )
+
+# project_data_df %>% dplyr::glimpse()
+```
+
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
-remove(this_data_site_nm)
+remove(this_data_site_nm,this_min_dbh_cm,this_min_ht_m)
 gc()
 ```
 

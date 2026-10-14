@@ -66,6 +66,7 @@ gc()
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
+remove(this_data_site_nm,this_min_dbh_cm,this_min_ht_m)
 gc()
 ```
 
@@ -275,10 +276,10 @@ wfsi_eglinafb_plots <- wfsi_eglinafb_plots %>%
 
 # save to reference list
 # add to the ref trees list
-nm_temp <- project_data_df %>% 
+this_data_site_nm <- project_data_df %>% 
   dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
   dplyr::pull(data_site_nm)
-ref_plots_list[[nm_temp]] <- wfsi_eglinafb_plots
+ref_plots_list[[this_data_site_nm]] <- wfsi_eglinafb_plots
 # ref_plots_list
 
 ```
@@ -372,10 +373,7 @@ wfsi_eglinafb_trees <-
 
 # save to reference list
 # add to the ref trees list
-nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
-  dplyr::pull(data_site_nm)
-ref_trees_list[[nm_temp]] <- wfsi_eglinafb_trees
+ref_trees_list[[this_data_site_nm]] <- wfsi_eglinafb_trees
 # ref_trees_list 
 
 # are there any out?
@@ -664,10 +662,7 @@ agg_chm_rast_temp <- agg_chm_rast_fn(
 # agg_chm_rast_temp %>% terra::clamp(lower = 1.37, values = F) %>% terra::plot()
 
 # add to the chm list
-nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
-  dplyr::pull(data_site_nm)
-chm_list[[nm_temp]] <- agg_chm_rast_temp
+chm_list[[this_data_site_nm]] <- agg_chm_rast_temp
 # chm_list
 ```
 
@@ -1089,7 +1084,7 @@ if(!file.exists(fnm_temp)){
     purrr::map(
       \(rn)
       ws_testtest_fn(
-        chm = chm_list$WFSI_EglinAFB
+        chm = chm_list[[this_data_site_nm]]
         , buffer = 5.5
         , plot_sf = 
           wfsi_eglinafb_plots %>% 
@@ -1192,7 +1187,7 @@ t_temp <-
       dplyr::select(ws_fn_nm)
     , by = "ws_fn_nm"
   )
-chm_temp <- chm_list[["WFSI_EglinAFB"]] %>% 
+chm_temp <- chm_list[[this_data_site_nm]] %>% 
   terra::crop(
     t_temp %>% 
       sf::st_union() %>% 
@@ -2428,8 +2423,8 @@ fnm_temp <- file.path(c2t_process_dir_temp,"ws_instance_match.csv")
 if(!file.exists(fnm_temp)){
   wfsi_eglinafb_ws_instance_match <- 
     plot_iter_instance_match_fn(
-      ref_plots = ref_plots_list[["WFSI_EglinAFB"]]
-      , ref_pts = ref_trees_list[["WFSI_EglinAFB"]]
+      ref_plots = ref_plots_list[[this_data_site_nm]]
+      , ref_pts = ref_trees_list[[this_data_site_nm]]
       , pred_polys = wfsi_eglinafb_ws_pred_trees
       , min_ht_m = NA
       , min_dbh_cm = 10
@@ -2896,7 +2891,7 @@ if(!file.exists(fnm_temp)){
     purrr::map(
       \(x)
       ws_testtest_fn(
-        chm = chm_list$WFSI_EglinAFB
+        chm = chm_list[[this_data_site_nm]]
         , buffer = (competition_radius_m+3) # !!!!! this is being increased significantly to get relative height + 3 for 6 m crown width buffer
         , plot_sf = 
           wfsi_eglinafb_plots %>% 
@@ -2996,8 +2991,8 @@ if(!file.exists(fnm_temp)){
 
 im_temp <- 
   plot_iter_instance_match_fn(
-    ref_plots = ref_plots_list[["WFSI_EglinAFB"]]
-    , ref_pts = ref_trees_list[["WFSI_EglinAFB"]]
+    ref_plots = ref_plots_list[[this_data_site_nm]]
+    , ref_pts = ref_trees_list[[this_data_site_nm]]
     , pred_polys = pred_trees_temp
     , min_ht_m = NA
     , min_dbh_cm = 10
@@ -3006,10 +3001,7 @@ im_temp <-
 # im_temp %>% dplyr::glimpse()
 
 # add to the ref trees list
-nm_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="wfsi_eglinafb") %>% 
-  dplyr::pull(data_site_nm)
-pred_ref_tree_match_list[[nm_temp]] <- im_temp
+pred_ref_tree_match_list[[this_data_site_nm]] <- im_temp
 
 ###############################################################################################
 ###############################################################################################
@@ -3018,7 +3010,7 @@ pred_ref_tree_match_list[[nm_temp]] <- im_temp
 ###############################################################################################
 # let's also save the plot-level ITD predictions for this ws
 
-pred_trees_list[[nm_temp]] <-
+pred_trees_list[[this_data_site_nm]] <-
   pred_trees_temp %>% 
   # which ws
   dplyr::filter(
@@ -3032,7 +3024,7 @@ pred_trees_list[[nm_temp]] <-
     # which included thresholds used for measuring field trees 
     # and plot spatial alignment
   dplyr::inner_join(
-    pred_ref_tree_match_list[[nm_temp]] %>% 
+    pred_ref_tree_match_list[[this_data_site_nm]] %>% 
       dplyr::select(plot_id,ws_fn_nm,pred_treeID) %>% 
       dplyr::filter(!is.na(pred_treeID)) %>% 
       dplyr::rename(treeID=pred_treeID)
@@ -3431,7 +3423,7 @@ We did a few things in that function to return:
 ```{r}
 # test to get the treemap data for our aoi
 treemap_data_loader_ans <-
-  pred_trees_list$WFSI_EglinAFB %>% 
+  pred_trees_list[[this_data_site_nm]] %>% 
   dplyr::ungroup() %>% 
   sf::st_union() %>% 
   sf::st_bbox() %>% 
@@ -4014,15 +4006,15 @@ get_species_symbol_predictions <- name <- function(treemap_data_loader_ans, pred
 }
 
 # do it with our data
-pred_trees_list$WFSI_EglinAFB <- 
+pred_trees_list[[this_data_site_nm]] <- 
   get_species_symbol_predictions(
     treemap_data_loader_ans = treemap_data_loader_ans
-    , predict_df = pred_trees_list$WFSI_EglinAFB
+    , predict_df = pred_trees_list[[this_data_site_nm]]
   ) %>% 
   # for this project we'll just rename to maintain consistent across data sources
   dplyr::rename(species_symbol=predicted_species_symbol)
 
-# pred_trees_list$WFSI_EglinAFB %>%
+# pred_trees_list[[this_data_site_nm]] %>%
 #   sf::st_drop_geometry() %>%
 #   dplyr::count(species_symbol) %>%
 #   dplyr::arrange(desc(n)) %>%
@@ -4032,9 +4024,9 @@ pred_trees_list$WFSI_EglinAFB <-
 let's map predicted crowns in space colored by species for a single plot while also showing the field validation data species and the true positive matches (squares)
 
 ```{r, fig.height = 9.8, fig.width = 6.5}
-pred_trees_list$WFSI_EglinAFB %>%
+pred_trees_list[[this_data_site_nm]] %>%
   dplyr::inner_join(
-    ref_plots_list$WFSI_EglinAFB %>% 
+    ref_plots_list[[this_data_site_nm]] %>% 
       dplyr::slice(4) %>% 
       sf::st_drop_geometry() %>% 
       dplyr::select(plot_id)
@@ -4045,7 +4037,7 @@ pred_trees_list$WFSI_EglinAFB %>%
   # plt
   ggplot2::ggplot() +
     ggplot2::geom_sf(
-      data = ref_plots_list$WFSI_EglinAFB %>% dplyr::slice(4)
+      data = ref_plots_list[[this_data_site_nm]] %>% dplyr::slice(4)
       , fill = NA, color = "blue"
     ) +
     ggplot2::geom_sf(
@@ -4054,16 +4046,16 @@ pred_trees_list$WFSI_EglinAFB %>%
     ) +
     ggplot2::geom_sf(
       data = 
-        ref_trees_list$WFSI_EglinAFB %>%
+        ref_trees_list[[this_data_site_nm]] %>%
         dplyr::inner_join(
-          ref_plots_list$WFSI_EglinAFB %>% 
+          ref_plots_list[[this_data_site_nm]] %>% 
             dplyr::slice(4) %>% 
             sf::st_drop_geometry() %>% 
             dplyr::select(plot_id)
           , by = "plot_id"
         ) %>% 
         dplyr::inner_join(
-          pred_ref_tree_match_list$WFSI_EglinAFB %>% 
+          pred_ref_tree_match_list[[this_data_site_nm]] %>% 
             dplyr::filter(match_grp=="true positive") %>% 
             dplyr::select(ref_treeID)
           , by = dplyr::join_by(treeID==ref_treeID)
@@ -4072,9 +4064,9 @@ pred_trees_list$WFSI_EglinAFB %>%
     ) +
     ggplot2::geom_sf(
       data = 
-        ref_trees_list$WFSI_EglinAFB %>%
+        ref_trees_list[[this_data_site_nm]] %>%
         dplyr::inner_join(
-          ref_plots_list$WFSI_EglinAFB %>% 
+          ref_plots_list[[this_data_site_nm]] %>% 
             dplyr::slice(4) %>% 
             sf::st_drop_geometry() %>% 
             dplyr::select(plot_id)
@@ -4255,8 +4247,8 @@ clean_ref_species_fn <- function(
 
 }
 # update the reference tree list
-ref_trees_list$WFSI_EglinAFB <- 
-  ref_trees_list$WFSI_EglinAFB %>% 
+ref_trees_list[[this_data_site_nm]] <- 
+  ref_trees_list[[this_data_site_nm]] %>% 
   clean_ref_species_fn(
     my_treemap_data_loader_ans = treemap_data_loader_ans
   )
@@ -4265,7 +4257,7 @@ ref_trees_list$WFSI_EglinAFB <-
 what is the distribution of the cleaned reference field data species?
 
 ```{r}
-ref_trees_list$WFSI_EglinAFB %>% 
+ref_trees_list[[this_data_site_nm]] %>% 
   sf::st_drop_geometry() %>% 
   dplyr::count(species_symbol)
 ```
@@ -4273,7 +4265,7 @@ ref_trees_list$WFSI_EglinAFB %>%
 eh. there is one genus only observation and many "HDWD" observations (which i assume is "hard wood"). let's just use the most common of the same genus
 
 ```{r}
-ref_trees_list$WFSI_EglinAFB <- ref_trees_list$WFSI_EglinAFB %>% 
+ref_trees_list[[this_data_site_nm]] <- ref_trees_list[[this_data_site_nm]] %>% 
   dplyr::mutate(
     species_symbol = dplyr::case_when(
       species_symbol %in% c("QU","HDWD") ~ "QULA2"
@@ -4711,15 +4703,15 @@ confusion_matrix_tree_class_fn <- function(pred_ref_match, pred_trees, ref_trees
 
 # test that
 confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$WFSI_EglinAFB
-  , pred_trees = pred_trees_list$WFSI_EglinAFB
-  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  pred_ref_match = pred_ref_tree_match_list[[this_data_site_nm]]
+  , pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
   , use_genus = F
 )
 confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
-  pred_ref_match = pred_ref_tree_match_list$WFSI_EglinAFB
-  , pred_trees = pred_trees_list$WFSI_EglinAFB
-  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  pred_ref_match = pred_ref_tree_match_list[[this_data_site_nm]]
+  , pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
   , use_genus = T
 )
 ```
@@ -4981,13 +4973,13 @@ similarity_tree_class_fn <- function(
 
 # test that
 similarity_tree_species_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$WFSI_EglinAFB
-  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
   , use_genus = F
 )
 similarity_tree_genus_temp <- similarity_tree_class_fn(
-  pred_trees = pred_trees_list$WFSI_EglinAFB
-  , ref_trees = ref_trees_list$WFSI_EglinAFB
+  pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
   , use_genus = T
 )
 
@@ -5019,7 +5011,7 @@ also, the site-wide **genus** compositional accuracy metrics
 similarity_tree_genus_temp$kbl_html_sim_table
 ```
 
-plot the proportion of total by *species*
+plot the proportion of total by **species**
 
 ```{r}
 similarity_tree_species_temp$species_comp_df %>% 
@@ -5065,7 +5057,7 @@ similarity_tree_species_temp$species_comp_df %>%
   ggplot2::theme(legend.position = "top")
 ```
 
-plot the proportion of total by *genus*
+plot the proportion of total by **genus**
 
 ```{r}
 similarity_tree_species_temp$species_comp_df %>% 
@@ -5113,6 +5105,68 @@ similarity_tree_species_temp$species_comp_df %>%
   ggplot2::theme_light() +
   ggplot2::theme(legend.position = "top")
 ```
+
+lastly, we'll update our tracking data to include these accuracy metrics
+
+```{r}
+project_data_df <-
+  project_data_df %>% 
+  dplyr::mutate(
+    ## tree level
+    acc_tree_species_overall = ifelse(
+      data_site_nm==this_data_site_nm
+      , confusion_matrix_species_temp$overall_accuracy
+      , as.numeric(NA)
+    )
+    , acc_tree_genus_overall = ifelse(
+      data_site_nm==this_data_site_nm
+      , confusion_matrix_genus_temp$overall_accuracy
+      , as.numeric(NA)
+    )
+  ) %>% 
+  ## site level: species
+  ### for the first time, just join...
+  dplyr::left_join(
+    similarity_tree_species_temp$sim_table_df %>% 
+      # reshape
+      dplyr::mutate(
+        metric_nm = dplyr::recode_values(
+          metric
+          , "Bray-Curtis Dissimilarity Index" ~ "bc_dissimilarity"
+          , "Bray-Curtis Similarity" ~ "bc_similarity"
+          , "Proportional RMSE" ~ "prop_rmse"
+        )
+      ) %>% 
+      dplyr::select(metric_nm,value) %>% 
+      tidyr::pivot_wider(names_from = metric_nm, values_from = value) %>% 
+      dplyr::rename_with(.fn = ~paste0("acc_site_species_",.x,recycle0 = T)) %>% 
+      dplyr::mutate(data_site_nm=this_data_site_nm)
+    , by = "data_site_nm"
+  ) %>% 
+  ## site level: genus
+  ### for the first time, just join...
+  dplyr::left_join(
+    similarity_tree_genus_temp$sim_table_df %>% 
+      # reshape
+      dplyr::mutate(
+        metric_nm = dplyr::recode_values(
+          metric
+          , "Bray-Curtis Dissimilarity Index" ~ "bc_dissimilarity"
+          , "Bray-Curtis Similarity" ~ "bc_similarity"
+          , "Proportional RMSE" ~ "prop_rmse"
+        )
+      ) %>% 
+      dplyr::select(metric_nm,value) %>% 
+      tidyr::pivot_wider(names_from = metric_nm, values_from = value) %>% 
+      dplyr::rename_with(.fn = ~paste0("acc_site_genus_",.x,recycle0 = T)) %>% 
+      dplyr::mutate(data_site_nm=this_data_site_nm)
+    , by = "data_site_nm"
+  )
+
+# project_data_df %>% dplyr::glimpse()
+
+```
+
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])

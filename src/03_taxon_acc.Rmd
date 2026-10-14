@@ -1,0 +1,43 @@
+# Taxonomic Classification Accuracy Summary{#taxon_acc}
+
+Now that we have completed the analysis and processing of the proposed species classification method for our collection of validation datasets, let's summarize the achieved accuracy in one place.
+
+As a reminder, here is what we did:
+
+We compiled a collection of validation datasets across diverse forest conditions. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.
+
+We evaluated our proposed species classification method using two approaches:
+
+1. **Individual Tree-Level Accuracy**
+
+This approach evaluates classification accuracy at the individual tree level. It maps every predicted tree species against the reference field-measured tree using a classical confusion matrix cross-tabulation. Given that our analysis is focused on evaluating the proposed taxonomic classification algorithm (rather than the individual tree detection method), we'll evaluate the taxonomic classification accuracy conditionally for successfully detected tree crowns (true positive matches). This conditional evaluation will allow us to isolate taxonomic classification performance from tree detection errors.
+
+The confusion matrix will allow us to calculate class-specific performance metrics, including producer's accuracy (omission error) and user's accuracy (commission error) and overall accuracy.
+
+2. **Site-Wide Compositional Accuracy**
+
+Instead of evaluating trees one by one, this accuracy evaluation aggregates the species counts or proportions across an entire plot or forest stand. It then calculates the Bray-Curtis dissimilarity index to compare the predicted species composition against the observed field composition. The index returns a value between 0 and 1, where 0 indicates identical species compositions and 1 indicates completely non-overlapping communities. Because Bray-Curtis is a dissimilarity measure, it can be interpreted as: 
+
+$$\textrm{Bray-Curtis}_{dissimilarity} \approx 1-\textrm{Bray-Curtis}_{similarity}$$
+
+The Bray-Curtis index is a widely trusted metric in [community ecology](https://vegandevs.github.io/vegan/reference/vegdist.html). Dissimilarity/similarity metrics tell us how well the proposed method captures the overall ecological community structure. Even if individual tree predictions are misaligned, the proposed method may still capture the correct stand-level abundance proportions, which can still be valuable for management.
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+remove(this_data_site_nm,this_min_dbh_cm,this_min_ht_m)
+gc()
+```
+
+The metrics we will be looking at in this review are:
+
+| Evaluation Level | Metric Name | Succinct Metric Description | Species-Level Evaluation | Genus-Level Evaluation |
+| :--- | :--- | :--- | :---: | :---: |
+| **Individual Tree Level Accuracy**<br>*(Taxonomic Classification Power)* | **Overall Accuracy (OA)** | Proportion of correctly classified species/genera among successfully detected trees (TP matches). | ✓ | ✓ |
+| **Site-Wide Compositional Accuracy**<br>*(Stand Inventory Performance)* | **Bray-Curtis Dissimilarity** | Proportion of absolute species/genus abundance mismatched. | ✓ | ✓ |
+| | **Bray-Curtis Similarity** | Proportion of absolute species/genus abundance matching perfectly. | ✓ | ✓ |
+| | **Proportional RMSE** | Average percentage deviation error margin per species/genus. | ✓ | ✓ |
+
+Accuracy metrics were evaluated at both the species and genus taxonomic levels to quantify the accuracy trade-offs associated with pushing the classification method to the finest taxonomic level (species). We anticipate classification performance at the genus level to be higher than at the species level because aggregating predictions into broader taxonomic groups inherently reduces the number of classification classes, increasing the mathematical probability of a correct match. An acceptable level of classification accuracy at the genus-level can still be valuable in operational forestry settings. Species within the same genus frequently occupy similar ecological functional roles, and distinguishing between them represents one of the most persistent challenges when relying on remote sensing datasets alone (Vauhkonen et al., 2014b). Furthermore, members of the same genus typically exhibit similar growth forms and structural geometries, which mitigates species-level misclassifications when using volumetric equations. From an operational management perspective, individual species-level distinction within a genus, such as separating blue spruce (*Picea pungens*) from Engelmann spruce (*Picea engelmannii*), for example, often yields marginal practical benefit if their allometries and ecological roles remain functionally similar. 
+
+If the primary management objective requires highly accurate species-level classification at the individual tree level, then our proposed approach is likely to be insufficient and unreliable. Especially across structurally diverse forest types.
+
