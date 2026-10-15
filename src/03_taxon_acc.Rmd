@@ -41,6 +41,9 @@ Accuracy metrics were evaluated at both the species and genus taxonomic levels t
 
 If the primary management objective requires highly accurate species-level classification at the individual tree level, then our proposed approach is likely to be insufficient and unreliable. Especially across structurally diverse forest types.
 
+For the tree-level evaluation, a high Overall Accuracy means the method does well at determining the correct species/genus for successfully matched trees (TP matches). For site-level metrics, a low Bray-Curtis Dissimilarity and a low Proportional RMSE indicate the total species/genus classification errors are small, which naturally results in a high Bray-Curtis Similarity (calculated as 1 minus dissimilarity). High site-level similarity indicates high overlap between the predicted and reference taxonomic compositional profile. A single site can have low Overall Accuracy (tree level) but high Bray-Curtis Similarity if individual tree classification errors balance out across the whole site to create an accurate, overall composition. Conversely, a site can have high Overall Accuracy but low Bray-Curtis Similarity if the method correctly classifies the matched trees (TP matches) but the site includes omissions (FN) or commissions (FP) that alters the overall taxonomic compositional profile.
+
+
 ```{r}
 # add descriptions to the data
 
@@ -79,7 +82,7 @@ project_data_df <-
   )
 ```
 
-big overview table
+## Summary Table
 
 ```{r}
 project_data_df %>%
@@ -147,8 +150,13 @@ project_data_df %>%
 
 it's probably easier to *see* the data
 
-```{r, fig.height=12}
-project_data_df %>%
+## Genus-level
+
+Let's start by looking at the **genus** accuracy results. We anticipate classification performance at the genus level to be higher than at the species level. Although our proposed classification method predicts species, evaluating the predictions at the higher-level genus naturally reduces the number of classification classes and increases the mathematical probability of a correct match. The genus-level evaluation creates a wider target that absorbs misclassifications made between closely related species in the same genus. An acceptable level of genus-level accuracy is likely still valuable for operational forestry use cases.
+
+```{r, fig.height=9}
+df_temp <- 
+  project_data_df %>%
   dplyr::filter(
     !is.na(acc_site_genus_bc_dissimilarity)
   ) %>% 
@@ -187,20 +195,31 @@ project_data_df %>%
     , metric = factor(
       name 
       , levels = c(
-        "overall" # ~ "Overall Accuracy (TP Only)"
-        , "bc_similarity" # ~ "Bray-Curtis Similarity"
+        "bc_similarity" # ~ "Bray-Curtis Similarity"
         , "bc_dissimilarity" # ~ "Bray-Curtis Dissimilarity"
         , "prop_rmse" # ~ "Proportional RMSE"  
+        , "overall" # ~ "Overall Accuracy (TP Only)"
       )
       , ordered = T
       , labels = c(
-        "Overall Accuracy (TP Only)" # "overall" 
-        , "Bray-Curtis Similarity" # "bc_similarity" 
+        "Bray-Curtis Similarity" # "bc_similarity" 
         , "Bray-Curtis Dissimilarity" # "bc_dissimilarity" 
         , "Proportional RMSE"   # "prop_rmse" 
+        , "Overall Accuracy (TP Only)" # "overall" 
       )
     )
     , value_lab = scales::percent(value,accuracy = 0.1)
+  ) 
+# plot
+df_temp %>%
+  dplyr::filter(stringr::str_starts(tolower(taxon_level),"genus")) %>% 
+  dplyr::group_by(site) %>% 
+  dplyr::mutate(
+    sorter = max(ifelse(name=="bc_similarity",value,NA),na.rm = T)
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    site = site %>% forcats::fct_reorder(sorter)
   ) %>% 
   # plot
   ggplot2::ggplot(
@@ -208,30 +227,31 @@ project_data_df %>%
   ) +
   ggplot2::geom_segment(
     mapping = ggplot2::aes(x = 0, xend = value, yend = site)
+    , lwd = 0.8
   ) +
   ggplot2::geom_point(size = 4) +
   ggplot2::geom_text(
     mapping = ggplot2::aes(label = value_lab, fontface = "bold")
     , color = "black"
-    , size = 2.3
+    , size = 2.5
     # , nudge_x = 0.006
     , hjust = 0, vjust = -1
     # , hjust = -0.4
   ) +
   ggplot2::facet_grid(
-    rows = dplyr::vars(taxon_level)
-    , cols = dplyr::vars(metric)
-    # , scales = "free_x"
-    , switch = "y"
+    cols = dplyr::vars(metric)
+    # , rows = dplyr::vars(taxon_level)
+    # , switch = "y"
   ) +
   ggplot2::scale_x_continuous(
     limits = c(0,1)
     , labels = scales::label_percent(accuracy = 1)
-    , expand = ggplot2::expansion(mult = c(0.02,0.09))
+    , expand = ggplot2::expansion(mult = c(0.02,0.1))
   ) +
   ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
   ggplot2::labs(
-    title = "Proposed Tree Classification Method Accuracy Performance\nby site"
+    title = "Genus-level"
+    , subtitle = "proposed tree classification method accuracy performance by site"
     , x = "" # "metric value"
     , y = "" # "study site"
     , color = "" # "study site"
@@ -256,5 +276,111 @@ project_data_df %>%
   )
 ```
 
-neat.
+```{r, include = F, eval = T}
+sim_max_temp <- project_data_df %>% dplyr::slice_max(n=1,order_by = acc_site_genus_bc_similarity,with_ties = F,na_rm = T)
+sim_min_temp <- project_data_df %>% dplyr::slice_min(n=1,order_by = acc_site_genus_bc_similarity,with_ties = F,na_rm = T)
+oa_max_temp <- project_data_df %>% dplyr::slice_max(n=1,order_by = acc_tree_genus_overall,with_ties = F,na_rm = T)
+oa_min_temp <- project_data_df %>% dplyr::slice_min(n=1,order_by = acc_tree_genus_overall,with_ties = F,na_rm = T)
 
+# scales::percent(median(project_data_df$acc_tree_genus_overall,na.rm=T),accuracy = 0.1)
+# scales::percent(sim_min_temp$acc_site_genus_bc_similarity,accuracy = 0.1)
+# paste0(sim_min_temp$data_site_nm, " (", sim_min_temp$data_ftype_desc, ")")
+
+# scales::percent(sim_min_temp$acc_site_genus_bc_similarity,accuracy = 0.1)
+# paste0(sim_min_temp$data_site_nm, " (", sim_min_temp$data_ftype_desc, ")")
+# scales::percent(sim_max_temp$acc_site_genus_bc_similarity,accuracy = 0.1)
+# paste0(sim_max_temp$data_site_nm, " (", sim_max_temp$data_ftype_desc, ")")
+# scales::percent(median(project_data_df$acc_site_genus_bc_similarity,na.rm=T),accuracy = 0.1)
+```
+
+Genus-level Bray-Curtis Similarity (site level) ranged from `r scales::percent(sim_min_temp$acc_site_genus_bc_similarity,accuracy = 0.1)` (dissimilarity of `r scales::percent(sim_min_temp$acc_site_genus_bc_dissimilarity,accuracy = 0.1)`) at `r paste0(sim_min_temp$data_site_nm, " (", sim_min_temp$data_ftype_desc, ")")` to `r scales::percent(sim_max_temp$acc_site_genus_bc_similarity,accuracy = 0.1)` (dissimilarity of `r scales::percent(sim_max_temp$acc_site_genus_bc_dissimilarity,accuracy = 0.1)`) at `r paste0(sim_max_temp$data_site_nm, " (", sim_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_site_genus_bc_similarity,na.rm=T),accuracy = 0.1)` (dissimilarity of `r scales::percent(median(project_data_df$acc_site_genus_bc_dissimilarity,na.rm=T),accuracy = 0.1)`). 
+
+Genus-level overall accuracy (tree level) ranged from `r scales::percent(oa_min_temp$acc_tree_genus_overall,accuracy = 0.1)` at `r paste0(oa_min_temp$data_site_nm, " (", oa_min_temp$data_ftype_desc, ")")` to `r scales::percent(oa_max_temp$acc_tree_genus_overall,accuracy = 0.1)` at `r paste0(oa_max_temp$data_site_nm, " (", oa_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_tree_genus_overall,na.rm=T),accuracy = 0.1)`.
+
+## Species-level
+
+Now we'll check out the **species** accuracy results. We anticipate classification performance to be lower at the species level compared to the genus level. Because our proposed classification method predicts at this fine taxonomic resolution, it must navigate a higher number of potential classification classes, which naturally decreases the mathematical probability of a correct match. At this level, any misclassification between species in the same genus counts as an error. Achieving highly accurate species-level classification remains challenging, and a genus-level classification is often more realistic (and more reliable?) when using only remote sensing and supplemental spatial data ([Vauhkonen et al., 2014](https://doi.org/10.1007/978-94-017-8663-8_7)).
+
+```{r, fig.height=9}
+# plot
+df_temp %>%
+  dplyr::filter(stringr::str_starts(tolower(taxon_level),"species")) %>% 
+  dplyr::group_by(site) %>% 
+  dplyr::mutate(
+    sorter = max(ifelse(name=="bc_similarity",value,NA),na.rm = T)
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    site = site %>% forcats::fct_reorder(sorter)
+  ) %>% 
+  # plot
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = value, y = site, color = sum_level)
+  ) +
+  ggplot2::geom_segment(
+    mapping = ggplot2::aes(x = 0, xend = value, yend = site)
+    , lwd = 0.8
+  ) +
+  ggplot2::geom_point(size = 4) +
+  ggplot2::geom_text(
+    mapping = ggplot2::aes(label = value_lab, fontface = "bold")
+    , color = "black"
+    , size = 2.5
+    # , nudge_x = 0.006
+    , hjust = 0, vjust = -1
+    # , hjust = -0.4
+  ) +
+  ggplot2::facet_grid(
+    cols = dplyr::vars(metric)
+    # , rows = dplyr::vars(taxon_level)
+    # , switch = "y"
+  ) +
+  ggplot2::scale_x_continuous(
+    limits = c(0,1)
+    , labels = scales::label_percent(accuracy = 1)
+    , expand = ggplot2::expansion(mult = c(0.02,0.1))
+  ) +
+  ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
+  ggplot2::labs(
+    title = "Species-level"
+    , subtitle = "proposed tree classification method accuracy performance by site"
+    , x = "" # "metric value"
+    , y = "" # "study site"
+    , color = "" # "study site"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+    
+    , strip.placement = "outside"
+    , strip.text.y.left = ggplot2::element_text(size = 12, face = "bold", angle = 90, hjust = 0.5)
+    , strip.background.y = ggplot2::element_blank()
+    , panel.spacing.y = ggplot2::unit(2, "lines")
+    
+    , axis.text.y = ggplot2::element_text(face = "bold")
+    , panel.grid.major.x = element_blank()
+    , panel.grid.minor.x = element_blank()
+  ) +
+  ggplot2::guides(
+    color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
+    , fill = "none"
+  )
+```
+
+```{r, include = F, eval = T}
+sim_max_temp <- project_data_df %>% dplyr::slice_max(n=1,order_by = acc_site_species_bc_similarity,with_ties = F,na_rm = T)
+sim_min_temp <- project_data_df %>% dplyr::slice_min(n=1,order_by = acc_site_species_bc_similarity,with_ties = F,na_rm = T)
+oa_max_temp <- project_data_df %>% dplyr::slice_max(n=1,order_by = acc_tree_species_overall,with_ties = F,na_rm = T)
+oa_min_temp <- project_data_df %>% dplyr::slice_min(n=1,order_by = acc_tree_species_overall,with_ties = F,na_rm = T)
+```
+
+Species-level Bray-Curtis Similarity (site level) ranged from `r scales::percent(sim_min_temp$acc_site_species_bc_similarity,accuracy = 0.1)` (dissimilarity of `r scales::percent(sim_min_temp$acc_site_species_bc_dissimilarity,accuracy = 0.1)`) at `r paste0(sim_min_temp$data_site_nm, " (", sim_min_temp$data_ftype_desc, ")")` to `r scales::percent(sim_max_temp$acc_site_species_bc_similarity,accuracy = 0.1)` (dissimilarity of `r scales::percent(sim_max_temp$acc_site_species_bc_dissimilarity,accuracy = 0.1)`) at `r paste0(sim_max_temp$data_site_nm, " (", sim_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_site_species_bc_similarity,na.rm=T),accuracy = 0.1)` (dissimilarity of `r scales::percent(median(project_data_df$acc_site_species_bc_dissimilarity,na.rm=T),accuracy = 0.1)`). 
+
+Species-level overall accuracy (tree level) ranged from `r scales::percent(oa_min_temp$acc_tree_species_overall,accuracy = 0.1)` at `r paste0(oa_min_temp$data_site_nm, " (", oa_min_temp$data_ftype_desc, ")")` to `r scales::percent(oa_max_temp$acc_tree_species_overall,accuracy = 0.1)` at `r paste0(oa_max_temp$data_site_nm, " (", oa_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_tree_species_overall,na.rm=T),accuracy = 0.1)`.
+
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
