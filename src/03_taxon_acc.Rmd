@@ -147,7 +147,7 @@ project_data_df %>%
 
 it's probably easier to *see* the data
 
-```{r, fig.height=10.5}
+```{r, fig.height=12}
 project_data_df %>%
   dplyr::filter(
     !is.na(acc_site_genus_bc_dissimilarity)
@@ -213,7 +213,7 @@ project_data_df %>%
   ggplot2::geom_text(
     mapping = ggplot2::aes(label = value_lab, fontface = "bold")
     , color = "black"
-    , size = 2.4
+    , size = 2.3
     # , nudge_x = 0.006
     , hjust = 0, vjust = -1
     # , hjust = -0.4
@@ -227,7 +227,7 @@ project_data_df %>%
   ggplot2::scale_x_continuous(
     limits = c(0,1)
     , labels = scales::label_percent(accuracy = 1)
-    , expand = ggplot2::expansion(mult = c(0.02,0.07))
+    , expand = ggplot2::expansion(mult = c(0.02,0.09))
   ) +
   ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
   ggplot2::labs(

@@ -281,6 +281,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.6.2" data-path="site_06.html"><a href="site_06.html#site-level-accuracy-4"><i class="fa fa-check"></i><b>8.6.2</b> Site-Level Accuracy</a></li>
 </ul></li>
 </ul></li>
+<li class="chapter" data-level="9" data-path="taxon_acc.html"><a href="taxon_acc.html"><i class="fa fa-check"></i><b>9</b> Taxonomic Classification Accuracy Summary</a></li>
 </ul>
 
       </nav>
@@ -313,7 +314,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </div>
 <div id="validation-data-and-accuracy-evaluation" class="section level2 hasAnchor" number="1.2">
 <h2><span class="header-section-number">1.2</span> Validation Data and Accuracy Evaluation<a href="index.html#validation-data-and-accuracy-evaluation" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>To test this propsed species classification method, we compiled a collection of validation datasets across diverse forest conditions for this specific analysis project. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.</p>
+<p>To test this proposed species classification method, we compiled a collection of validation datasets across diverse forest conditions for this specific analysis project. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.</p>
 <p>We’ll evaluate the species classification method using two approaches:</p>
 <ol style="list-style-type: decimal">
 <li><strong>Individual Tree-Level Accuracy</strong></li>
@@ -321,7 +322,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>This approach evaluates classification accuracy at the individual tree level. It maps every predicted tree species against the reference field-measured tree using a classical confusion matrix cross-tabulation. Given that our analysis is focused on evaluating the proposed taxonomic classification algorithm (rather than the individual tree detection method), we’ll evaluate the taxonomic classification accuracy conditionally for successfully detected tree crowns (true positive matches). This conditional evaluation will allow us to isolate taxonomic classification performance from tree detection errors.</p>
 <p>The confusion matrix will allow us to calculate class-specific performance metrics, including producer’s accuracy (omission error) and user’s accuracy (commission error) and overall accuracy.</p>
 <ol start="2" style="list-style-type: decimal">
-<li><strong>Stand-Wide Compositional Accuracy</strong></li>
+<li><strong>Site-Wide Compositional Accuracy</strong></li>
 </ol>
 <p>Instead of evaluating trees one by one, this accuracy evaluation aggregates the species counts or proportions across an entire plot or forest stand. It then calculates the Bray-Curtis dissimilarity index to compare the predicted species composition against the observed field composition. The index returns a value between 0 and 1, where 0 indicates identical species compositions and 1 indicates completely non-overlapping communities. Because Bray-Curtis is a dissimilarity measure, it can be interpreted as:</p>
 <p><span class="math display">\[\textrm{Bray-Curtis}_{dissimilarity} \approx 1-\textrm{Bray-Curtis}_{similarity}\]</span></p>

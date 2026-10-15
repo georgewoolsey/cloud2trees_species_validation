@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en-US" xml:lang="en-US">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>9 Taxonomic Classification Accuracy Summary | cloud2trees Species Validation</title>
+  <meta name="description" content="9 Taxonomic Classification Accuracy Summary | cloud2trees Species Validation" />
+  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="9 Taxonomic Classification Accuracy Summary | cloud2trees Species Validation" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="9 Taxonomic Classification Accuracy Summary | cloud2trees Species Validation" />
+  
+  
+  
+
+<meta name="author" content="George Woolsey" />
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="site_06.html"/>
+
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+<link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
+<link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
+<script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+<link href="libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet" />
+<script src="libs/htmlwidgets-1.6.4/htmlwidgets.js"></script>
+<link href="libs/leaflet-1.3.1/leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-1.3.1/leaflet.js"></script>
+<link href="libs/leafletfix-1.0.0/leafletfix.css" rel="stylesheet" />
+<script src="libs/proj4-2.6.2/proj4.min.js"></script>
+<script src="libs/Proj4Leaflet-1.0.1/proj4leaflet.js"></script>
+<link href="libs/rstudio_leaflet-1.3.1/rstudio_leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-binding-2.2.3/leaflet.js"></script>
+<script src="libs/leaflet-providers-3.0.0/leaflet-providers.js"></script>
+<script src="libs/leaflet-providers-plugin-2.2.3/leaflet-providers-plugin.js"></script>
+<script src="libs/clipboard-0.0.1/setClipboardText.js"></script>
+<link href="libs/mapviewCSS-0.0.1/mapview-popup.css" rel="stylesheet" />
+<link href="libs/mapviewCSS-0.0.1/mapview.css" rel="stylesheet" />
+<script src="libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="libs/lightable-0.0.1/lightable.css" rel="stylesheet" />
+<link href="libs/bsTable-3.3.7/bootstrapTable.min.css" rel="stylesheet" />
+<script src="libs/bsTable-3.3.7/bootstrapTable.js"></script>
+<script type="text/javascript">
+
+// toggle visibility of R source blocks in R Markdown output
+function toggle_R() {
+  var x = document.getElementsByClassName('r');
+  if (x.length == 0) return;
+  function toggle_vis(o) {
+    var d = o.style.display;
+    o.style.display = (d == 'block' || d == '') ? 'none':'block';
+  }
+
+  for (i = 0; i < x.length; i++) {
+    var y = x[i];
+    if (y.tagName.toLowerCase() === 'pre') toggle_vis(y);
+  }
+
+    var elem = document.getElementById("myButton1");
+    if (elem.value === "Hide Code") elem.value = "Show Code";
+    else elem.value = "Hide Code";
+}
+
+document.write('<input onclick="toggle_R();" type="button" value="Hide Code" id="myButton1" style="position: absolute; top: 10%; right: 2%; z-index: 200"></input>')
+
+</script>
+
+
+<style type="text/css">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Introduction</a>
+<ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#proposed-species-classification-method"><i class="fa fa-check"></i><b>1.1</b> Proposed Species Classification Method</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#validation-data-and-accuracy-evaluation"><i class="fa fa-check"></i><b>1.2</b> Validation Data and Accuracy Evaluation</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#benefits-and-next-steps"><i class="fa fa-check"></i><b>1.3</b> Benefits and Next Steps</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html"><i class="fa fa-check"></i><b>2</b> Data and Process Overview</a></li>
+<li class="chapter" data-level="3" data-path="site_01.html"><a href="site_01.html"><i class="fa fa-check"></i><b>3</b> Eglin Air Force Base (Florida)</a>
+<ul>
+<li class="chapter" data-level="3.1" data-path="site_01.html"><a href="site_01.html#id_01_fld_dta"><i class="fa fa-check"></i><b>3.1</b> Field Data</a></li>
+<li class="chapter" data-level="3.2" data-path="site_01.html"><a href="site_01.html#id_02_ptcld_dta"><i class="fa fa-check"></i><b>3.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="3.3" data-path="site_01.html"><a href="site_01.html#id_03_itd"><i class="fa fa-check"></i><b>3.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="3.4" data-path="site_01.html"><a href="site_01.html#id_04_species"><i class="fa fa-check"></i><b>3.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="3.4.1" data-path="site_01.html"><a href="site_01.html#training-data"><i class="fa fa-check"></i><b>3.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="3.5" data-path="site_01.html"><a href="site_01.html#predict-speciesgenus-application"><i class="fa fa-check"></i><b>3.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="3.6" data-path="site_01.html"><a href="site_01.html#speciesgenus-accuracy-evaluation"><i class="fa fa-check"></i><b>3.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="3.6.1" data-path="site_01.html"><a href="site_01.html#id_05_tree_acc"><i class="fa fa-check"></i><b>3.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="3.6.2" data-path="site_01.html"><a href="site_01.html#id_06_site_acc"><i class="fa fa-check"></i><b>3.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="site_02.html"><a href="site_02.html"><i class="fa fa-check"></i><b>4</b> USFS Manitou Experimental Forest: N1 (Colorado)</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="site_02.html"><a href="site_02.html#field-data"><i class="fa fa-check"></i><b>4.1</b> Field Data</a></li>
+<li class="chapter" data-level="4.2" data-path="site_02.html"><a href="site_02.html#point-cloud-data"><i class="fa fa-check"></i><b>4.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="4.3" data-path="site_02.html"><a href="site_02.html#tree-detection"><i class="fa fa-check"></i><b>4.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="4.4" data-path="site_02.html"><a href="site_02.html#speciesgenus-prediction-method"><i class="fa fa-check"></i><b>4.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="4.4.1" data-path="site_02.html"><a href="site_02.html#training-data-1"><i class="fa fa-check"></i><b>4.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="4.5" data-path="site_02.html"><a href="site_02.html#predict-speciesgenus-application-1"><i class="fa fa-check"></i><b>4.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="4.6" data-path="site_02.html"><a href="site_02.html#speciesgenus-accuracy-evaluation-1"><i class="fa fa-check"></i><b>4.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="4.6.1" data-path="site_02.html"><a href="site_02.html#tree-level-accuracy"><i class="fa fa-check"></i><b>4.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="4.6.2" data-path="site_02.html"><a href="site_02.html#site-level-accuracy"><i class="fa fa-check"></i><b>4.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="site_03.html"><a href="site_03.html"><i class="fa fa-check"></i><b>5</b> USFS Manitou Experimental Forest: BigPlot (Colorado)</a>
+<ul>
+<li class="chapter" data-level="5.1" data-path="site_03.html"><a href="site_03.html#field-data-1"><i class="fa fa-check"></i><b>5.1</b> Field Data</a></li>
+<li class="chapter" data-level="5.2" data-path="site_03.html"><a href="site_03.html#point-cloud-data-1"><i class="fa fa-check"></i><b>5.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="5.3" data-path="site_03.html"><a href="site_03.html#tree-detection-1"><i class="fa fa-check"></i><b>5.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="5.4" data-path="site_03.html"><a href="site_03.html#speciesgenus-prediction-method-1"><i class="fa fa-check"></i><b>5.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="5.4.1" data-path="site_03.html"><a href="site_03.html#training-data-2"><i class="fa fa-check"></i><b>5.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="5.5" data-path="site_03.html"><a href="site_03.html#predict-speciesgenus-application-2"><i class="fa fa-check"></i><b>5.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="5.6" data-path="site_03.html"><a href="site_03.html#speciesgenus-accuracy-evaluation-2"><i class="fa fa-check"></i><b>5.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="5.6.1" data-path="site_03.html"><a href="site_03.html#tree-level-accuracy-1"><i class="fa fa-check"></i><b>5.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="5.6.2" data-path="site_03.html"><a href="site_03.html#site-level-accuracy-1"><i class="fa fa-check"></i><b>5.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="site_04.html"><a href="site_04.html"><i class="fa fa-check"></i><b>6</b> Penobscot Experimental Forest (Maine)</a>
+<ul>
+<li class="chapter" data-level="6.1" data-path="site_04.html"><a href="site_04.html#field-data-2"><i class="fa fa-check"></i><b>6.1</b> Field Data</a></li>
+<li class="chapter" data-level="6.2" data-path="site_04.html"><a href="site_04.html#point-cloud-data-2"><i class="fa fa-check"></i><b>6.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="6.3" data-path="site_04.html"><a href="site_04.html#tree-detection-2"><i class="fa fa-check"></i><b>6.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="6.4" data-path="site_04.html"><a href="site_04.html#speciesgenus-prediction-method-2"><i class="fa fa-check"></i><b>6.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="6.4.1" data-path="site_04.html"><a href="site_04.html#training-data-3"><i class="fa fa-check"></i><b>6.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="6.5" data-path="site_04.html"><a href="site_04.html#predict-speciesgenus-application-3"><i class="fa fa-check"></i><b>6.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="6.6" data-path="site_04.html"><a href="site_04.html#speciesgenus-accuracy-evaluation-3"><i class="fa fa-check"></i><b>6.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="6.6.1" data-path="site_04.html"><a href="site_04.html#tree-level-accuracy-2"><i class="fa fa-check"></i><b>6.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="6.6.2" data-path="site_04.html"><a href="site_04.html#site-level-accuracy-2"><i class="fa fa-check"></i><b>6.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="7" data-path="site_05.html"><a href="site_05.html"><i class="fa fa-check"></i><b>7</b> USFS Ute Creek (Colorado)</a>
+<ul>
+<li class="chapter" data-level="7.1" data-path="site_05.html"><a href="site_05.html#field-data-3"><i class="fa fa-check"></i><b>7.1</b> Field Data</a></li>
+<li class="chapter" data-level="7.2" data-path="site_05.html"><a href="site_05.html#point-cloud-data-3"><i class="fa fa-check"></i><b>7.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="7.3" data-path="site_05.html"><a href="site_05.html#tree-detection-3"><i class="fa fa-check"></i><b>7.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="7.4" data-path="site_05.html"><a href="site_05.html#speciesgenus-prediction-method-3"><i class="fa fa-check"></i><b>7.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="7.4.1" data-path="site_05.html"><a href="site_05.html#training-data-4"><i class="fa fa-check"></i><b>7.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="7.5" data-path="site_05.html"><a href="site_05.html#predict-speciesgenus-application-4"><i class="fa fa-check"></i><b>7.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="7.6" data-path="site_05.html"><a href="site_05.html#speciesgenus-accuracy-evaluation-4"><i class="fa fa-check"></i><b>7.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="7.6.1" data-path="site_05.html"><a href="site_05.html#tree-level-accuracy-3"><i class="fa fa-check"></i><b>7.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="7.6.2" data-path="site_05.html"><a href="site_05.html#site-level-accuracy-3"><i class="fa fa-check"></i><b>7.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="8" data-path="site_06.html"><a href="site_06.html"><i class="fa fa-check"></i><b>8</b> Colorado State Forest (Colorado)</a>
+<ul>
+<li class="chapter" data-level="8.1" data-path="site_06.html"><a href="site_06.html#field-data-4"><i class="fa fa-check"></i><b>8.1</b> Field Data</a></li>
+<li class="chapter" data-level="8.2" data-path="site_06.html"><a href="site_06.html#point-cloud-data-4"><i class="fa fa-check"></i><b>8.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="8.3" data-path="site_06.html"><a href="site_06.html#tree-detection-4"><i class="fa fa-check"></i><b>8.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="8.4" data-path="site_06.html"><a href="site_06.html#speciesgenus-prediction-method-4"><i class="fa fa-check"></i><b>8.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="8.4.1" data-path="site_06.html"><a href="site_06.html#training-data-5"><i class="fa fa-check"></i><b>8.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="8.5" data-path="site_06.html"><a href="site_06.html#predict-speciesgenus-application-5"><i class="fa fa-check"></i><b>8.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="8.6" data-path="site_06.html"><a href="site_06.html#speciesgenus-accuracy-evaluation-5"><i class="fa fa-check"></i><b>8.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="8.6.1" data-path="site_06.html"><a href="site_06.html#tree-level-accuracy-4"><i class="fa fa-check"></i><b>8.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="8.6.2" data-path="site_06.html"><a href="site_06.html#site-level-accuracy-4"><i class="fa fa-check"></i><b>8.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="9" data-path="taxon_acc.html"><a href="taxon_acc.html"><i class="fa fa-check"></i><b>9</b> Taxonomic Classification Accuracy Summary</a></li>
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./"><code>cloud2trees</code> Species Validation</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="taxon_acc" class="section level1 hasAnchor" number="9">
+<h1><span class="header-section-number">9</span> Taxonomic Classification Accuracy Summary<a href="taxon_acc.html#taxon_acc" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<p>Now that we have completed the analysis and processing of the proposed species classification method for our collection of validation datasets, let’s summarize the achieved accuracy in one place.</p>
+<p>As a reminder, here is what we did:</p>
+<p>We compiled a collection of validation datasets across diverse forest conditions. These datasets consist of coincident aerial point cloud data (including USGS 3DEP ALS, UAS-lidar, and UAS-SfM) paired with field-measured stem maps or plot inventories where species identities are known.</p>
+<p>We evaluated our proposed species classification method using two approaches:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Individual Tree-Level Accuracy</strong></li>
+</ol>
+<p>This approach evaluates classification accuracy at the individual tree level. It maps every predicted tree species against the reference field-measured tree using a classical confusion matrix cross-tabulation. Given that our analysis is focused on evaluating the proposed taxonomic classification algorithm (rather than the individual tree detection method), we’ll evaluate the taxonomic classification accuracy conditionally for successfully detected tree crowns (true positive matches). This conditional evaluation will allow us to isolate taxonomic classification performance from tree detection errors.</p>
+<p>The confusion matrix will allow us to calculate class-specific performance metrics, including producer’s accuracy (omission error) and user’s accuracy (commission error) and overall accuracy.</p>
+<ol start="2" style="list-style-type: decimal">
+<li><strong>Site-Wide Compositional Accuracy</strong></li>
+</ol>
+<p>Instead of evaluating trees one by one, this accuracy evaluation aggregates the species counts or proportions across an entire plot or forest stand. It then calculates the Bray-Curtis dissimilarity index to compare the predicted species composition against the observed field composition. The index returns a value between 0 and 1, where 0 indicates identical species compositions and 1 indicates completely non-overlapping communities. Because Bray-Curtis is a dissimilarity measure, it can be interpreted as:</p>
+<p><span class="math display">\[\textrm{Bray-Curtis}_{dissimilarity} \approx 1-\textrm{Bray-Curtis}_{similarity}\]</span></p>
+<p>The Bray-Curtis index is a widely trusted metric in <a href="https://vegandevs.github.io/vegan/reference/vegdist.html">community ecology</a>. Dissimilarity/similarity metrics tell us how well the proposed method captures the overall ecological community structure. Even if individual tree predictions are misaligned, the proposed method may still capture the correct stand-level abundance proportions, which can still be valuable for management.</p>
+<p>The metrics we will be looking at in this review are:</p>
+<table>
+<colgroup>
+<col width="18%" />
+<col width="18%" />
+<col width="18%" />
+<col width="22%" />
+<col width="22%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Evaluation Level</th>
+<th align="left">Metric Name</th>
+<th align="left">Succinct Metric Description</th>
+<th align="center">Species-Level Evaluation</th>
+<th align="center">Genus-Level Evaluation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>Individual Tree Level Accuracy</strong><br><em>(Taxonomic Classification Power)</em></td>
+<td align="left"><strong>Overall Accuracy (OA)</strong></td>
+<td align="left">Proportion of correctly classified species/genera among successfully detected trees (TP matches).</td>
+<td align="center">✓</td>
+<td align="center">✓</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Site-Wide Compositional Accuracy</strong><br><em>(Stand Inventory Performance)</em></td>
+<td align="left"><strong>Bray-Curtis Dissimilarity</strong></td>
+<td align="left">Proportion of absolute species/genus abundance mismatched.</td>
+<td align="center">✓</td>
+<td align="center">✓</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left"><strong>Bray-Curtis Similarity</strong></td>
+<td align="left">Proportion of absolute species/genus abundance matching perfectly.</td>
+<td align="center">✓</td>
+<td align="center">✓</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left"><strong>Proportional RMSE</strong></td>
+<td align="left">Average percentage deviation error margin per species/genus.</td>
+<td align="center">✓</td>
+<td align="center">✓</td>
+</tr>
+</tbody>
+</table>
+<p>Accuracy metrics were evaluated at both the species and genus taxonomic levels to quantify the accuracy trade-offs associated with pushing the classification method to the finest taxonomic level (species). We anticipate classification performance at the genus level to be higher than at the species level because aggregating predictions into broader taxonomic groups inherently reduces the number of classification classes, increasing the mathematical probability of a correct match. An acceptable level of classification accuracy at the genus-level can still be valuable in operational forestry settings. Species within the same genus frequently occupy similar ecological functional roles, and distinguishing between them represents one of the most persistent challenges when relying on remote sensing datasets alone (Vauhkonen et al., 2014b). Furthermore, members of the same genus typically exhibit similar growth forms and structural geometries, which mitigates species-level misclassifications when using volumetric equations. From an operational management perspective, individual species-level distinction within a genus, such as separating blue spruce (<em>Picea pungens</em>) from Engelmann spruce (<em>Picea engelmannii</em>), for example, often yields marginal practical benefit if their allometries and ecological roles remain functionally similar.</p>
+<p>If the primary management objective requires highly accurate species-level classification at the individual tree level, then our proposed approach is likely to be insufficient and unreliable. Especially across structurally diverse forest types.</p>
+<div class="sourceCode" id="cb334"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb334-1"><a href="taxon_acc.html#cb334-1" tabindex="-1"></a><span class="co"># add descriptions to the data</span></span>
+<span id="cb334-2"><a href="taxon_acc.html#cb334-2" tabindex="-1"></a></span>
+<span id="cb334-3"><a href="taxon_acc.html#cb334-3" tabindex="-1"></a><span class="co"># | WFSI Elgin AFB | Florida | longleaf pine | ALS | tree locations |</span></span>
+<span id="cb334-4"><a href="taxon_acc.html#cb334-4" tabindex="-1"></a><span class="co"># | Manitou Experimental Forest (N1) | Colorado | ponderosa pine | UAS-lidar | tree locations |</span></span>
+<span id="cb334-5"><a href="taxon_acc.html#cb334-5" tabindex="-1"></a><span class="co"># | Manitou Experimental Forest (Big Plot) | Colorado | western mixed conifer | UAS-SfM | tree locations |</span></span>
+<span id="cb334-6"><a href="taxon_acc.html#cb334-6" tabindex="-1"></a><span class="co"># | Penobscot Experimental Forest | Maine | northern mixed conifer | ALS | tree locations |</span></span>
+<span id="cb334-7"><a href="taxon_acc.html#cb334-7" tabindex="-1"></a><span class="co"># | Ute Creek | Colorado | dry-mesic mixed conifer | UAS-SfM | tree locations |</span></span>
+<span id="cb334-8"><a href="taxon_acc.html#cb334-8" tabindex="-1"></a><span class="co"># | CSFS State Forest State Park | Colorado | lodgepole pine | UAS-lidar | plots |</span></span>
+<span id="cb334-9"><a href="taxon_acc.html#cb334-9" tabindex="-1"></a><span class="co"># | WFSI Fort Stewart | Georgia | southern yellow pine forest | UAS-lidar | plots |</span></span>
+<span id="cb334-10"><a href="taxon_acc.html#cb334-10" tabindex="-1"></a><span class="co"># | BLM Dawson Creek | Colorado | pinyon-juniper | UAS-SfM | tree locations |</span></span>
+<span id="cb334-11"><a href="taxon_acc.html#cb334-11" tabindex="-1"></a><span class="co"># | Wabikon Lake Forest Dynamics Plot (ForestGEO) | Wisconsin | northern mixed hardwood | ALS | tree locations |</span></span>
+<span id="cb334-12"><a href="taxon_acc.html#cb334-12" tabindex="-1"></a><span class="co"># | UC Santa Cruz Forest Ecology Research Plot (ForestGEO) | California | coastal mixed-evergreen &amp; coast redwood | ALS | tree locations |</span></span>
+<span id="cb334-13"><a href="taxon_acc.html#cb334-13" tabindex="-1"></a><span class="co"># | Smithsonian Environmental Research Center (ForestGEO) | Maryland | mixed deciduous hardwood | ALS | tree locations |</span></span>
+<span id="cb334-14"><a href="taxon_acc.html#cb334-14" tabindex="-1"></a><span class="co"># | Smithsonian Conservation Biology Institute (ForestGEO) | Virginia | mid-atlantic deciduous | ALS | tree locations |</span></span>
+<span id="cb334-15"><a href="taxon_acc.html#cb334-15" tabindex="-1"></a>project_data_df <span class="ot">&lt;-</span> </span>
+<span id="cb334-16"><a href="taxon_acc.html#cb334-16" tabindex="-1"></a>  project_data_df <span class="sc">%&gt;%</span> </span>
+<span id="cb334-17"><a href="taxon_acc.html#cb334-17" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb334-18"><a href="taxon_acc.html#cb334-18" tabindex="-1"></a>    <span class="at">data_ftype_desc =</span> dplyr<span class="sc">::</span><span class="fu">recode_values</span>(</span>
+<span id="cb334-19"><a href="taxon_acc.html#cb334-19" tabindex="-1"></a>      data_site_nm</span>
+<span id="cb334-20"><a href="taxon_acc.html#cb334-20" tabindex="-1"></a>      , <span class="st">&quot;BLM_TRFO&quot;</span> <span class="sc">~</span> <span class="st">&quot;pinyon-juniper&quot;</span></span>
+<span id="cb334-21"><a href="taxon_acc.html#cb334-21" tabindex="-1"></a>      , <span class="st">&quot;CSFS_SWE&quot;</span> <span class="sc">~</span> <span class="st">&quot;lodgepole pine&quot;</span></span>
+<span id="cb334-22"><a href="taxon_acc.html#cb334-22" tabindex="-1"></a>      , <span class="st">&quot;ForestGEO_IUFDP&quot;</span> <span class="sc">~</span> <span class="st">&quot;xxx&quot;</span></span>
+<span id="cb334-23"><a href="taxon_acc.html#cb334-23" tabindex="-1"></a>      , <span class="st">&quot;ForestGEO_OSBS&quot;</span> <span class="sc">~</span> <span class="st">&quot;xxx&quot;</span></span>
+<span id="cb334-24"><a href="taxon_acc.html#cb334-24" tabindex="-1"></a>      , <span class="st">&quot;ForestGEO_SCBI&quot;</span> <span class="sc">~</span> <span class="st">&quot;mid-atlantic deciduous&quot;</span></span>
+<span id="cb334-25"><a href="taxon_acc.html#cb334-25" tabindex="-1"></a>      , <span class="st">&quot;ForestGEO_SERC&quot;</span> <span class="sc">~</span> <span class="st">&quot;mixed deciduous hardwood&quot;</span></span>
+<span id="cb334-26"><a href="taxon_acc.html#cb334-26" tabindex="-1"></a>      , <span class="st">&quot;ForestGEO_UCSC_FERP&quot;</span> <span class="sc">~</span> <span class="st">&quot;coastal mixed-evergreen &amp; coast redwood&quot;</span></span>
+<span id="cb334-27"><a href="taxon_acc.html#cb334-27" tabindex="-1"></a>      , <span class="st">&quot;ForestGEO_WLF&quot;</span> <span class="sc">~</span> <span class="st">&quot;northern mixed hardwood&quot;</span></span>
+<span id="cb334-28"><a href="taxon_acc.html#cb334-28" tabindex="-1"></a>      , <span class="st">&quot;USFS_ManitouEF_BigPlot&quot;</span> <span class="sc">~</span> <span class="st">&quot;western mixed conifer&quot;</span></span>
+<span id="cb334-29"><a href="taxon_acc.html#cb334-29" tabindex="-1"></a>      , <span class="st">&quot;USFS_ManitouEF_N1&quot;</span> <span class="sc">~</span> <span class="st">&quot;ponderosa pine&quot;</span></span>
+<span id="cb334-30"><a href="taxon_acc.html#cb334-30" tabindex="-1"></a>      , <span class="st">&quot;USFS_PenobscotEF&quot;</span> <span class="sc">~</span> <span class="st">&quot;northern mixed conifer&quot;</span></span>
+<span id="cb334-31"><a href="taxon_acc.html#cb334-31" tabindex="-1"></a>      , <span class="st">&quot;USFS_UteCreek&quot;</span> <span class="sc">~</span> <span class="st">&quot;dry-mesic mixed conifer&quot;</span></span>
+<span id="cb334-32"><a href="taxon_acc.html#cb334-32" tabindex="-1"></a>      , <span class="st">&quot;WFSI_EglinAFB&quot;</span> <span class="sc">~</span> <span class="st">&quot;longleaf pine&quot;</span></span>
+<span id="cb334-33"><a href="taxon_acc.html#cb334-33" tabindex="-1"></a>      , <span class="st">&quot;WFSI_FtStewart&quot;</span> <span class="sc">~</span> <span class="st">&quot;southern yellow pine&quot;</span></span>
+<span id="cb334-34"><a href="taxon_acc.html#cb334-34" tabindex="-1"></a>    )</span>
+<span id="cb334-35"><a href="taxon_acc.html#cb334-35" tabindex="-1"></a>  )</span></code></pre></div>
+<p>big overview table</p>
+<div class="sourceCode" id="cb335"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb335-1"><a href="taxon_acc.html#cb335-1" tabindex="-1"></a>project_data_df <span class="sc">%&gt;%</span></span>
+<span id="cb335-2"><a href="taxon_acc.html#cb335-2" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
+<span id="cb335-3"><a href="taxon_acc.html#cb335-3" tabindex="-1"></a>    <span class="sc">!</span><span class="fu">is.na</span>(acc_site_genus_bc_dissimilarity)</span>
+<span id="cb335-4"><a href="taxon_acc.html#cb335-4" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-5"><a href="taxon_acc.html#cb335-5" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb335-6"><a href="taxon_acc.html#cb335-6" tabindex="-1"></a>    <span class="at">site =</span> <span class="fu">paste0</span>(</span>
+<span id="cb335-7"><a href="taxon_acc.html#cb335-7" tabindex="-1"></a>      data_site_nm</span>
+<span id="cb335-8"><a href="taxon_acc.html#cb335-8" tabindex="-1"></a>      , <span class="st">&quot;&lt;br /&gt;(&quot;</span></span>
+<span id="cb335-9"><a href="taxon_acc.html#cb335-9" tabindex="-1"></a>      , data_ftype_desc</span>
+<span id="cb335-10"><a href="taxon_acc.html#cb335-10" tabindex="-1"></a>      , <span class="st">&quot;)&quot;</span></span>
+<span id="cb335-11"><a href="taxon_acc.html#cb335-11" tabindex="-1"></a>    )</span>
+<span id="cb335-12"><a href="taxon_acc.html#cb335-12" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-13"><a href="taxon_acc.html#cb335-13" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(</span>
+<span id="cb335-14"><a href="taxon_acc.html#cb335-14" tabindex="-1"></a>    site, tidyselect<span class="sc">::</span><span class="fu">starts_with</span>(<span class="st">&quot;acc_&quot;</span>)</span>
+<span id="cb335-15"><a href="taxon_acc.html#cb335-15" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-16"><a href="taxon_acc.html#cb335-16" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(dplyr<span class="sc">::</span><span class="fu">across</span>(</span>
+<span id="cb335-17"><a href="taxon_acc.html#cb335-17" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">where</span>(is.numeric)</span>
+<span id="cb335-18"><a href="taxon_acc.html#cb335-18" tabindex="-1"></a>    , <span class="sc">~</span>scales<span class="sc">::</span><span class="fu">percent</span>(.x,<span class="at">accuracy=</span><span class="fl">0.1</span>)</span>
+<span id="cb335-19"><a href="taxon_acc.html#cb335-19" tabindex="-1"></a>  )) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-20"><a href="taxon_acc.html#cb335-20" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(<span class="sc">-</span>site) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-21"><a href="taxon_acc.html#cb335-21" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb335-22"><a href="taxon_acc.html#cb335-22" tabindex="-1"></a>    <span class="at">taxon_level =</span> stringr<span class="sc">::</span><span class="fu">str_extract</span>(name,<span class="st">&quot;(species|genus)&quot;</span>) <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_to_title</span>()</span>
+<span id="cb335-23"><a href="taxon_acc.html#cb335-23" tabindex="-1"></a>    , <span class="at">name =</span> stringr<span class="sc">::</span><span class="fu">str_remove</span>(name,<span class="st">&quot;^acc_&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-24"><a href="taxon_acc.html#cb335-24" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="fu">tolower</span>(taxon_level)) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-25"><a href="taxon_acc.html#cb335-25" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_replace_all</span>(<span class="st">&quot;__&quot;</span>,<span class="st">&quot;_&quot;</span>)</span>
+<span id="cb335-26"><a href="taxon_acc.html#cb335-26" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-27"><a href="taxon_acc.html#cb335-27" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_wider</span>(<span class="at">names_from =</span> name, <span class="at">values_from =</span> value) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-28"><a href="taxon_acc.html#cb335-28" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(taxon_level,site, tidyselect<span class="sc">::</span><span class="fu">starts_with</span>(<span class="st">&quot;tree_&quot;</span>), tidyselect<span class="sc">::</span><span class="fu">starts_with</span>(<span class="st">&quot;site_&quot;</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-29"><a href="taxon_acc.html#cb335-29" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">arrange</span>(taxon_level,site) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-30"><a href="taxon_acc.html#cb335-30" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">kbl</span>(</span>
+<span id="cb335-31"><a href="taxon_acc.html#cb335-31" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">&quot;Proposed Tree Classification Method Accuracy Performance&lt;br /&gt;by site&quot;</span></span>
+<span id="cb335-32"><a href="taxon_acc.html#cb335-32" tabindex="-1"></a>    , <span class="at">col.names =</span> <span class="fu">c</span>(</span>
+<span id="cb335-33"><a href="taxon_acc.html#cb335-33" tabindex="-1"></a>      <span class="st">&quot;taxonomic-level&quot;</span></span>
+<span id="cb335-34"><a href="taxon_acc.html#cb335-34" tabindex="-1"></a>      , <span class="st">&quot;site&quot;</span></span>
+<span id="cb335-35"><a href="taxon_acc.html#cb335-35" tabindex="-1"></a>      , <span class="st">&quot;Overall Accuracy (TP Only)&quot;</span></span>
+<span id="cb335-36"><a href="taxon_acc.html#cb335-36" tabindex="-1"></a>      , <span class="st">&quot;Bray-Curtis Dissimilarity&quot;</span></span>
+<span id="cb335-37"><a href="taxon_acc.html#cb335-37" tabindex="-1"></a>      , <span class="st">&quot;Bray-Curtis Similarity&quot;</span></span>
+<span id="cb335-38"><a href="taxon_acc.html#cb335-38" tabindex="-1"></a>      , <span class="st">&quot;Proportional RMSE&quot;</span></span>
+<span id="cb335-39"><a href="taxon_acc.html#cb335-39" tabindex="-1"></a>    )</span>
+<span id="cb335-40"><a href="taxon_acc.html#cb335-40" tabindex="-1"></a>    , <span class="at">escape =</span> F</span>
+<span id="cb335-41"><a href="taxon_acc.html#cb335-41" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-42"><a href="taxon_acc.html#cb335-42" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">kable_styling</span>(<span class="at">font_size =</span> <span class="fl">11.5</span>, <span class="at">bootstrap_options =</span> <span class="fu">c</span>(<span class="st">&quot;responsive&quot;</span>, <span class="st">&quot;condensed&quot;</span>,<span class="st">&quot;striped&quot;</span>)) <span class="sc">%&gt;%</span> <span class="co"># </span></span>
+<span id="cb335-43"><a href="taxon_acc.html#cb335-43" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">scroll_box</span>(<span class="at">width =</span> <span class="st">&quot;100%&quot;</span>) <span class="sc">%&gt;%</span> <span class="co">#  put a HTML kable object in a fixed-height, fixed-width or both box and make it scrollable</span></span>
+<span id="cb335-44"><a href="taxon_acc.html#cb335-44" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">add_header_above</span>(</span>
+<span id="cb335-45"><a href="taxon_acc.html#cb335-45" tabindex="-1"></a>    <span class="fu">c</span>(</span>
+<span id="cb335-46"><a href="taxon_acc.html#cb335-46" tabindex="-1"></a>      <span class="st">&quot; &quot;</span><span class="ot">=</span><span class="dv">2</span></span>
+<span id="cb335-47"><a href="taxon_acc.html#cb335-47" tabindex="-1"></a>      , <span class="st">&quot;Tree Level&quot;</span> <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb335-48"><a href="taxon_acc.html#cb335-48" tabindex="-1"></a>      , <span class="st">&quot;Site Level&quot;</span> <span class="ot">=</span> <span class="dv">3</span></span>
+<span id="cb335-49"><a href="taxon_acc.html#cb335-49" tabindex="-1"></a>    )</span>
+<span id="cb335-50"><a href="taxon_acc.html#cb335-50" tabindex="-1"></a>    , <span class="at">escape =</span> F</span>
+<span id="cb335-51"><a href="taxon_acc.html#cb335-51" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-52"><a href="taxon_acc.html#cb335-52" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">column_spec</span>(<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, <span class="at">bold =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-53"><a href="taxon_acc.html#cb335-53" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">column_spec</span>(<span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">6</span>), <span class="at">border_right =</span> <span class="cn">TRUE</span>, <span class="at">include_thead =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb335-54"><a href="taxon_acc.html#cb335-54" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">collapse_rows</span>(<span class="at">columns =</span> <span class="dv">1</span>, <span class="at">valign =</span> <span class="st">&quot;top&quot;</span>)</span></code></pre></div>
+<div style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
+<table class="table table-responsive table-condensed table-striped" style="font-size: 11.5px; margin-left: auto; margin-right: auto;">
+<caption style="font-size: initial !important;">
+<span id="tab:unnamed-chunk-344">Table 9.1: </span>Proposed Tree Classification Method Accuracy Performance<br>by site
+</caption>
+<thead>
+<tr>
+<th style="empty-cells: hide;border-bottom:hidden;" colspan="2">
+</th>
+<th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="1">
+<div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">
+Tree Level
+</div>
+</th>
+<th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="3">
+<div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">
+Site Level
+</div>
+</th>
+</tr>
+<tr>
+<th style="text-align:left;">
+taxonomic-level
+</th>
+<th style="text-align:left;border-right:1px solid;">
+site
+</th>
+<th style="text-align:left;border-right:1px solid;">
+Overall Accuracy (TP Only)
+</th>
+<th style="text-align:left;">
+Bray-Curtis Dissimilarity
+</th>
+<th style="text-align:left;">
+Bray-Curtis Similarity
+</th>
+<th style="text-align:left;border-right:1px solid;">
+Proportional RMSE
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;font-weight: bold;vertical-align: top !important;" rowspan="6">
+Genus
+</td>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+CSFS_SWE<br>(lodgepole pine)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+NA
+</td>
+<td style="text-align:left;">
+12.2%
+</td>
+<td style="text-align:left;">
+87.8%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+9.8%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_ManitouEF_BigPlot<br>(western mixed conifer)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+27.7%
+</td>
+<td style="text-align:left;">
+39.3%
+</td>
+<td style="text-align:left;">
+60.7%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+14.4%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_ManitouEF_N1<br>(ponderosa pine)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+74.9%
+</td>
+<td style="text-align:left;">
+24.0%
+</td>
+<td style="text-align:left;">
+76.0%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+12.7%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_PenobscotEF<br>(northern mixed conifer)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+20.6%
+</td>
+<td style="text-align:left;">
+25.2%
+</td>
+<td style="text-align:left;">
+74.8%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+6.0%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_UteCreek<br>(dry-mesic mixed conifer)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+86.7%
+</td>
+<td style="text-align:left;">
+5.1%
+</td>
+<td style="text-align:left;">
+94.9%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+3.1%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+WFSI_EglinAFB<br>(longleaf pine)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+67.0%
+</td>
+<td style="text-align:left;">
+21.0%
+</td>
+<td style="text-align:left;">
+79.0%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+17.1%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;vertical-align: top !important;" rowspan="6">
+Species
+</td>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+CSFS_SWE<br>(lodgepole pine)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+NA
+</td>
+<td style="text-align:left;">
+12.2%
+</td>
+<td style="text-align:left;">
+87.8%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+9.8%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_ManitouEF_BigPlot<br>(western mixed conifer)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+24.5%
+</td>
+<td style="text-align:left;">
+50.7%
+</td>
+<td style="text-align:left;">
+49.3%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+11.1%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_ManitouEF_N1<br>(ponderosa pine)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+74.9%
+</td>
+<td style="text-align:left;">
+24.0%
+</td>
+<td style="text-align:left;">
+76.0%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+11.7%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_PenobscotEF<br>(northern mixed conifer)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+20.3%
+</td>
+<td style="text-align:left;">
+25.4%
+</td>
+<td style="text-align:left;">
+74.6%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+4.5%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_UteCreek<br>(dry-mesic mixed conifer)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+63.5%
+</td>
+<td style="text-align:left;">
+25.4%
+</td>
+<td style="text-align:left;">
+74.6%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+13.5%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+WFSI_EglinAFB<br>(longleaf pine)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+56.4%
+</td>
+<td style="text-align:left;">
+44.2%
+</td>
+<td style="text-align:left;">
+55.8%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+14.4%
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sourceCode" id="cb336"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb336-1"><a href="taxon_acc.html#cb336-1" tabindex="-1"></a>  <span class="co"># kableExtra::footnote(</span></span>
+<span id="cb336-2"><a href="taxon_acc.html#cb336-2" tabindex="-1"></a>  <span class="co">#   # general = &quot;*minimum height to be considered a &#39;tree&#39;: 2 m&quot;</span></span>
+<span id="cb336-3"><a href="taxon_acc.html#cb336-3" tabindex="-1"></a>  <span class="co">#   # , number = c(&quot;Footnote 1; &quot;, &quot;Footnote 2; &quot;)</span></span>
+<span id="cb336-4"><a href="taxon_acc.html#cb336-4" tabindex="-1"></a>  <span class="co">#   # , alphabet = c(&quot;Footnote A; &quot;, &quot;Footnote B; &quot;)</span></span>
+<span id="cb336-5"><a href="taxon_acc.html#cb336-5" tabindex="-1"></a>  <span class="co">#   # , symbol = c(&quot;Footnote Symbol 1; &quot;, &quot;Footnote Symbol 2&quot;)</span></span>
+<span id="cb336-6"><a href="taxon_acc.html#cb336-6" tabindex="-1"></a>  <span class="co"># )</span></span></code></pre></div>
+<p>it’s probably easier to <em>see</em> the data</p>
+<div class="sourceCode" id="cb337"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb337-1"><a href="taxon_acc.html#cb337-1" tabindex="-1"></a>project_data_df <span class="sc">%&gt;%</span></span>
+<span id="cb337-2"><a href="taxon_acc.html#cb337-2" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
+<span id="cb337-3"><a href="taxon_acc.html#cb337-3" tabindex="-1"></a>    <span class="sc">!</span><span class="fu">is.na</span>(acc_site_genus_bc_dissimilarity)</span>
+<span id="cb337-4"><a href="taxon_acc.html#cb337-4" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-5"><a href="taxon_acc.html#cb337-5" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb337-6"><a href="taxon_acc.html#cb337-6" tabindex="-1"></a>    <span class="at">site =</span> <span class="fu">paste0</span>(</span>
+<span id="cb337-7"><a href="taxon_acc.html#cb337-7" tabindex="-1"></a>      data_site_nm</span>
+<span id="cb337-8"><a href="taxon_acc.html#cb337-8" tabindex="-1"></a>      , <span class="st">&quot;</span><span class="sc">\n</span><span class="st">(&quot;</span></span>
+<span id="cb337-9"><a href="taxon_acc.html#cb337-9" tabindex="-1"></a>      , data_ftype_desc</span>
+<span id="cb337-10"><a href="taxon_acc.html#cb337-10" tabindex="-1"></a>      , <span class="st">&quot;)&quot;</span></span>
+<span id="cb337-11"><a href="taxon_acc.html#cb337-11" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-12"><a href="taxon_acc.html#cb337-12" tabindex="-1"></a>    forcats<span class="sc">::</span><span class="fu">fct_reorder</span>(acc_site_genus_bc_similarity)</span>
+<span id="cb337-13"><a href="taxon_acc.html#cb337-13" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-14"><a href="taxon_acc.html#cb337-14" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(</span>
+<span id="cb337-15"><a href="taxon_acc.html#cb337-15" tabindex="-1"></a>    site, tidyselect<span class="sc">::</span><span class="fu">starts_with</span>(<span class="st">&quot;acc_&quot;</span>)</span>
+<span id="cb337-16"><a href="taxon_acc.html#cb337-16" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-17"><a href="taxon_acc.html#cb337-17" tabindex="-1"></a>  <span class="co"># dplyr::mutate(dplyr::across(</span></span>
+<span id="cb337-18"><a href="taxon_acc.html#cb337-18" tabindex="-1"></a>  <span class="co">#   dplyr::where(is.numeric)</span></span>
+<span id="cb337-19"><a href="taxon_acc.html#cb337-19" tabindex="-1"></a>  <span class="co">#   , ~scales::percent(.x,accuracy=0.1)</span></span>
+<span id="cb337-20"><a href="taxon_acc.html#cb337-20" tabindex="-1"></a>  <span class="co"># )) %&gt;% </span></span>
+<span id="cb337-21"><a href="taxon_acc.html#cb337-21" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(<span class="sc">-</span>site) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-22"><a href="taxon_acc.html#cb337-22" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb337-23"><a href="taxon_acc.html#cb337-23" tabindex="-1"></a>    <span class="at">taxon_level =</span> stringr<span class="sc">::</span><span class="fu">str_extract</span>(name,<span class="st">&quot;(species|genus)&quot;</span>) <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_to_title</span>() <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_c</span>(<span class="st">&quot;-level&quot;</span>)</span>
+<span id="cb337-24"><a href="taxon_acc.html#cb337-24" tabindex="-1"></a>    , <span class="at">sum_level =</span> stringr<span class="sc">::</span><span class="fu">str_extract</span>(name,<span class="st">&quot;(site|tree)&quot;</span>) <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_to_title</span>() <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_c</span>(<span class="st">&quot;-level&quot;</span>)</span>
+<span id="cb337-25"><a href="taxon_acc.html#cb337-25" tabindex="-1"></a>    , <span class="at">name =</span> </span>
+<span id="cb337-26"><a href="taxon_acc.html#cb337-26" tabindex="-1"></a>      name <span class="sc">%&gt;%</span> </span>
+<span id="cb337-27"><a href="taxon_acc.html#cb337-27" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_tree_species_&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb337-28"><a href="taxon_acc.html#cb337-28" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_site_species_&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb337-29"><a href="taxon_acc.html#cb337-29" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_tree_genus_&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb337-30"><a href="taxon_acc.html#cb337-30" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_site_genus_&quot;</span>)</span>
+<span id="cb337-31"><a href="taxon_acc.html#cb337-31" tabindex="-1"></a>    <span class="co"># , metric = dplyr::case_when(</span></span>
+<span id="cb337-32"><a href="taxon_acc.html#cb337-32" tabindex="-1"></a>    <span class="co">#   name == &quot;overall&quot; ~ &quot;Overall Accuracy (TP Only)&quot;</span></span>
+<span id="cb337-33"><a href="taxon_acc.html#cb337-33" tabindex="-1"></a>    <span class="co">#   , name == &quot;bc_dissimilarity&quot; ~ &quot;Bray-Curtis Dissimilarity&quot;</span></span>
+<span id="cb337-34"><a href="taxon_acc.html#cb337-34" tabindex="-1"></a>    <span class="co">#   , name == &quot;bc_similarity&quot; ~ &quot;Bray-Curtis Similarity&quot;</span></span>
+<span id="cb337-35"><a href="taxon_acc.html#cb337-35" tabindex="-1"></a>    <span class="co">#   , name == &quot;prop_rmse&quot; ~ &quot;Proportional RMSE&quot;</span></span>
+<span id="cb337-36"><a href="taxon_acc.html#cb337-36" tabindex="-1"></a>    <span class="co"># )</span></span>
+<span id="cb337-37"><a href="taxon_acc.html#cb337-37" tabindex="-1"></a>    , <span class="at">metric =</span> <span class="fu">factor</span>(</span>
+<span id="cb337-38"><a href="taxon_acc.html#cb337-38" tabindex="-1"></a>      name </span>
+<span id="cb337-39"><a href="taxon_acc.html#cb337-39" tabindex="-1"></a>      , <span class="at">levels =</span> <span class="fu">c</span>(</span>
+<span id="cb337-40"><a href="taxon_acc.html#cb337-40" tabindex="-1"></a>        <span class="st">&quot;overall&quot;</span> <span class="co"># ~ &quot;Overall Accuracy (TP Only)&quot;</span></span>
+<span id="cb337-41"><a href="taxon_acc.html#cb337-41" tabindex="-1"></a>        , <span class="st">&quot;bc_similarity&quot;</span> <span class="co"># ~ &quot;Bray-Curtis Similarity&quot;</span></span>
+<span id="cb337-42"><a href="taxon_acc.html#cb337-42" tabindex="-1"></a>        , <span class="st">&quot;bc_dissimilarity&quot;</span> <span class="co"># ~ &quot;Bray-Curtis Dissimilarity&quot;</span></span>
+<span id="cb337-43"><a href="taxon_acc.html#cb337-43" tabindex="-1"></a>        , <span class="st">&quot;prop_rmse&quot;</span> <span class="co"># ~ &quot;Proportional RMSE&quot;  </span></span>
+<span id="cb337-44"><a href="taxon_acc.html#cb337-44" tabindex="-1"></a>      )</span>
+<span id="cb337-45"><a href="taxon_acc.html#cb337-45" tabindex="-1"></a>      , <span class="at">ordered =</span> T</span>
+<span id="cb337-46"><a href="taxon_acc.html#cb337-46" tabindex="-1"></a>      , <span class="at">labels =</span> <span class="fu">c</span>(</span>
+<span id="cb337-47"><a href="taxon_acc.html#cb337-47" tabindex="-1"></a>        <span class="st">&quot;Overall Accuracy (TP Only)&quot;</span> <span class="co"># &quot;overall&quot; </span></span>
+<span id="cb337-48"><a href="taxon_acc.html#cb337-48" tabindex="-1"></a>        , <span class="st">&quot;Bray-Curtis Similarity&quot;</span> <span class="co"># &quot;bc_similarity&quot; </span></span>
+<span id="cb337-49"><a href="taxon_acc.html#cb337-49" tabindex="-1"></a>        , <span class="st">&quot;Bray-Curtis Dissimilarity&quot;</span> <span class="co"># &quot;bc_dissimilarity&quot; </span></span>
+<span id="cb337-50"><a href="taxon_acc.html#cb337-50" tabindex="-1"></a>        , <span class="st">&quot;Proportional RMSE&quot;</span>   <span class="co"># &quot;prop_rmse&quot; </span></span>
+<span id="cb337-51"><a href="taxon_acc.html#cb337-51" tabindex="-1"></a>      )</span>
+<span id="cb337-52"><a href="taxon_acc.html#cb337-52" tabindex="-1"></a>    )</span>
+<span id="cb337-53"><a href="taxon_acc.html#cb337-53" tabindex="-1"></a>    , <span class="at">value_lab =</span> scales<span class="sc">::</span><span class="fu">percent</span>(value,<span class="at">accuracy =</span> <span class="fl">0.1</span>)</span>
+<span id="cb337-54"><a href="taxon_acc.html#cb337-54" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-55"><a href="taxon_acc.html#cb337-55" tabindex="-1"></a>  <span class="co"># plot</span></span>
+<span id="cb337-56"><a href="taxon_acc.html#cb337-56" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(</span>
+<span id="cb337-57"><a href="taxon_acc.html#cb337-57" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> value, <span class="at">y =</span> site, <span class="at">color =</span> sum_level)</span>
+<span id="cb337-58"><a href="taxon_acc.html#cb337-58" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-59"><a href="taxon_acc.html#cb337-59" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_segment</span>(</span>
+<span id="cb337-60"><a href="taxon_acc.html#cb337-60" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">xend =</span> value, <span class="at">yend =</span> site)</span>
+<span id="cb337-61"><a href="taxon_acc.html#cb337-61" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-62"><a href="taxon_acc.html#cb337-62" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb337-63"><a href="taxon_acc.html#cb337-63" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_text</span>(</span>
+<span id="cb337-64"><a href="taxon_acc.html#cb337-64" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">label =</span> value_lab, <span class="at">fontface =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb337-65"><a href="taxon_acc.html#cb337-65" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;black&quot;</span></span>
+<span id="cb337-66"><a href="taxon_acc.html#cb337-66" tabindex="-1"></a>    , <span class="at">size =</span> <span class="fl">2.3</span></span>
+<span id="cb337-67"><a href="taxon_acc.html#cb337-67" tabindex="-1"></a>    <span class="co"># , nudge_x = 0.006</span></span>
+<span id="cb337-68"><a href="taxon_acc.html#cb337-68" tabindex="-1"></a>    , <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">vjust =</span> <span class="sc">-</span><span class="dv">1</span></span>
+<span id="cb337-69"><a href="taxon_acc.html#cb337-69" tabindex="-1"></a>    <span class="co"># , hjust = -0.4</span></span>
+<span id="cb337-70"><a href="taxon_acc.html#cb337-70" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-71"><a href="taxon_acc.html#cb337-71" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_grid</span>(</span>
+<span id="cb337-72"><a href="taxon_acc.html#cb337-72" tabindex="-1"></a>    <span class="at">rows =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(taxon_level)</span>
+<span id="cb337-73"><a href="taxon_acc.html#cb337-73" tabindex="-1"></a>    , <span class="at">cols =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(metric)</span>
+<span id="cb337-74"><a href="taxon_acc.html#cb337-74" tabindex="-1"></a>    <span class="co"># , scales = &quot;free_x&quot;</span></span>
+<span id="cb337-75"><a href="taxon_acc.html#cb337-75" tabindex="-1"></a>    , <span class="at">switch =</span> <span class="st">&quot;y&quot;</span></span>
+<span id="cb337-76"><a href="taxon_acc.html#cb337-76" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-77"><a href="taxon_acc.html#cb337-77" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_x_continuous</span>(</span>
+<span id="cb337-78"><a href="taxon_acc.html#cb337-78" tabindex="-1"></a>    <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>)</span>
+<span id="cb337-79"><a href="taxon_acc.html#cb337-79" tabindex="-1"></a>    , <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>)</span>
+<span id="cb337-80"><a href="taxon_acc.html#cb337-80" tabindex="-1"></a>    , <span class="at">expand =</span> ggplot2<span class="sc">::</span><span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.02</span>,<span class="fl">0.09</span>))</span>
+<span id="cb337-81"><a href="taxon_acc.html#cb337-81" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-82"><a href="taxon_acc.html#cb337-82" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_color_viridis_d</span>(<span class="at">begin =</span> <span class="fl">0.3</span>, <span class="at">end =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb337-83"><a href="taxon_acc.html#cb337-83" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
+<span id="cb337-84"><a href="taxon_acc.html#cb337-84" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">&quot;Proposed Tree Classification Method Accuracy Performance</span><span class="sc">\n</span><span class="st">by site&quot;</span></span>
+<span id="cb337-85"><a href="taxon_acc.html#cb337-85" tabindex="-1"></a>    , <span class="at">x =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;metric value&quot;</span></span>
+<span id="cb337-86"><a href="taxon_acc.html#cb337-86" tabindex="-1"></a>    , <span class="at">y =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
+<span id="cb337-87"><a href="taxon_acc.html#cb337-87" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
+<span id="cb337-88"><a href="taxon_acc.html#cb337-88" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-89"><a href="taxon_acc.html#cb337-89" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme_light</span>() <span class="sc">+</span></span>
+<span id="cb337-90"><a href="taxon_acc.html#cb337-90" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme</span>(</span>
+<span id="cb337-91"><a href="taxon_acc.html#cb337-91" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;top&quot;</span></span>
+<span id="cb337-92"><a href="taxon_acc.html#cb337-92" tabindex="-1"></a>    , <span class="at">strip.text =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb337-93"><a href="taxon_acc.html#cb337-93" tabindex="-1"></a>    </span>
+<span id="cb337-94"><a href="taxon_acc.html#cb337-94" tabindex="-1"></a>    , <span class="at">strip.placement =</span> <span class="st">&quot;outside&quot;</span></span>
+<span id="cb337-95"><a href="taxon_acc.html#cb337-95" tabindex="-1"></a>    , <span class="at">strip.text.y.left =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>, <span class="at">angle =</span> <span class="dv">90</span>, <span class="at">hjust =</span> <span class="fl">0.5</span>)</span>
+<span id="cb337-96"><a href="taxon_acc.html#cb337-96" tabindex="-1"></a>    , <span class="at">strip.background.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_blank</span>()</span>
+<span id="cb337-97"><a href="taxon_acc.html#cb337-97" tabindex="-1"></a>    , <span class="at">panel.spacing.y =</span> ggplot2<span class="sc">::</span><span class="fu">unit</span>(<span class="dv">2</span>, <span class="st">&quot;lines&quot;</span>)</span>
+<span id="cb337-98"><a href="taxon_acc.html#cb337-98" tabindex="-1"></a>    </span>
+<span id="cb337-99"><a href="taxon_acc.html#cb337-99" tabindex="-1"></a>    , <span class="at">axis.text.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb337-100"><a href="taxon_acc.html#cb337-100" tabindex="-1"></a>    , <span class="at">panel.grid.major.x =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb337-101"><a href="taxon_acc.html#cb337-101" tabindex="-1"></a>    , <span class="at">panel.grid.minor.x =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb337-102"><a href="taxon_acc.html#cb337-102" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-103"><a href="taxon_acc.html#cb337-103" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">guides</span>(</span>
+<span id="cb337-104"><a href="taxon_acc.html#cb337-104" tabindex="-1"></a>    <span class="at">color =</span> ggplot2<span class="sc">::</span><span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">shape =</span> <span class="dv">15</span>, <span class="at">lwd =</span> <span class="cn">NA</span>, <span class="at">size =</span> <span class="dv">8</span>, <span class="at">fill =</span> <span class="cn">NA</span>))</span>
+<span id="cb337-105"><a href="taxon_acc.html#cb337-105" tabindex="-1"></a>    , <span class="at">fill =</span> <span class="st">&quot;none&quot;</span></span>
+<span id="cb337-106"><a href="taxon_acc.html#cb337-106" tabindex="-1"></a>  )</span></code></pre></div>
+<p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-345-1.png" alt="" width="1008" /></p>
+<p>neat.</p>
+
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="site_06.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+  "sharing": {
+    "github": false,
+    "facebook": true,
+    "twitter": true,
+    "linkedin": false,
+    "weibo": false,
+    "instapaper": false,
+    "vk": false,
+    "whatsapp": false,
+    "all": ["facebook", "twitter", "linkedin", "weibo", "instapaper"]
+  },
+  "fontsettings": {
+    "theme": "white",
+    "family": "sans",
+    "size": 2
+  },
+  "edit": {
+    "link": null,
+    "text": null
+  },
+  "history": {
+    "link": null,
+    "text": null
+  },
+  "view": {
+    "link": null,
+    "text": null
+  },
+  "download": null,
+  "search": {
+    "engine": "fuse",
+    "options": null
+  },
+  "toc": {
+    "collapse": "subsection"
+  }
+});
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+</body>
+
+</html>
