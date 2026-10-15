@@ -32,7 +32,7 @@ The metrics we will be looking at in this review are:
 
 | Evaluation Level | Metric Name | Succinct Metric Description | Species-Level Evaluation | Genus-Level Evaluation |
 | :--- | :--- | :--- | :---: | :---: |
-| **Individual Tree Level Accuracy**<br>*(Taxonomic Classification Power)* | **Overall Accuracy (OA)** | Proportion of correctly classified species/genera among successfully detected trees (TP matches). | ✓ | ✓ |
+| **Individual Tree Level Accuracy**<br>*(Taxonomic Classification Power)* | **Overall Accuracy (OA)** | Proportion of correctly classified species/genus among successfully detected trees (TP matches). | ✓ | ✓ |
 | **Site-Wide Compositional Accuracy**<br>*(Stand Inventory Performance)* | **Bray-Curtis Dissimilarity** | Proportion of absolute species/genus abundance mismatched. | ✓ | ✓ |
 | | **Bray-Curtis Similarity** | Proportion of absolute species/genus abundance matching perfectly. | ✓ | ✓ |
 | | **Proportional RMSE** | Average percentage deviation error margin per species/genus. | ✓ | ✓ |
@@ -152,7 +152,7 @@ it's probably easier to *see* the data
 
 ## Genus-level
 
-Let's start by looking at the **genus** accuracy results. We anticipate classification performance at the genus level to be higher than at the species level. Although our proposed classification method predicts species, evaluating the predictions at the higher-level genus naturally reduces the number of classification classes and increases the mathematical probability of a correct match. The genus-level evaluation creates a wider target that absorbs misclassifications made between closely related species in the same genus. An acceptable level of genus-level accuracy is likely still valuable for operational forestry use cases.
+Let's start by looking at the **genus** accuracy results. We anticipate classification performance at the genus level to be higher than at the species level. Although our proposed classification method predicts species, evaluating the predictions at the higher-level genus naturally reduces the number of classification classes and increases the mathematical probability of a correct match. The genus-level evaluation creates a wider target that absorbs misclassifications made between related species in the same genus. An acceptable level of genus-level accuracy is likely still valuable for operational forestry use cases.
 
 ```{r, fig.height=9}
 df_temp <- 
@@ -233,7 +233,7 @@ df_temp %>%
   ggplot2::geom_text(
     mapping = ggplot2::aes(label = value_lab, fontface = "bold")
     , color = "black"
-    , size = 2.5
+    , size = 2.4
     # , nudge_x = 0.006
     , hjust = 0, vjust = -1
     # , hjust = -0.4
@@ -246,7 +246,7 @@ df_temp %>%
   ggplot2::scale_x_continuous(
     limits = c(0,1)
     , labels = scales::label_percent(accuracy = 1)
-    , expand = ggplot2::expansion(mult = c(0.02,0.1))
+    , expand = ggplot2::expansion(mult = c(0.02,0.13))
   ) +
   ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
   ggplot2::labs(
@@ -325,7 +325,7 @@ df_temp %>%
   ggplot2::geom_text(
     mapping = ggplot2::aes(label = value_lab, fontface = "bold")
     , color = "black"
-    , size = 2.5
+    , size = 2.4
     # , nudge_x = 0.006
     , hjust = 0, vjust = -1
     # , hjust = -0.4
@@ -338,7 +338,7 @@ df_temp %>%
   ggplot2::scale_x_continuous(
     limits = c(0,1)
     , labels = scales::label_percent(accuracy = 1)
-    , expand = ggplot2::expansion(mult = c(0.02,0.1))
+    , expand = ggplot2::expansion(mult = c(0.02,0.13))
   ) +
   ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
   ggplot2::labs(
@@ -379,8 +379,129 @@ Species-level Bray-Curtis Similarity (site level) ranged from `r scales::percent
 
 Species-level overall accuracy (tree level) ranged from `r scales::percent(oa_min_temp$acc_tree_species_overall,accuracy = 0.1)` at `r paste0(oa_min_temp$data_site_nm, " (", oa_min_temp$data_ftype_desc, ")")` to `r scales::percent(oa_max_temp$acc_tree_species_overall,accuracy = 0.1)` at `r paste0(oa_max_temp$data_site_nm, " (", oa_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_tree_species_overall,na.rm=T),accuracy = 0.1)`.
 
+## Species- vs. Genus-level
+
+Accuracy metrics were evaluated at both the species and genus taxonomic levels to quantify the accuracy trade-offs associated with pushing the classification method to the finest taxonomic level (species). We anticipate classification performance at the genus level to be higher than at the species level because aggregating predictions into broader taxonomic groups inherently reduces the number of classification classes, increasing the mathematical probability of a correct match.
+
+Let's check out the spread between genus and species-level accuracy based on overall accuracy (tree level) and Bray-Curtis similarity (site level)
+
+```{r, fig.height=8.8}
+# plot
+df_temp %>%
+  dplyr::filter(
+    name %in% c("overall","bc_similarity")
+  ) %>% 
+  dplyr::group_by(site) %>% 
+  dplyr::mutate(
+    sorter = max(ifelse(name=="bc_similarity",value,NA),na.rm = T)
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    site = site %>% forcats::fct_reorder(sorter)
+    , taxon_level = factor(taxon_level, levels = c("Genus-level", "Species-level"), ordered = TRUE)
+    , hey_lab = dplyr::case_when(
+      taxon_level=="Genus-level" ~ paste0(stringr::word(site,1,sep = "\n"),"\n",value_lab) 
+      , T ~ value_lab
+    )
+  ) %>% 
+  # plot
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = taxon_level, y = value, group = site)
+  ) +
+  ggplot2::geom_line(alpha = 0.7, color = "gray", lwd = 1.1) +
+  # genus labs
+  ggrepel::geom_text_repel(
+    data = ~dplyr::filter(.x,taxon_level=="Genus-level")
+    , mapping = ggplot2::aes(label = hey_lab)
+    , size = 2.9
+    # , hjust = 0.5, vjust = 2.2
+    , hjust = 1
+    , nudge_x = -0.02
+    , direction = "both" # "y"
+    , box.padding = 0.15
+    , point.padding = 0
+    , min.segment.length = 0
+    , xlim = c(-Inf, 0.98) # labels stay on lhs
+    , segment.color = "gray88"
+  ) +
+  # pred labs
+  ggrepel::geom_text_repel(
+    data = ~dplyr::filter(.x,taxon_level=="Species-level")
+    , mapping = ggplot2::aes(label = hey_lab)
+    , size = 2.4
+    , hjust = 0
+    , nudge_x = 0.02
+    , direction = "y"
+    , box.padding = 0.1
+    , point.padding = 0
+    , min.segment.length = 0
+    , segment.color = "grey88"
+  ) +
+  ggplot2::geom_point(
+    mapping = 
+      # ggplot2::aes(color = taxon_level)
+      ggplot2::aes(color = sum_level)
+    # , alpha = 0.7
+    , size = 4
+  ) +
+  ggplot2::facet_grid(
+    cols = dplyr::vars(metric)
+    # , rows = dplyr::vars(taxon_level)
+    # , switch = "y"
+  ) +
+  ggplot2::scale_y_continuous(
+    limits = c(0,1)
+    , labels = scales::label_percent(accuracy = 1)
+    , expand = ggplot2::expansion(mult = c(0.02,0.1))
+  ) +
+  scale_x_discrete(expand = expansion(mult = c(0.6, 0.2))) + 
+  # ggplot2::scale_color_viridis_d(option="magma",begin = 0.5, end = 0.66) +
+  ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
+  ggplot2::labs(
+    x = "" # "comparison"
+    , y = ""
+    , color = ""
+    , subtitle = ""
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , axis.text.x = ggplot2::element_text(size = 10, face = "bold", color = "black")
+    , axis.text.y = ggplot2::element_text(size = 7)
+    , axis.title.y = ggplot2::element_text(size = 7)
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+  ) +
+  ggplot2::guides(
+    color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
+    , fill = "none"
+  )
+```
+
+```{r, include = F, eval = T}
+diff_tree_temp <- project_data_df %>% dplyr::mutate(diff = acc_tree_genus_overall-acc_tree_species_overall)
+max_diff_tree_temp <- diff_tree_temp %>% dplyr::slice_max(n=1,order_by = diff,with_ties = F)
+min_diff_tree_temp <- diff_tree_temp %>% dplyr::slice_min(n=1,order_by = diff,with_ties = F)
+
+diff_site_temp <- project_data_df %>% dplyr::mutate(diff = acc_site_genus_bc_similarity-acc_site_species_bc_similarity)
+max_diff_site_temp <- diff_site_temp %>% dplyr::slice_max(n=1,order_by = diff,with_ties = F)
+min_diff_site_temp <- diff_site_temp %>% dplyr::slice_min(n=1,order_by = diff,with_ties = F)
+# max_diff_site_temp %>% dplyr::glimpse()
+
+# scales::percent(median(max_diff_tree_temp$diff,na.rm=T))
+# scales::percent(median(max_diff_tree_temp$acc_tree_genus_overall,na.rm=T))
+# scales::percent(median(max_diff_tree_temp$acc_tree_species_overall,na.rm=T))
+# paste0(max_diff_tree_temp$data_site_nm, " (", max_diff_tree_temp$data_ftype_desc, ")")
+# scales::percent(max_diff_tree_temp$acc_tree_species_overall)
+```
+
+The median decrease in Bray-Curtis similarity (site-level accuracy) from genus-level to species-level is `r scales::percent(median(diff_site_temp$diff,na.rm=T))`. The greatest decrease in Bray-Curtis similarity from genus-level to species-level of `r scales::percent(max_diff_site_temp$diff)` was observed at `r paste0(max_diff_site_temp$data_site_nm, " (", max_diff_site_temp$data_ftype_desc, ")")` based on a genus-level Bray-Curtis similarity of `r scales::percent(max_diff_site_temp$acc_site_genus_bc_similarity)` and a species-level similarity of `r scales::percent(max_diff_site_temp$acc_site_species_bc_similarity)`. The smallest decrease in Bray-Curtis similarity from genus-level to species-level of `r scales::percent(min_diff_site_temp$diff)` was observed at `r paste0(min_diff_site_temp$data_site_nm, " (", min_diff_site_temp$data_ftype_desc, ")")` based on a genus-level Bray-Curtis similarity of `r scales::percent(min_diff_site_temp$acc_site_genus_bc_similarity)` and a species-level similarity of `r scales::percent(min_diff_site_temp$acc_site_species_bc_similarity)`. 
+
+The median decrease in overall accuracy (tree-level accuracy) from genus-level to species-level is `r scales::percent(median(diff_tree_temp$diff,na.rm=T))`. The greatest decrease in overall accuracy from genus-level to species-level of `r scales::percent(max_diff_tree_temp$diff)` was observed at `r paste0(max_diff_tree_temp$data_site_nm, " (", max_diff_tree_temp$data_ftype_desc, ")")` based on a genus-level overall accuracy of `r scales::percent(max_diff_tree_temp$acc_tree_genus_overall)` and a species-level accuracy of `r scales::percent(max_diff_tree_temp$acc_tree_species_overall)`. The smallest decrease in overall accuracy from genus-level to species-level of `r scales::percent(min_diff_tree_temp$diff)` was observed at `r paste0(min_diff_tree_temp$data_site_nm, " (", min_diff_tree_temp$data_ftype_desc, ")")` based on a genus-level overall accuracy of `r scales::percent(min_diff_tree_temp$acc_tree_genus_overall)` and a species-level accuracy of `r scales::percent(min_diff_tree_temp$acc_tree_species_overall)`. 
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+ # based on a median genus-level Bray-Curtis similarity of `r scales::percent(median(diff_site_temp$acc_site_genus_bc_similarity,na.rm=T))` and a species-level similarity of `r scales::percent(median(diff_site_temp$acc_site_species_bc_similarity,na.rm=T))`
+
+ # based on a median genus-level overall accuracy of `r scales::percent(median(diff_tree_temp$acc_tree_genus_overall,na.rm=T))` and a species-level accuracy of `r scales::percent(median(diff_tree_temp$acc_tree_species_overall,na.rm=T))`
 remove(list = ls()[grep("_temp",ls())])
 gc()
 ```

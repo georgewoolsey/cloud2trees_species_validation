@@ -281,7 +281,13 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.6.2" data-path="site_06.html"><a href="site_06.html#site-level-accuracy-4"><i class="fa fa-check"></i><b>8.6.2</b> Site-Level Accuracy</a></li>
 </ul></li>
 </ul></li>
-<li class="chapter" data-level="9" data-path="taxon_acc.html"><a href="taxon_acc.html"><i class="fa fa-check"></i><b>9</b> Taxonomic Classification Accuracy Summary</a></li>
+<li class="chapter" data-level="9" data-path="taxon_acc.html"><a href="taxon_acc.html"><i class="fa fa-check"></i><b>9</b> Taxonomic Classification Accuracy Summary</a>
+<ul>
+<li class="chapter" data-level="9.1" data-path="taxon_acc.html"><a href="taxon_acc.html#summary-table"><i class="fa fa-check"></i><b>9.1</b> Summary Table</a></li>
+<li class="chapter" data-level="9.2" data-path="taxon_acc.html"><a href="taxon_acc.html#genus-level"><i class="fa fa-check"></i><b>9.2</b> Genus-level</a></li>
+<li class="chapter" data-level="9.3" data-path="taxon_acc.html"><a href="taxon_acc.html#species-level"><i class="fa fa-check"></i><b>9.3</b> Species-level</a></li>
+<li class="chapter" data-level="9.4" data-path="taxon_acc.html"><a href="taxon_acc.html#species--vs.-genus-level"><i class="fa fa-check"></i><b>9.4</b> Species- vs. Genus-level</a></li>
+</ul></li>
 </ul>
 
       </nav>
@@ -338,7 +344,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <tr class="odd">
 <td align="left"><strong>Individual Tree Level Accuracy</strong><br><em>(Taxonomic Classification Power)</em></td>
 <td align="left"><strong>Overall Accuracy (OA)</strong></td>
-<td align="left">Proportion of correctly classified species/genera among successfully detected trees (TP matches).</td>
+<td align="left">Proportion of correctly classified species/genus among successfully detected trees (TP matches).</td>
 <td align="center">✓</td>
 <td align="center">✓</td>
 </tr>
@@ -367,6 +373,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </table>
 <p>Accuracy metrics were evaluated at both the species and genus taxonomic levels to quantify the accuracy trade-offs associated with pushing the classification method to the finest taxonomic level (species). We anticipate classification performance at the genus level to be higher than at the species level because aggregating predictions into broader taxonomic groups inherently reduces the number of classification classes, increasing the mathematical probability of a correct match. An acceptable level of classification accuracy at the genus-level can still be valuable in operational forestry settings. Species within the same genus frequently occupy similar ecological functional roles, and distinguishing between them represents one of the most persistent challenges when relying on remote sensing datasets alone (Vauhkonen et al., 2014b). Furthermore, members of the same genus typically exhibit similar growth forms and structural geometries, which mitigates species-level misclassifications when using volumetric equations. From an operational management perspective, individual species-level distinction within a genus, such as separating blue spruce (<em>Picea pungens</em>) from Engelmann spruce (<em>Picea engelmannii</em>), for example, often yields marginal practical benefit if their allometries and ecological roles remain functionally similar.</p>
 <p>If the primary management objective requires highly accurate species-level classification at the individual tree level, then our proposed approach is likely to be insufficient and unreliable. Especially across structurally diverse forest types.</p>
+<p>For the tree-level evaluation, a high Overall Accuracy means the method does well at determining the correct species/genus for successfully matched trees (TP matches). For site-level metrics, a low Bray-Curtis Dissimilarity and a low Proportional RMSE indicate the total species/genus classification errors are small, which naturally results in a high Bray-Curtis Similarity (calculated as 1 minus dissimilarity). High site-level similarity indicates high overlap between the predicted and reference taxonomic compositional profile. A single site can have low Overall Accuracy (tree level) but high Bray-Curtis Similarity if individual tree classification errors balance out across the whole site to create an accurate, overall composition. Conversely, a site can have high Overall Accuracy but low Bray-Curtis Similarity if the method correctly classifies the matched trees (TP matches) but the site includes omissions (FN) or commissions (FP) that alters the overall taxonomic compositional profile.</p>
 <div class="sourceCode" id="cb334"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb334-1"><a href="taxon_acc.html#cb334-1" tabindex="-1"></a><span class="co"># add descriptions to the data</span></span>
 <span id="cb334-2"><a href="taxon_acc.html#cb334-2" tabindex="-1"></a></span>
 <span id="cb334-3"><a href="taxon_acc.html#cb334-3" tabindex="-1"></a><span class="co"># | WFSI Elgin AFB | Florida | longleaf pine | ALS | tree locations |</span></span>
@@ -402,7 +409,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb334-33"><a href="taxon_acc.html#cb334-33" tabindex="-1"></a>      , <span class="st">&quot;WFSI_FtStewart&quot;</span> <span class="sc">~</span> <span class="st">&quot;southern yellow pine&quot;</span></span>
 <span id="cb334-34"><a href="taxon_acc.html#cb334-34" tabindex="-1"></a>    )</span>
 <span id="cb334-35"><a href="taxon_acc.html#cb334-35" tabindex="-1"></a>  )</span></code></pre></div>
-<p>big overview table</p>
+<div id="summary-table" class="section level2 hasAnchor" number="9.1">
+<h2><span class="header-section-number">9.1</span> Summary Table<a href="taxon_acc.html#summary-table" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <div class="sourceCode" id="cb335"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb335-1"><a href="taxon_acc.html#cb335-1" tabindex="-1"></a>project_data_df <span class="sc">%&gt;%</span></span>
 <span id="cb335-2"><a href="taxon_acc.html#cb335-2" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
 <span id="cb335-3"><a href="taxon_acc.html#cb335-3" tabindex="-1"></a>    <span class="sc">!</span><span class="fu">is.na</span>(acc_site_genus_bc_dissimilarity)</span>
@@ -510,13 +518,13 @@ CSFS_SWE<br>(lodgepole pine)
 NA
 </td>
 <td style="text-align:left;">
-12.2%
+11.8%
 </td>
 <td style="text-align:left;">
-87.8%
+88.2%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-9.8%
+8.5%
 </td>
 </tr>
 <tr>
@@ -527,10 +535,10 @@ USFS_ManitouEF_BigPlot<br>(western mixed conifer)
 27.7%
 </td>
 <td style="text-align:left;">
-39.3%
+39.4%
 </td>
 <td style="text-align:left;">
-60.7%
+60.6%
 </td>
 <td style="text-align:left;border-right:1px solid;">
 14.4%
@@ -541,7 +549,24 @@ USFS_ManitouEF_BigPlot<br>(western mixed conifer)
 USFS_ManitouEF_N1<br>(ponderosa pine)
 </td>
 <td style="text-align:left;border-right:1px solid;">
-74.9%
+74.2%
+</td>
+<td style="text-align:left;">
+24.5%
+</td>
+<td style="text-align:left;">
+75.5%
+</td>
+<td style="text-align:left;border-right:1px solid;">
+13.0%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_PenobscotEF<br>(northern mixed conifer)
+</td>
+<td style="text-align:left;border-right:1px solid;">
+20.4%
 </td>
 <td style="text-align:left;">
 24.0%
@@ -550,24 +575,7 @@ USFS_ManitouEF_N1<br>(ponderosa pine)
 76.0%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-12.7%
-</td>
-</tr>
-<tr>
-<td style="text-align:left;font-weight: bold;border-right:1px solid;">
-USFS_PenobscotEF<br>(northern mixed conifer)
-</td>
-<td style="text-align:left;border-right:1px solid;">
-20.6%
-</td>
-<td style="text-align:left;">
-25.2%
-</td>
-<td style="text-align:left;">
-74.8%
-</td>
-<td style="text-align:left;border-right:1px solid;">
-6.0%
+5.7%
 </td>
 </tr>
 <tr>
@@ -575,16 +583,16 @@ USFS_PenobscotEF<br>(northern mixed conifer)
 USFS_UteCreek<br>(dry-mesic mixed conifer)
 </td>
 <td style="text-align:left;border-right:1px solid;">
-86.7%
+85.8%
 </td>
 <td style="text-align:left;">
-5.1%
+4.8%
 </td>
 <td style="text-align:left;">
-94.9%
+95.2%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-3.1%
+2.8%
 </td>
 </tr>
 <tr>
@@ -592,16 +600,16 @@ USFS_UteCreek<br>(dry-mesic mixed conifer)
 WFSI_EglinAFB<br>(longleaf pine)
 </td>
 <td style="text-align:left;border-right:1px solid;">
-67.0%
+66.0%
 </td>
 <td style="text-align:left;">
-21.0%
+21.7%
 </td>
 <td style="text-align:left;">
-79.0%
+78.3%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-17.1%
+13.5%
 </td>
 </tr>
 <tr>
@@ -615,13 +623,13 @@ CSFS_SWE<br>(lodgepole pine)
 NA
 </td>
 <td style="text-align:left;">
-12.2%
+11.8%
 </td>
 <td style="text-align:left;">
-87.8%
+88.2%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-9.8%
+8.5%
 </td>
 </tr>
 <tr>
@@ -629,16 +637,16 @@ NA
 USFS_ManitouEF_BigPlot<br>(western mixed conifer)
 </td>
 <td style="text-align:left;border-right:1px solid;">
-24.5%
+24.6%
 </td>
 <td style="text-align:left;">
-50.7%
+50.4%
 </td>
 <td style="text-align:left;">
-49.3%
+49.6%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-11.1%
+11.0%
 </td>
 </tr>
 <tr>
@@ -646,16 +654,16 @@ USFS_ManitouEF_BigPlot<br>(western mixed conifer)
 USFS_ManitouEF_N1<br>(ponderosa pine)
 </td>
 <td style="text-align:left;border-right:1px solid;">
-74.9%
+74.2%
 </td>
 <td style="text-align:left;">
-24.0%
+24.5%
 </td>
 <td style="text-align:left;">
-76.0%
+75.5%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-11.7%
+12.0%
 </td>
 </tr>
 <tr>
@@ -663,16 +671,16 @@ USFS_ManitouEF_N1<br>(ponderosa pine)
 USFS_PenobscotEF<br>(northern mixed conifer)
 </td>
 <td style="text-align:left;border-right:1px solid;">
-20.3%
+20.1%
 </td>
 <td style="text-align:left;">
-25.4%
+24.1%
 </td>
 <td style="text-align:left;">
-74.6%
+75.9%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-4.5%
+4.2%
 </td>
 </tr>
 <tr>
@@ -680,7 +688,7 @@ USFS_PenobscotEF<br>(northern mixed conifer)
 USFS_UteCreek<br>(dry-mesic mixed conifer)
 </td>
 <td style="text-align:left;border-right:1px solid;">
-63.5%
+62.1%
 </td>
 <td style="text-align:left;">
 25.4%
@@ -689,7 +697,7 @@ USFS_UteCreek<br>(dry-mesic mixed conifer)
 74.6%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-13.5%
+12.3%
 </td>
 </tr>
 <tr>
@@ -697,16 +705,16 @@ USFS_UteCreek<br>(dry-mesic mixed conifer)
 WFSI_EglinAFB<br>(longleaf pine)
 </td>
 <td style="text-align:left;border-right:1px solid;">
-56.4%
+56.2%
 </td>
 <td style="text-align:left;">
-44.2%
+44.1%
 </td>
 <td style="text-align:left;">
-55.8%
+55.9%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-14.4%
+13.2%
 </td>
 </tr>
 </tbody>
@@ -719,115 +727,302 @@ WFSI_EglinAFB<br>(longleaf pine)
 <span id="cb336-5"><a href="taxon_acc.html#cb336-5" tabindex="-1"></a>  <span class="co">#   # , symbol = c(&quot;Footnote Symbol 1; &quot;, &quot;Footnote Symbol 2&quot;)</span></span>
 <span id="cb336-6"><a href="taxon_acc.html#cb336-6" tabindex="-1"></a>  <span class="co"># )</span></span></code></pre></div>
 <p>it’s probably easier to <em>see</em> the data</p>
-<div class="sourceCode" id="cb337"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb337-1"><a href="taxon_acc.html#cb337-1" tabindex="-1"></a>project_data_df <span class="sc">%&gt;%</span></span>
-<span id="cb337-2"><a href="taxon_acc.html#cb337-2" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
-<span id="cb337-3"><a href="taxon_acc.html#cb337-3" tabindex="-1"></a>    <span class="sc">!</span><span class="fu">is.na</span>(acc_site_genus_bc_dissimilarity)</span>
-<span id="cb337-4"><a href="taxon_acc.html#cb337-4" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
-<span id="cb337-5"><a href="taxon_acc.html#cb337-5" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
-<span id="cb337-6"><a href="taxon_acc.html#cb337-6" tabindex="-1"></a>    <span class="at">site =</span> <span class="fu">paste0</span>(</span>
-<span id="cb337-7"><a href="taxon_acc.html#cb337-7" tabindex="-1"></a>      data_site_nm</span>
-<span id="cb337-8"><a href="taxon_acc.html#cb337-8" tabindex="-1"></a>      , <span class="st">&quot;</span><span class="sc">\n</span><span class="st">(&quot;</span></span>
-<span id="cb337-9"><a href="taxon_acc.html#cb337-9" tabindex="-1"></a>      , data_ftype_desc</span>
-<span id="cb337-10"><a href="taxon_acc.html#cb337-10" tabindex="-1"></a>      , <span class="st">&quot;)&quot;</span></span>
-<span id="cb337-11"><a href="taxon_acc.html#cb337-11" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span> </span>
-<span id="cb337-12"><a href="taxon_acc.html#cb337-12" tabindex="-1"></a>    forcats<span class="sc">::</span><span class="fu">fct_reorder</span>(acc_site_genus_bc_similarity)</span>
-<span id="cb337-13"><a href="taxon_acc.html#cb337-13" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
-<span id="cb337-14"><a href="taxon_acc.html#cb337-14" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(</span>
-<span id="cb337-15"><a href="taxon_acc.html#cb337-15" tabindex="-1"></a>    site, tidyselect<span class="sc">::</span><span class="fu">starts_with</span>(<span class="st">&quot;acc_&quot;</span>)</span>
-<span id="cb337-16"><a href="taxon_acc.html#cb337-16" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
-<span id="cb337-17"><a href="taxon_acc.html#cb337-17" tabindex="-1"></a>  <span class="co"># dplyr::mutate(dplyr::across(</span></span>
-<span id="cb337-18"><a href="taxon_acc.html#cb337-18" tabindex="-1"></a>  <span class="co">#   dplyr::where(is.numeric)</span></span>
-<span id="cb337-19"><a href="taxon_acc.html#cb337-19" tabindex="-1"></a>  <span class="co">#   , ~scales::percent(.x,accuracy=0.1)</span></span>
-<span id="cb337-20"><a href="taxon_acc.html#cb337-20" tabindex="-1"></a>  <span class="co"># )) %&gt;% </span></span>
-<span id="cb337-21"><a href="taxon_acc.html#cb337-21" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(<span class="sc">-</span>site) <span class="sc">%&gt;%</span> </span>
-<span id="cb337-22"><a href="taxon_acc.html#cb337-22" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
-<span id="cb337-23"><a href="taxon_acc.html#cb337-23" tabindex="-1"></a>    <span class="at">taxon_level =</span> stringr<span class="sc">::</span><span class="fu">str_extract</span>(name,<span class="st">&quot;(species|genus)&quot;</span>) <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_to_title</span>() <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_c</span>(<span class="st">&quot;-level&quot;</span>)</span>
-<span id="cb337-24"><a href="taxon_acc.html#cb337-24" tabindex="-1"></a>    , <span class="at">sum_level =</span> stringr<span class="sc">::</span><span class="fu">str_extract</span>(name,<span class="st">&quot;(site|tree)&quot;</span>) <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_to_title</span>() <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_c</span>(<span class="st">&quot;-level&quot;</span>)</span>
-<span id="cb337-25"><a href="taxon_acc.html#cb337-25" tabindex="-1"></a>    , <span class="at">name =</span> </span>
-<span id="cb337-26"><a href="taxon_acc.html#cb337-26" tabindex="-1"></a>      name <span class="sc">%&gt;%</span> </span>
-<span id="cb337-27"><a href="taxon_acc.html#cb337-27" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_tree_species_&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb337-28"><a href="taxon_acc.html#cb337-28" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_site_species_&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb337-29"><a href="taxon_acc.html#cb337-29" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_tree_genus_&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb337-30"><a href="taxon_acc.html#cb337-30" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_site_genus_&quot;</span>)</span>
-<span id="cb337-31"><a href="taxon_acc.html#cb337-31" tabindex="-1"></a>    <span class="co"># , metric = dplyr::case_when(</span></span>
-<span id="cb337-32"><a href="taxon_acc.html#cb337-32" tabindex="-1"></a>    <span class="co">#   name == &quot;overall&quot; ~ &quot;Overall Accuracy (TP Only)&quot;</span></span>
-<span id="cb337-33"><a href="taxon_acc.html#cb337-33" tabindex="-1"></a>    <span class="co">#   , name == &quot;bc_dissimilarity&quot; ~ &quot;Bray-Curtis Dissimilarity&quot;</span></span>
-<span id="cb337-34"><a href="taxon_acc.html#cb337-34" tabindex="-1"></a>    <span class="co">#   , name == &quot;bc_similarity&quot; ~ &quot;Bray-Curtis Similarity&quot;</span></span>
-<span id="cb337-35"><a href="taxon_acc.html#cb337-35" tabindex="-1"></a>    <span class="co">#   , name == &quot;prop_rmse&quot; ~ &quot;Proportional RMSE&quot;</span></span>
-<span id="cb337-36"><a href="taxon_acc.html#cb337-36" tabindex="-1"></a>    <span class="co"># )</span></span>
-<span id="cb337-37"><a href="taxon_acc.html#cb337-37" tabindex="-1"></a>    , <span class="at">metric =</span> <span class="fu">factor</span>(</span>
-<span id="cb337-38"><a href="taxon_acc.html#cb337-38" tabindex="-1"></a>      name </span>
-<span id="cb337-39"><a href="taxon_acc.html#cb337-39" tabindex="-1"></a>      , <span class="at">levels =</span> <span class="fu">c</span>(</span>
-<span id="cb337-40"><a href="taxon_acc.html#cb337-40" tabindex="-1"></a>        <span class="st">&quot;overall&quot;</span> <span class="co"># ~ &quot;Overall Accuracy (TP Only)&quot;</span></span>
-<span id="cb337-41"><a href="taxon_acc.html#cb337-41" tabindex="-1"></a>        , <span class="st">&quot;bc_similarity&quot;</span> <span class="co"># ~ &quot;Bray-Curtis Similarity&quot;</span></span>
+</div>
+<div id="genus-level" class="section level2 hasAnchor" number="9.2">
+<h2><span class="header-section-number">9.2</span> Genus-level<a href="taxon_acc.html#genus-level" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Let’s start by looking at the <strong>genus</strong> accuracy results. We anticipate classification performance at the genus level to be higher than at the species level. Although our proposed classification method predicts species, evaluating the predictions at the higher-level genus naturally reduces the number of classification classes and increases the mathematical probability of a correct match. The genus-level evaluation creates a wider target that absorbs misclassifications made between related species in the same genus. An acceptable level of genus-level accuracy is likely still valuable for operational forestry use cases.</p>
+<div class="sourceCode" id="cb337"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb337-1"><a href="taxon_acc.html#cb337-1" tabindex="-1"></a>df_temp <span class="ot">&lt;-</span> </span>
+<span id="cb337-2"><a href="taxon_acc.html#cb337-2" tabindex="-1"></a>  project_data_df <span class="sc">%&gt;%</span></span>
+<span id="cb337-3"><a href="taxon_acc.html#cb337-3" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
+<span id="cb337-4"><a href="taxon_acc.html#cb337-4" tabindex="-1"></a>    <span class="sc">!</span><span class="fu">is.na</span>(acc_site_genus_bc_dissimilarity)</span>
+<span id="cb337-5"><a href="taxon_acc.html#cb337-5" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-6"><a href="taxon_acc.html#cb337-6" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb337-7"><a href="taxon_acc.html#cb337-7" tabindex="-1"></a>    <span class="at">site =</span> <span class="fu">paste0</span>(</span>
+<span id="cb337-8"><a href="taxon_acc.html#cb337-8" tabindex="-1"></a>      data_site_nm</span>
+<span id="cb337-9"><a href="taxon_acc.html#cb337-9" tabindex="-1"></a>      , <span class="st">&quot;</span><span class="sc">\n</span><span class="st">(&quot;</span></span>
+<span id="cb337-10"><a href="taxon_acc.html#cb337-10" tabindex="-1"></a>      , data_ftype_desc</span>
+<span id="cb337-11"><a href="taxon_acc.html#cb337-11" tabindex="-1"></a>      , <span class="st">&quot;)&quot;</span></span>
+<span id="cb337-12"><a href="taxon_acc.html#cb337-12" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-13"><a href="taxon_acc.html#cb337-13" tabindex="-1"></a>    forcats<span class="sc">::</span><span class="fu">fct_reorder</span>(acc_site_genus_bc_similarity)</span>
+<span id="cb337-14"><a href="taxon_acc.html#cb337-14" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-15"><a href="taxon_acc.html#cb337-15" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(</span>
+<span id="cb337-16"><a href="taxon_acc.html#cb337-16" tabindex="-1"></a>    site, tidyselect<span class="sc">::</span><span class="fu">starts_with</span>(<span class="st">&quot;acc_&quot;</span>)</span>
+<span id="cb337-17"><a href="taxon_acc.html#cb337-17" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-18"><a href="taxon_acc.html#cb337-18" tabindex="-1"></a>  <span class="co"># dplyr::mutate(dplyr::across(</span></span>
+<span id="cb337-19"><a href="taxon_acc.html#cb337-19" tabindex="-1"></a>  <span class="co">#   dplyr::where(is.numeric)</span></span>
+<span id="cb337-20"><a href="taxon_acc.html#cb337-20" tabindex="-1"></a>  <span class="co">#   , ~scales::percent(.x,accuracy=0.1)</span></span>
+<span id="cb337-21"><a href="taxon_acc.html#cb337-21" tabindex="-1"></a>  <span class="co"># )) %&gt;% </span></span>
+<span id="cb337-22"><a href="taxon_acc.html#cb337-22" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(<span class="sc">-</span>site) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-23"><a href="taxon_acc.html#cb337-23" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb337-24"><a href="taxon_acc.html#cb337-24" tabindex="-1"></a>    <span class="at">taxon_level =</span> stringr<span class="sc">::</span><span class="fu">str_extract</span>(name,<span class="st">&quot;(species|genus)&quot;</span>) <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_to_title</span>() <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_c</span>(<span class="st">&quot;-level&quot;</span>)</span>
+<span id="cb337-25"><a href="taxon_acc.html#cb337-25" tabindex="-1"></a>    , <span class="at">sum_level =</span> stringr<span class="sc">::</span><span class="fu">str_extract</span>(name,<span class="st">&quot;(site|tree)&quot;</span>) <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_to_title</span>() <span class="sc">%&gt;%</span> stringr<span class="sc">::</span><span class="fu">str_c</span>(<span class="st">&quot;-level&quot;</span>)</span>
+<span id="cb337-26"><a href="taxon_acc.html#cb337-26" tabindex="-1"></a>    , <span class="at">name =</span> </span>
+<span id="cb337-27"><a href="taxon_acc.html#cb337-27" tabindex="-1"></a>      name <span class="sc">%&gt;%</span> </span>
+<span id="cb337-28"><a href="taxon_acc.html#cb337-28" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_tree_species_&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb337-29"><a href="taxon_acc.html#cb337-29" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_site_species_&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb337-30"><a href="taxon_acc.html#cb337-30" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_tree_genus_&quot;</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb337-31"><a href="taxon_acc.html#cb337-31" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_remove</span>(<span class="st">&quot;^acc_site_genus_&quot;</span>)</span>
+<span id="cb337-32"><a href="taxon_acc.html#cb337-32" tabindex="-1"></a>    <span class="co"># , metric = dplyr::case_when(</span></span>
+<span id="cb337-33"><a href="taxon_acc.html#cb337-33" tabindex="-1"></a>    <span class="co">#   name == &quot;overall&quot; ~ &quot;Overall Accuracy (TP Only)&quot;</span></span>
+<span id="cb337-34"><a href="taxon_acc.html#cb337-34" tabindex="-1"></a>    <span class="co">#   , name == &quot;bc_dissimilarity&quot; ~ &quot;Bray-Curtis Dissimilarity&quot;</span></span>
+<span id="cb337-35"><a href="taxon_acc.html#cb337-35" tabindex="-1"></a>    <span class="co">#   , name == &quot;bc_similarity&quot; ~ &quot;Bray-Curtis Similarity&quot;</span></span>
+<span id="cb337-36"><a href="taxon_acc.html#cb337-36" tabindex="-1"></a>    <span class="co">#   , name == &quot;prop_rmse&quot; ~ &quot;Proportional RMSE&quot;</span></span>
+<span id="cb337-37"><a href="taxon_acc.html#cb337-37" tabindex="-1"></a>    <span class="co"># )</span></span>
+<span id="cb337-38"><a href="taxon_acc.html#cb337-38" tabindex="-1"></a>    , <span class="at">metric =</span> <span class="fu">factor</span>(</span>
+<span id="cb337-39"><a href="taxon_acc.html#cb337-39" tabindex="-1"></a>      name </span>
+<span id="cb337-40"><a href="taxon_acc.html#cb337-40" tabindex="-1"></a>      , <span class="at">levels =</span> <span class="fu">c</span>(</span>
+<span id="cb337-41"><a href="taxon_acc.html#cb337-41" tabindex="-1"></a>        <span class="st">&quot;bc_similarity&quot;</span> <span class="co"># ~ &quot;Bray-Curtis Similarity&quot;</span></span>
 <span id="cb337-42"><a href="taxon_acc.html#cb337-42" tabindex="-1"></a>        , <span class="st">&quot;bc_dissimilarity&quot;</span> <span class="co"># ~ &quot;Bray-Curtis Dissimilarity&quot;</span></span>
 <span id="cb337-43"><a href="taxon_acc.html#cb337-43" tabindex="-1"></a>        , <span class="st">&quot;prop_rmse&quot;</span> <span class="co"># ~ &quot;Proportional RMSE&quot;  </span></span>
-<span id="cb337-44"><a href="taxon_acc.html#cb337-44" tabindex="-1"></a>      )</span>
-<span id="cb337-45"><a href="taxon_acc.html#cb337-45" tabindex="-1"></a>      , <span class="at">ordered =</span> T</span>
-<span id="cb337-46"><a href="taxon_acc.html#cb337-46" tabindex="-1"></a>      , <span class="at">labels =</span> <span class="fu">c</span>(</span>
-<span id="cb337-47"><a href="taxon_acc.html#cb337-47" tabindex="-1"></a>        <span class="st">&quot;Overall Accuracy (TP Only)&quot;</span> <span class="co"># &quot;overall&quot; </span></span>
-<span id="cb337-48"><a href="taxon_acc.html#cb337-48" tabindex="-1"></a>        , <span class="st">&quot;Bray-Curtis Similarity&quot;</span> <span class="co"># &quot;bc_similarity&quot; </span></span>
+<span id="cb337-44"><a href="taxon_acc.html#cb337-44" tabindex="-1"></a>        , <span class="st">&quot;overall&quot;</span> <span class="co"># ~ &quot;Overall Accuracy (TP Only)&quot;</span></span>
+<span id="cb337-45"><a href="taxon_acc.html#cb337-45" tabindex="-1"></a>      )</span>
+<span id="cb337-46"><a href="taxon_acc.html#cb337-46" tabindex="-1"></a>      , <span class="at">ordered =</span> T</span>
+<span id="cb337-47"><a href="taxon_acc.html#cb337-47" tabindex="-1"></a>      , <span class="at">labels =</span> <span class="fu">c</span>(</span>
+<span id="cb337-48"><a href="taxon_acc.html#cb337-48" tabindex="-1"></a>        <span class="st">&quot;Bray-Curtis Similarity&quot;</span> <span class="co"># &quot;bc_similarity&quot; </span></span>
 <span id="cb337-49"><a href="taxon_acc.html#cb337-49" tabindex="-1"></a>        , <span class="st">&quot;Bray-Curtis Dissimilarity&quot;</span> <span class="co"># &quot;bc_dissimilarity&quot; </span></span>
 <span id="cb337-50"><a href="taxon_acc.html#cb337-50" tabindex="-1"></a>        , <span class="st">&quot;Proportional RMSE&quot;</span>   <span class="co"># &quot;prop_rmse&quot; </span></span>
-<span id="cb337-51"><a href="taxon_acc.html#cb337-51" tabindex="-1"></a>      )</span>
-<span id="cb337-52"><a href="taxon_acc.html#cb337-52" tabindex="-1"></a>    )</span>
-<span id="cb337-53"><a href="taxon_acc.html#cb337-53" tabindex="-1"></a>    , <span class="at">value_lab =</span> scales<span class="sc">::</span><span class="fu">percent</span>(value,<span class="at">accuracy =</span> <span class="fl">0.1</span>)</span>
-<span id="cb337-54"><a href="taxon_acc.html#cb337-54" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
-<span id="cb337-55"><a href="taxon_acc.html#cb337-55" tabindex="-1"></a>  <span class="co"># plot</span></span>
-<span id="cb337-56"><a href="taxon_acc.html#cb337-56" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(</span>
-<span id="cb337-57"><a href="taxon_acc.html#cb337-57" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> value, <span class="at">y =</span> site, <span class="at">color =</span> sum_level)</span>
-<span id="cb337-58"><a href="taxon_acc.html#cb337-58" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb337-59"><a href="taxon_acc.html#cb337-59" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_segment</span>(</span>
-<span id="cb337-60"><a href="taxon_acc.html#cb337-60" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">xend =</span> value, <span class="at">yend =</span> site)</span>
-<span id="cb337-61"><a href="taxon_acc.html#cb337-61" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb337-62"><a href="taxon_acc.html#cb337-62" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
-<span id="cb337-63"><a href="taxon_acc.html#cb337-63" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_text</span>(</span>
-<span id="cb337-64"><a href="taxon_acc.html#cb337-64" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">label =</span> value_lab, <span class="at">fontface =</span> <span class="st">&quot;bold&quot;</span>)</span>
-<span id="cb337-65"><a href="taxon_acc.html#cb337-65" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;black&quot;</span></span>
-<span id="cb337-66"><a href="taxon_acc.html#cb337-66" tabindex="-1"></a>    , <span class="at">size =</span> <span class="fl">2.3</span></span>
-<span id="cb337-67"><a href="taxon_acc.html#cb337-67" tabindex="-1"></a>    <span class="co"># , nudge_x = 0.006</span></span>
-<span id="cb337-68"><a href="taxon_acc.html#cb337-68" tabindex="-1"></a>    , <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">vjust =</span> <span class="sc">-</span><span class="dv">1</span></span>
-<span id="cb337-69"><a href="taxon_acc.html#cb337-69" tabindex="-1"></a>    <span class="co"># , hjust = -0.4</span></span>
+<span id="cb337-51"><a href="taxon_acc.html#cb337-51" tabindex="-1"></a>        , <span class="st">&quot;Overall Accuracy (TP Only)&quot;</span> <span class="co"># &quot;overall&quot; </span></span>
+<span id="cb337-52"><a href="taxon_acc.html#cb337-52" tabindex="-1"></a>      )</span>
+<span id="cb337-53"><a href="taxon_acc.html#cb337-53" tabindex="-1"></a>    )</span>
+<span id="cb337-54"><a href="taxon_acc.html#cb337-54" tabindex="-1"></a>    , <span class="at">value_lab =</span> scales<span class="sc">::</span><span class="fu">percent</span>(value,<span class="at">accuracy =</span> <span class="fl">0.1</span>)</span>
+<span id="cb337-55"><a href="taxon_acc.html#cb337-55" tabindex="-1"></a>  ) </span>
+<span id="cb337-56"><a href="taxon_acc.html#cb337-56" tabindex="-1"></a><span class="co"># plot</span></span>
+<span id="cb337-57"><a href="taxon_acc.html#cb337-57" tabindex="-1"></a>df_temp <span class="sc">%&gt;%</span></span>
+<span id="cb337-58"><a href="taxon_acc.html#cb337-58" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(stringr<span class="sc">::</span><span class="fu">str_starts</span>(<span class="fu">tolower</span>(taxon_level),<span class="st">&quot;genus&quot;</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-59"><a href="taxon_acc.html#cb337-59" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">group_by</span>(site) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-60"><a href="taxon_acc.html#cb337-60" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb337-61"><a href="taxon_acc.html#cb337-61" tabindex="-1"></a>    <span class="at">sorter =</span> <span class="fu">max</span>(<span class="fu">ifelse</span>(name<span class="sc">==</span><span class="st">&quot;bc_similarity&quot;</span>,value,<span class="cn">NA</span>),<span class="at">na.rm =</span> T)</span>
+<span id="cb337-62"><a href="taxon_acc.html#cb337-62" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-63"><a href="taxon_acc.html#cb337-63" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb337-64"><a href="taxon_acc.html#cb337-64" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb337-65"><a href="taxon_acc.html#cb337-65" tabindex="-1"></a>    <span class="at">site =</span> site <span class="sc">%&gt;%</span> forcats<span class="sc">::</span><span class="fu">fct_reorder</span>(sorter)</span>
+<span id="cb337-66"><a href="taxon_acc.html#cb337-66" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb337-67"><a href="taxon_acc.html#cb337-67" tabindex="-1"></a>  <span class="co"># plot</span></span>
+<span id="cb337-68"><a href="taxon_acc.html#cb337-68" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(</span>
+<span id="cb337-69"><a href="taxon_acc.html#cb337-69" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> value, <span class="at">y =</span> site, <span class="at">color =</span> sum_level)</span>
 <span id="cb337-70"><a href="taxon_acc.html#cb337-70" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb337-71"><a href="taxon_acc.html#cb337-71" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_grid</span>(</span>
-<span id="cb337-72"><a href="taxon_acc.html#cb337-72" tabindex="-1"></a>    <span class="at">rows =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(taxon_level)</span>
-<span id="cb337-73"><a href="taxon_acc.html#cb337-73" tabindex="-1"></a>    , <span class="at">cols =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(metric)</span>
-<span id="cb337-74"><a href="taxon_acc.html#cb337-74" tabindex="-1"></a>    <span class="co"># , scales = &quot;free_x&quot;</span></span>
-<span id="cb337-75"><a href="taxon_acc.html#cb337-75" tabindex="-1"></a>    , <span class="at">switch =</span> <span class="st">&quot;y&quot;</span></span>
-<span id="cb337-76"><a href="taxon_acc.html#cb337-76" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb337-77"><a href="taxon_acc.html#cb337-77" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_x_continuous</span>(</span>
-<span id="cb337-78"><a href="taxon_acc.html#cb337-78" tabindex="-1"></a>    <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>)</span>
-<span id="cb337-79"><a href="taxon_acc.html#cb337-79" tabindex="-1"></a>    , <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>)</span>
-<span id="cb337-80"><a href="taxon_acc.html#cb337-80" tabindex="-1"></a>    , <span class="at">expand =</span> ggplot2<span class="sc">::</span><span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.02</span>,<span class="fl">0.09</span>))</span>
-<span id="cb337-81"><a href="taxon_acc.html#cb337-81" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb337-82"><a href="taxon_acc.html#cb337-82" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_color_viridis_d</span>(<span class="at">begin =</span> <span class="fl">0.3</span>, <span class="at">end =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb337-83"><a href="taxon_acc.html#cb337-83" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
-<span id="cb337-84"><a href="taxon_acc.html#cb337-84" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">&quot;Proposed Tree Classification Method Accuracy Performance</span><span class="sc">\n</span><span class="st">by site&quot;</span></span>
-<span id="cb337-85"><a href="taxon_acc.html#cb337-85" tabindex="-1"></a>    , <span class="at">x =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;metric value&quot;</span></span>
-<span id="cb337-86"><a href="taxon_acc.html#cb337-86" tabindex="-1"></a>    , <span class="at">y =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
-<span id="cb337-87"><a href="taxon_acc.html#cb337-87" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
+<span id="cb337-71"><a href="taxon_acc.html#cb337-71" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_segment</span>(</span>
+<span id="cb337-72"><a href="taxon_acc.html#cb337-72" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">xend =</span> value, <span class="at">yend =</span> site)</span>
+<span id="cb337-73"><a href="taxon_acc.html#cb337-73" tabindex="-1"></a>    , <span class="at">lwd =</span> <span class="fl">0.8</span></span>
+<span id="cb337-74"><a href="taxon_acc.html#cb337-74" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-75"><a href="taxon_acc.html#cb337-75" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb337-76"><a href="taxon_acc.html#cb337-76" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_text</span>(</span>
+<span id="cb337-77"><a href="taxon_acc.html#cb337-77" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">label =</span> value_lab, <span class="at">fontface =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb337-78"><a href="taxon_acc.html#cb337-78" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;black&quot;</span></span>
+<span id="cb337-79"><a href="taxon_acc.html#cb337-79" tabindex="-1"></a>    , <span class="at">size =</span> <span class="fl">2.4</span></span>
+<span id="cb337-80"><a href="taxon_acc.html#cb337-80" tabindex="-1"></a>    <span class="co"># , nudge_x = 0.006</span></span>
+<span id="cb337-81"><a href="taxon_acc.html#cb337-81" tabindex="-1"></a>    , <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">vjust =</span> <span class="sc">-</span><span class="dv">1</span></span>
+<span id="cb337-82"><a href="taxon_acc.html#cb337-82" tabindex="-1"></a>    <span class="co"># , hjust = -0.4</span></span>
+<span id="cb337-83"><a href="taxon_acc.html#cb337-83" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-84"><a href="taxon_acc.html#cb337-84" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_grid</span>(</span>
+<span id="cb337-85"><a href="taxon_acc.html#cb337-85" tabindex="-1"></a>    <span class="at">cols =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(metric)</span>
+<span id="cb337-86"><a href="taxon_acc.html#cb337-86" tabindex="-1"></a>    <span class="co"># , rows = dplyr::vars(taxon_level)</span></span>
+<span id="cb337-87"><a href="taxon_acc.html#cb337-87" tabindex="-1"></a>    <span class="co"># , switch = &quot;y&quot;</span></span>
 <span id="cb337-88"><a href="taxon_acc.html#cb337-88" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb337-89"><a href="taxon_acc.html#cb337-89" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme_light</span>() <span class="sc">+</span></span>
-<span id="cb337-90"><a href="taxon_acc.html#cb337-90" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme</span>(</span>
-<span id="cb337-91"><a href="taxon_acc.html#cb337-91" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;top&quot;</span></span>
-<span id="cb337-92"><a href="taxon_acc.html#cb337-92" tabindex="-1"></a>    , <span class="at">strip.text =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
-<span id="cb337-93"><a href="taxon_acc.html#cb337-93" tabindex="-1"></a>    </span>
-<span id="cb337-94"><a href="taxon_acc.html#cb337-94" tabindex="-1"></a>    , <span class="at">strip.placement =</span> <span class="st">&quot;outside&quot;</span></span>
-<span id="cb337-95"><a href="taxon_acc.html#cb337-95" tabindex="-1"></a>    , <span class="at">strip.text.y.left =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>, <span class="at">angle =</span> <span class="dv">90</span>, <span class="at">hjust =</span> <span class="fl">0.5</span>)</span>
-<span id="cb337-96"><a href="taxon_acc.html#cb337-96" tabindex="-1"></a>    , <span class="at">strip.background.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_blank</span>()</span>
-<span id="cb337-97"><a href="taxon_acc.html#cb337-97" tabindex="-1"></a>    , <span class="at">panel.spacing.y =</span> ggplot2<span class="sc">::</span><span class="fu">unit</span>(<span class="dv">2</span>, <span class="st">&quot;lines&quot;</span>)</span>
-<span id="cb337-98"><a href="taxon_acc.html#cb337-98" tabindex="-1"></a>    </span>
-<span id="cb337-99"><a href="taxon_acc.html#cb337-99" tabindex="-1"></a>    , <span class="at">axis.text.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
-<span id="cb337-100"><a href="taxon_acc.html#cb337-100" tabindex="-1"></a>    , <span class="at">panel.grid.major.x =</span> <span class="fu">element_blank</span>()</span>
-<span id="cb337-101"><a href="taxon_acc.html#cb337-101" tabindex="-1"></a>    , <span class="at">panel.grid.minor.x =</span> <span class="fu">element_blank</span>()</span>
-<span id="cb337-102"><a href="taxon_acc.html#cb337-102" tabindex="-1"></a>  ) <span class="sc">+</span></span>
-<span id="cb337-103"><a href="taxon_acc.html#cb337-103" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">guides</span>(</span>
-<span id="cb337-104"><a href="taxon_acc.html#cb337-104" tabindex="-1"></a>    <span class="at">color =</span> ggplot2<span class="sc">::</span><span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">shape =</span> <span class="dv">15</span>, <span class="at">lwd =</span> <span class="cn">NA</span>, <span class="at">size =</span> <span class="dv">8</span>, <span class="at">fill =</span> <span class="cn">NA</span>))</span>
-<span id="cb337-105"><a href="taxon_acc.html#cb337-105" tabindex="-1"></a>    , <span class="at">fill =</span> <span class="st">&quot;none&quot;</span></span>
-<span id="cb337-106"><a href="taxon_acc.html#cb337-106" tabindex="-1"></a>  )</span></code></pre></div>
+<span id="cb337-89"><a href="taxon_acc.html#cb337-89" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_x_continuous</span>(</span>
+<span id="cb337-90"><a href="taxon_acc.html#cb337-90" tabindex="-1"></a>    <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>)</span>
+<span id="cb337-91"><a href="taxon_acc.html#cb337-91" tabindex="-1"></a>    , <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>)</span>
+<span id="cb337-92"><a href="taxon_acc.html#cb337-92" tabindex="-1"></a>    , <span class="at">expand =</span> ggplot2<span class="sc">::</span><span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.02</span>,<span class="fl">0.13</span>))</span>
+<span id="cb337-93"><a href="taxon_acc.html#cb337-93" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-94"><a href="taxon_acc.html#cb337-94" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_color_viridis_d</span>(<span class="at">begin =</span> <span class="fl">0.3</span>, <span class="at">end =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb337-95"><a href="taxon_acc.html#cb337-95" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
+<span id="cb337-96"><a href="taxon_acc.html#cb337-96" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">&quot;Genus-level&quot;</span></span>
+<span id="cb337-97"><a href="taxon_acc.html#cb337-97" tabindex="-1"></a>    , <span class="at">subtitle =</span> <span class="st">&quot;proposed tree classification method accuracy performance by site&quot;</span></span>
+<span id="cb337-98"><a href="taxon_acc.html#cb337-98" tabindex="-1"></a>    , <span class="at">x =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;metric value&quot;</span></span>
+<span id="cb337-99"><a href="taxon_acc.html#cb337-99" tabindex="-1"></a>    , <span class="at">y =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
+<span id="cb337-100"><a href="taxon_acc.html#cb337-100" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
+<span id="cb337-101"><a href="taxon_acc.html#cb337-101" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-102"><a href="taxon_acc.html#cb337-102" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme_light</span>() <span class="sc">+</span></span>
+<span id="cb337-103"><a href="taxon_acc.html#cb337-103" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme</span>(</span>
+<span id="cb337-104"><a href="taxon_acc.html#cb337-104" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;top&quot;</span></span>
+<span id="cb337-105"><a href="taxon_acc.html#cb337-105" tabindex="-1"></a>    , <span class="at">strip.text =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb337-106"><a href="taxon_acc.html#cb337-106" tabindex="-1"></a>    </span>
+<span id="cb337-107"><a href="taxon_acc.html#cb337-107" tabindex="-1"></a>    , <span class="at">strip.placement =</span> <span class="st">&quot;outside&quot;</span></span>
+<span id="cb337-108"><a href="taxon_acc.html#cb337-108" tabindex="-1"></a>    , <span class="at">strip.text.y.left =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>, <span class="at">angle =</span> <span class="dv">90</span>, <span class="at">hjust =</span> <span class="fl">0.5</span>)</span>
+<span id="cb337-109"><a href="taxon_acc.html#cb337-109" tabindex="-1"></a>    , <span class="at">strip.background.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_blank</span>()</span>
+<span id="cb337-110"><a href="taxon_acc.html#cb337-110" tabindex="-1"></a>    , <span class="at">panel.spacing.y =</span> ggplot2<span class="sc">::</span><span class="fu">unit</span>(<span class="dv">2</span>, <span class="st">&quot;lines&quot;</span>)</span>
+<span id="cb337-111"><a href="taxon_acc.html#cb337-111" tabindex="-1"></a>    </span>
+<span id="cb337-112"><a href="taxon_acc.html#cb337-112" tabindex="-1"></a>    , <span class="at">axis.text.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb337-113"><a href="taxon_acc.html#cb337-113" tabindex="-1"></a>    , <span class="at">panel.grid.major.x =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb337-114"><a href="taxon_acc.html#cb337-114" tabindex="-1"></a>    , <span class="at">panel.grid.minor.x =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb337-115"><a href="taxon_acc.html#cb337-115" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb337-116"><a href="taxon_acc.html#cb337-116" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">guides</span>(</span>
+<span id="cb337-117"><a href="taxon_acc.html#cb337-117" tabindex="-1"></a>    <span class="at">color =</span> ggplot2<span class="sc">::</span><span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">shape =</span> <span class="dv">15</span>, <span class="at">lwd =</span> <span class="cn">NA</span>, <span class="at">size =</span> <span class="dv">8</span>, <span class="at">fill =</span> <span class="cn">NA</span>))</span>
+<span id="cb337-118"><a href="taxon_acc.html#cb337-118" tabindex="-1"></a>    , <span class="at">fill =</span> <span class="st">&quot;none&quot;</span></span>
+<span id="cb337-119"><a href="taxon_acc.html#cb337-119" tabindex="-1"></a>  )</span></code></pre></div>
 <p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-345-1.png" alt="" width="1008" /></p>
-<p>neat.</p>
+<p>Genus-level Bray-Curtis Similarity (site level) ranged from 60.6% (dissimilarity of 39.4%) at USFS_ManitouEF_BigPlot (western mixed conifer) to 95.2% (dissimilarity of 4.8%) at USFS_UteCreek (dry-mesic mixed conifer) with a median overall accuracy across all sites analyzed of 77.2% (dissimilarity of 22.8%).</p>
+<p>Genus-level overall accuracy (tree level) ranged from 20.4% at USFS_PenobscotEF (northern mixed conifer) to 85.8% at USFS_UteCreek (dry-mesic mixed conifer) with a median overall accuracy across all sites analyzed of 66.0%.</p>
+</div>
+<div id="species-level" class="section level2 hasAnchor" number="9.3">
+<h2><span class="header-section-number">9.3</span> Species-level<a href="taxon_acc.html#species-level" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Now we’ll check out the <strong>species</strong> accuracy results. We anticipate classification performance to be lower at the species level compared to the genus level. Because our proposed classification method predicts at this fine taxonomic resolution, it must navigate a higher number of potential classification classes, which naturally decreases the mathematical probability of a correct match. At this level, any misclassification between species in the same genus counts as an error. Achieving highly accurate species-level classification remains challenging, and a genus-level classification is often more realistic (and more reliable?) when using only remote sensing and supplemental spatial data (<a href="https://doi.org/10.1007/978-94-017-8663-8_7">Vauhkonen et al., 2014</a>).</p>
+<div class="sourceCode" id="cb338"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb338-1"><a href="taxon_acc.html#cb338-1" tabindex="-1"></a><span class="co"># plot</span></span>
+<span id="cb338-2"><a href="taxon_acc.html#cb338-2" tabindex="-1"></a>df_temp <span class="sc">%&gt;%</span></span>
+<span id="cb338-3"><a href="taxon_acc.html#cb338-3" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(stringr<span class="sc">::</span><span class="fu">str_starts</span>(<span class="fu">tolower</span>(taxon_level),<span class="st">&quot;species&quot;</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb338-4"><a href="taxon_acc.html#cb338-4" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">group_by</span>(site) <span class="sc">%&gt;%</span> </span>
+<span id="cb338-5"><a href="taxon_acc.html#cb338-5" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb338-6"><a href="taxon_acc.html#cb338-6" tabindex="-1"></a>    <span class="at">sorter =</span> <span class="fu">max</span>(<span class="fu">ifelse</span>(name<span class="sc">==</span><span class="st">&quot;bc_similarity&quot;</span>,value,<span class="cn">NA</span>),<span class="at">na.rm =</span> T)</span>
+<span id="cb338-7"><a href="taxon_acc.html#cb338-7" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb338-8"><a href="taxon_acc.html#cb338-8" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb338-9"><a href="taxon_acc.html#cb338-9" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb338-10"><a href="taxon_acc.html#cb338-10" tabindex="-1"></a>    <span class="at">site =</span> site <span class="sc">%&gt;%</span> forcats<span class="sc">::</span><span class="fu">fct_reorder</span>(sorter)</span>
+<span id="cb338-11"><a href="taxon_acc.html#cb338-11" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb338-12"><a href="taxon_acc.html#cb338-12" tabindex="-1"></a>  <span class="co"># plot</span></span>
+<span id="cb338-13"><a href="taxon_acc.html#cb338-13" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(</span>
+<span id="cb338-14"><a href="taxon_acc.html#cb338-14" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> value, <span class="at">y =</span> site, <span class="at">color =</span> sum_level)</span>
+<span id="cb338-15"><a href="taxon_acc.html#cb338-15" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb338-16"><a href="taxon_acc.html#cb338-16" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_segment</span>(</span>
+<span id="cb338-17"><a href="taxon_acc.html#cb338-17" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> <span class="dv">0</span>, <span class="at">xend =</span> value, <span class="at">yend =</span> site)</span>
+<span id="cb338-18"><a href="taxon_acc.html#cb338-18" tabindex="-1"></a>    , <span class="at">lwd =</span> <span class="fl">0.8</span></span>
+<span id="cb338-19"><a href="taxon_acc.html#cb338-19" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb338-20"><a href="taxon_acc.html#cb338-20" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb338-21"><a href="taxon_acc.html#cb338-21" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_text</span>(</span>
+<span id="cb338-22"><a href="taxon_acc.html#cb338-22" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">label =</span> value_lab, <span class="at">fontface =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb338-23"><a href="taxon_acc.html#cb338-23" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;black&quot;</span></span>
+<span id="cb338-24"><a href="taxon_acc.html#cb338-24" tabindex="-1"></a>    , <span class="at">size =</span> <span class="fl">2.4</span></span>
+<span id="cb338-25"><a href="taxon_acc.html#cb338-25" tabindex="-1"></a>    <span class="co"># , nudge_x = 0.006</span></span>
+<span id="cb338-26"><a href="taxon_acc.html#cb338-26" tabindex="-1"></a>    , <span class="at">hjust =</span> <span class="dv">0</span>, <span class="at">vjust =</span> <span class="sc">-</span><span class="dv">1</span></span>
+<span id="cb338-27"><a href="taxon_acc.html#cb338-27" tabindex="-1"></a>    <span class="co"># , hjust = -0.4</span></span>
+<span id="cb338-28"><a href="taxon_acc.html#cb338-28" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb338-29"><a href="taxon_acc.html#cb338-29" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_grid</span>(</span>
+<span id="cb338-30"><a href="taxon_acc.html#cb338-30" tabindex="-1"></a>    <span class="at">cols =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(metric)</span>
+<span id="cb338-31"><a href="taxon_acc.html#cb338-31" tabindex="-1"></a>    <span class="co"># , rows = dplyr::vars(taxon_level)</span></span>
+<span id="cb338-32"><a href="taxon_acc.html#cb338-32" tabindex="-1"></a>    <span class="co"># , switch = &quot;y&quot;</span></span>
+<span id="cb338-33"><a href="taxon_acc.html#cb338-33" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb338-34"><a href="taxon_acc.html#cb338-34" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_x_continuous</span>(</span>
+<span id="cb338-35"><a href="taxon_acc.html#cb338-35" tabindex="-1"></a>    <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>)</span>
+<span id="cb338-36"><a href="taxon_acc.html#cb338-36" tabindex="-1"></a>    , <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>)</span>
+<span id="cb338-37"><a href="taxon_acc.html#cb338-37" tabindex="-1"></a>    , <span class="at">expand =</span> ggplot2<span class="sc">::</span><span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.02</span>,<span class="fl">0.13</span>))</span>
+<span id="cb338-38"><a href="taxon_acc.html#cb338-38" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb338-39"><a href="taxon_acc.html#cb338-39" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_color_viridis_d</span>(<span class="at">begin =</span> <span class="fl">0.3</span>, <span class="at">end =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb338-40"><a href="taxon_acc.html#cb338-40" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
+<span id="cb338-41"><a href="taxon_acc.html#cb338-41" tabindex="-1"></a>    <span class="at">title =</span> <span class="st">&quot;Species-level&quot;</span></span>
+<span id="cb338-42"><a href="taxon_acc.html#cb338-42" tabindex="-1"></a>    , <span class="at">subtitle =</span> <span class="st">&quot;proposed tree classification method accuracy performance by site&quot;</span></span>
+<span id="cb338-43"><a href="taxon_acc.html#cb338-43" tabindex="-1"></a>    , <span class="at">x =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;metric value&quot;</span></span>
+<span id="cb338-44"><a href="taxon_acc.html#cb338-44" tabindex="-1"></a>    , <span class="at">y =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
+<span id="cb338-45"><a href="taxon_acc.html#cb338-45" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
+<span id="cb338-46"><a href="taxon_acc.html#cb338-46" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb338-47"><a href="taxon_acc.html#cb338-47" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme_light</span>() <span class="sc">+</span></span>
+<span id="cb338-48"><a href="taxon_acc.html#cb338-48" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme</span>(</span>
+<span id="cb338-49"><a href="taxon_acc.html#cb338-49" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;top&quot;</span></span>
+<span id="cb338-50"><a href="taxon_acc.html#cb338-50" tabindex="-1"></a>    , <span class="at">strip.text =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb338-51"><a href="taxon_acc.html#cb338-51" tabindex="-1"></a>    </span>
+<span id="cb338-52"><a href="taxon_acc.html#cb338-52" tabindex="-1"></a>    , <span class="at">strip.placement =</span> <span class="st">&quot;outside&quot;</span></span>
+<span id="cb338-53"><a href="taxon_acc.html#cb338-53" tabindex="-1"></a>    , <span class="at">strip.text.y.left =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>, <span class="at">angle =</span> <span class="dv">90</span>, <span class="at">hjust =</span> <span class="fl">0.5</span>)</span>
+<span id="cb338-54"><a href="taxon_acc.html#cb338-54" tabindex="-1"></a>    , <span class="at">strip.background.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_blank</span>()</span>
+<span id="cb338-55"><a href="taxon_acc.html#cb338-55" tabindex="-1"></a>    , <span class="at">panel.spacing.y =</span> ggplot2<span class="sc">::</span><span class="fu">unit</span>(<span class="dv">2</span>, <span class="st">&quot;lines&quot;</span>)</span>
+<span id="cb338-56"><a href="taxon_acc.html#cb338-56" tabindex="-1"></a>    </span>
+<span id="cb338-57"><a href="taxon_acc.html#cb338-57" tabindex="-1"></a>    , <span class="at">axis.text.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb338-58"><a href="taxon_acc.html#cb338-58" tabindex="-1"></a>    , <span class="at">panel.grid.major.x =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb338-59"><a href="taxon_acc.html#cb338-59" tabindex="-1"></a>    , <span class="at">panel.grid.minor.x =</span> <span class="fu">element_blank</span>()</span>
+<span id="cb338-60"><a href="taxon_acc.html#cb338-60" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb338-61"><a href="taxon_acc.html#cb338-61" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">guides</span>(</span>
+<span id="cb338-62"><a href="taxon_acc.html#cb338-62" tabindex="-1"></a>    <span class="at">color =</span> ggplot2<span class="sc">::</span><span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">shape =</span> <span class="dv">15</span>, <span class="at">lwd =</span> <span class="cn">NA</span>, <span class="at">size =</span> <span class="dv">8</span>, <span class="at">fill =</span> <span class="cn">NA</span>))</span>
+<span id="cb338-63"><a href="taxon_acc.html#cb338-63" tabindex="-1"></a>    , <span class="at">fill =</span> <span class="st">&quot;none&quot;</span></span>
+<span id="cb338-64"><a href="taxon_acc.html#cb338-64" tabindex="-1"></a>  )</span></code></pre></div>
+<p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-347-1.png" alt="" width="1008" /></p>
+<p>Species-level Bray-Curtis Similarity (site level) ranged from 49.6% (dissimilarity of 50.4%) at USFS_ManitouEF_BigPlot (western mixed conifer) to 88.2% (dissimilarity of 11.8%) at CSFS_SWE (lodgepole pine) with a median overall accuracy across all sites analyzed of 75.0% (dissimilarity of 25.0%).</p>
+<p>Species-level overall accuracy (tree level) ranged from 20.1% at USFS_PenobscotEF (northern mixed conifer) to 74.2% at USFS_ManitouEF_N1 (ponderosa pine) with a median overall accuracy across all sites analyzed of 56.2%.</p>
+</div>
+<div id="species--vs.-genus-level" class="section level2 hasAnchor" number="9.4">
+<h2><span class="header-section-number">9.4</span> Species- vs. Genus-level<a href="taxon_acc.html#species--vs.-genus-level" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Accuracy metrics were evaluated at both the species and genus taxonomic levels to quantify the accuracy trade-offs associated with pushing the classification method to the finest taxonomic level (species). We anticipate classification performance at the genus level to be higher than at the species level because aggregating predictions into broader taxonomic groups inherently reduces the number of classification classes, increasing the mathematical probability of a correct match.</p>
+<p>Let’s check out the spread between genus and species-level accuracy based on overall accuracy (tree level) and Bray-Curtis similarity (site level)</p>
+<div class="sourceCode" id="cb339"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb339-1"><a href="taxon_acc.html#cb339-1" tabindex="-1"></a><span class="co"># plot</span></span>
+<span id="cb339-2"><a href="taxon_acc.html#cb339-2" tabindex="-1"></a>df_temp <span class="sc">%&gt;%</span></span>
+<span id="cb339-3"><a href="taxon_acc.html#cb339-3" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">filter</span>(</span>
+<span id="cb339-4"><a href="taxon_acc.html#cb339-4" tabindex="-1"></a>    name <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;overall&quot;</span>,<span class="st">&quot;bc_similarity&quot;</span>)</span>
+<span id="cb339-5"><a href="taxon_acc.html#cb339-5" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb339-6"><a href="taxon_acc.html#cb339-6" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">group_by</span>(site) <span class="sc">%&gt;%</span> </span>
+<span id="cb339-7"><a href="taxon_acc.html#cb339-7" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb339-8"><a href="taxon_acc.html#cb339-8" tabindex="-1"></a>    <span class="at">sorter =</span> <span class="fu">max</span>(<span class="fu">ifelse</span>(name<span class="sc">==</span><span class="st">&quot;bc_similarity&quot;</span>,value,<span class="cn">NA</span>),<span class="at">na.rm =</span> T)</span>
+<span id="cb339-9"><a href="taxon_acc.html#cb339-9" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb339-10"><a href="taxon_acc.html#cb339-10" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb339-11"><a href="taxon_acc.html#cb339-11" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb339-12"><a href="taxon_acc.html#cb339-12" tabindex="-1"></a>    <span class="at">site =</span> site <span class="sc">%&gt;%</span> forcats<span class="sc">::</span><span class="fu">fct_reorder</span>(sorter)</span>
+<span id="cb339-13"><a href="taxon_acc.html#cb339-13" tabindex="-1"></a>    , <span class="at">taxon_level =</span> <span class="fu">factor</span>(taxon_level, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Genus-level&quot;</span>, <span class="st">&quot;Species-level&quot;</span>), <span class="at">ordered =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb339-14"><a href="taxon_acc.html#cb339-14" tabindex="-1"></a>    , <span class="at">hey_lab =</span> dplyr<span class="sc">::</span><span class="fu">case_when</span>(</span>
+<span id="cb339-15"><a href="taxon_acc.html#cb339-15" tabindex="-1"></a>      taxon_level<span class="sc">==</span><span class="st">&quot;Genus-level&quot;</span> <span class="sc">~</span> <span class="fu">paste0</span>(stringr<span class="sc">::</span><span class="fu">word</span>(site,<span class="dv">1</span>,<span class="at">sep =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>),<span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>,value_lab) </span>
+<span id="cb339-16"><a href="taxon_acc.html#cb339-16" tabindex="-1"></a>      , T <span class="sc">~</span> value_lab</span>
+<span id="cb339-17"><a href="taxon_acc.html#cb339-17" tabindex="-1"></a>    )</span>
+<span id="cb339-18"><a href="taxon_acc.html#cb339-18" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb339-19"><a href="taxon_acc.html#cb339-19" tabindex="-1"></a>  <span class="co"># plot</span></span>
+<span id="cb339-20"><a href="taxon_acc.html#cb339-20" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(</span>
+<span id="cb339-21"><a href="taxon_acc.html#cb339-21" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> taxon_level, <span class="at">y =</span> value, <span class="at">group =</span> site)</span>
+<span id="cb339-22"><a href="taxon_acc.html#cb339-22" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb339-23"><a href="taxon_acc.html#cb339-23" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_line</span>(<span class="at">alpha =</span> <span class="fl">0.7</span>, <span class="at">color =</span> <span class="st">&quot;gray&quot;</span>, <span class="at">lwd =</span> <span class="fl">1.1</span>) <span class="sc">+</span></span>
+<span id="cb339-24"><a href="taxon_acc.html#cb339-24" tabindex="-1"></a>  <span class="co"># genus labs</span></span>
+<span id="cb339-25"><a href="taxon_acc.html#cb339-25" tabindex="-1"></a>  ggrepel<span class="sc">::</span><span class="fu">geom_text_repel</span>(</span>
+<span id="cb339-26"><a href="taxon_acc.html#cb339-26" tabindex="-1"></a>    <span class="at">data =</span> <span class="sc">~</span>dplyr<span class="sc">::</span><span class="fu">filter</span>(.x,taxon_level<span class="sc">==</span><span class="st">&quot;Genus-level&quot;</span>)</span>
+<span id="cb339-27"><a href="taxon_acc.html#cb339-27" tabindex="-1"></a>    , <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">label =</span> hey_lab)</span>
+<span id="cb339-28"><a href="taxon_acc.html#cb339-28" tabindex="-1"></a>    , <span class="at">size =</span> <span class="dv">3</span></span>
+<span id="cb339-29"><a href="taxon_acc.html#cb339-29" tabindex="-1"></a>    <span class="co"># , hjust = 0.5, vjust = 2.2</span></span>
+<span id="cb339-30"><a href="taxon_acc.html#cb339-30" tabindex="-1"></a>    , <span class="at">hjust =</span> <span class="dv">1</span></span>
+<span id="cb339-31"><a href="taxon_acc.html#cb339-31" tabindex="-1"></a>    , <span class="at">nudge_x =</span> <span class="sc">-</span><span class="fl">0.02</span></span>
+<span id="cb339-32"><a href="taxon_acc.html#cb339-32" tabindex="-1"></a>    , <span class="at">direction =</span> <span class="st">&quot;both&quot;</span> <span class="co"># &quot;y&quot;</span></span>
+<span id="cb339-33"><a href="taxon_acc.html#cb339-33" tabindex="-1"></a>    , <span class="at">box.padding =</span> <span class="fl">0.15</span></span>
+<span id="cb339-34"><a href="taxon_acc.html#cb339-34" tabindex="-1"></a>    , <span class="at">point.padding =</span> <span class="dv">0</span></span>
+<span id="cb339-35"><a href="taxon_acc.html#cb339-35" tabindex="-1"></a>    , <span class="at">min.segment.length =</span> <span class="dv">0</span></span>
+<span id="cb339-36"><a href="taxon_acc.html#cb339-36" tabindex="-1"></a>    , <span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="cn">Inf</span>, <span class="fl">0.98</span>) <span class="co"># labels stay on lhs</span></span>
+<span id="cb339-37"><a href="taxon_acc.html#cb339-37" tabindex="-1"></a>    , <span class="at">segment.color =</span> <span class="st">&quot;gray88&quot;</span></span>
+<span id="cb339-38"><a href="taxon_acc.html#cb339-38" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb339-39"><a href="taxon_acc.html#cb339-39" tabindex="-1"></a>  <span class="co"># pred labs</span></span>
+<span id="cb339-40"><a href="taxon_acc.html#cb339-40" tabindex="-1"></a>  ggrepel<span class="sc">::</span><span class="fu">geom_text_repel</span>(</span>
+<span id="cb339-41"><a href="taxon_acc.html#cb339-41" tabindex="-1"></a>    <span class="at">data =</span> <span class="sc">~</span>dplyr<span class="sc">::</span><span class="fu">filter</span>(.x,taxon_level<span class="sc">==</span><span class="st">&quot;Species-level&quot;</span>)</span>
+<span id="cb339-42"><a href="taxon_acc.html#cb339-42" tabindex="-1"></a>    , <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">label =</span> hey_lab)</span>
+<span id="cb339-43"><a href="taxon_acc.html#cb339-43" tabindex="-1"></a>    , <span class="at">size =</span> <span class="fl">2.4</span></span>
+<span id="cb339-44"><a href="taxon_acc.html#cb339-44" tabindex="-1"></a>    , <span class="at">hjust =</span> <span class="dv">0</span></span>
+<span id="cb339-45"><a href="taxon_acc.html#cb339-45" tabindex="-1"></a>    , <span class="at">nudge_x =</span> <span class="fl">0.02</span></span>
+<span id="cb339-46"><a href="taxon_acc.html#cb339-46" tabindex="-1"></a>    , <span class="at">direction =</span> <span class="st">&quot;y&quot;</span></span>
+<span id="cb339-47"><a href="taxon_acc.html#cb339-47" tabindex="-1"></a>    , <span class="at">box.padding =</span> <span class="fl">0.1</span></span>
+<span id="cb339-48"><a href="taxon_acc.html#cb339-48" tabindex="-1"></a>    , <span class="at">point.padding =</span> <span class="dv">0</span></span>
+<span id="cb339-49"><a href="taxon_acc.html#cb339-49" tabindex="-1"></a>    , <span class="at">min.segment.length =</span> <span class="dv">0</span></span>
+<span id="cb339-50"><a href="taxon_acc.html#cb339-50" tabindex="-1"></a>    , <span class="at">segment.color =</span> <span class="st">&quot;grey88&quot;</span></span>
+<span id="cb339-51"><a href="taxon_acc.html#cb339-51" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb339-52"><a href="taxon_acc.html#cb339-52" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(</span>
+<span id="cb339-53"><a href="taxon_acc.html#cb339-53" tabindex="-1"></a>    <span class="at">mapping =</span> </span>
+<span id="cb339-54"><a href="taxon_acc.html#cb339-54" tabindex="-1"></a>      <span class="co"># ggplot2::aes(color = taxon_level)</span></span>
+<span id="cb339-55"><a href="taxon_acc.html#cb339-55" tabindex="-1"></a>      ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">color =</span> sum_level)</span>
+<span id="cb339-56"><a href="taxon_acc.html#cb339-56" tabindex="-1"></a>    <span class="co"># , alpha = 0.7</span></span>
+<span id="cb339-57"><a href="taxon_acc.html#cb339-57" tabindex="-1"></a>    , <span class="at">size =</span> <span class="dv">4</span></span>
+<span id="cb339-58"><a href="taxon_acc.html#cb339-58" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb339-59"><a href="taxon_acc.html#cb339-59" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_grid</span>(</span>
+<span id="cb339-60"><a href="taxon_acc.html#cb339-60" tabindex="-1"></a>    <span class="at">cols =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(metric)</span>
+<span id="cb339-61"><a href="taxon_acc.html#cb339-61" tabindex="-1"></a>    <span class="co"># , rows = dplyr::vars(taxon_level)</span></span>
+<span id="cb339-62"><a href="taxon_acc.html#cb339-62" tabindex="-1"></a>    <span class="co"># , switch = &quot;y&quot;</span></span>
+<span id="cb339-63"><a href="taxon_acc.html#cb339-63" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb339-64"><a href="taxon_acc.html#cb339-64" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_y_continuous</span>(</span>
+<span id="cb339-65"><a href="taxon_acc.html#cb339-65" tabindex="-1"></a>    <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>)</span>
+<span id="cb339-66"><a href="taxon_acc.html#cb339-66" tabindex="-1"></a>    , <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>)</span>
+<span id="cb339-67"><a href="taxon_acc.html#cb339-67" tabindex="-1"></a>    , <span class="at">expand =</span> ggplot2<span class="sc">::</span><span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.02</span>,<span class="fl">0.1</span>))</span>
+<span id="cb339-68"><a href="taxon_acc.html#cb339-68" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb339-69"><a href="taxon_acc.html#cb339-69" tabindex="-1"></a>  <span class="fu">scale_x_discrete</span>(<span class="at">expand =</span> <span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">0.2</span>))) <span class="sc">+</span> </span>
+<span id="cb339-70"><a href="taxon_acc.html#cb339-70" tabindex="-1"></a>  <span class="co"># ggplot2::scale_color_viridis_d(option=&quot;magma&quot;,begin = 0.5, end = 0.66) +</span></span>
+<span id="cb339-71"><a href="taxon_acc.html#cb339-71" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_color_viridis_d</span>(<span class="at">begin =</span> <span class="fl">0.3</span>, <span class="at">end =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb339-72"><a href="taxon_acc.html#cb339-72" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
+<span id="cb339-73"><a href="taxon_acc.html#cb339-73" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;comparison&quot;</span></span>
+<span id="cb339-74"><a href="taxon_acc.html#cb339-74" tabindex="-1"></a>    , <span class="at">y =</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb339-75"><a href="taxon_acc.html#cb339-75" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb339-76"><a href="taxon_acc.html#cb339-76" tabindex="-1"></a>    , <span class="at">subtitle =</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb339-77"><a href="taxon_acc.html#cb339-77" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb339-78"><a href="taxon_acc.html#cb339-78" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme_light</span>() <span class="sc">+</span></span>
+<span id="cb339-79"><a href="taxon_acc.html#cb339-79" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme</span>(</span>
+<span id="cb339-80"><a href="taxon_acc.html#cb339-80" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;top&quot;</span></span>
+<span id="cb339-81"><a href="taxon_acc.html#cb339-81" tabindex="-1"></a>    , <span class="at">axis.text.x =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>)</span>
+<span id="cb339-82"><a href="taxon_acc.html#cb339-82" tabindex="-1"></a>    , <span class="at">axis.text.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">7</span>)</span>
+<span id="cb339-83"><a href="taxon_acc.html#cb339-83" tabindex="-1"></a>    , <span class="at">axis.title.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">7</span>)</span>
+<span id="cb339-84"><a href="taxon_acc.html#cb339-84" tabindex="-1"></a>    , <span class="at">strip.text =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb339-85"><a href="taxon_acc.html#cb339-85" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb339-86"><a href="taxon_acc.html#cb339-86" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">guides</span>(</span>
+<span id="cb339-87"><a href="taxon_acc.html#cb339-87" tabindex="-1"></a>    <span class="at">color =</span> ggplot2<span class="sc">::</span><span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">shape =</span> <span class="dv">15</span>, <span class="at">lwd =</span> <span class="cn">NA</span>, <span class="at">size =</span> <span class="dv">8</span>, <span class="at">fill =</span> <span class="cn">NA</span>))</span>
+<span id="cb339-88"><a href="taxon_acc.html#cb339-88" tabindex="-1"></a>    , <span class="at">fill =</span> <span class="st">&quot;none&quot;</span></span>
+<span id="cb339-89"><a href="taxon_acc.html#cb339-89" tabindex="-1"></a>  )</span></code></pre></div>
+<p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-349-1.png" alt="" width="1008" /></p>
+<p>The median decrease in Bray-Curtis similarity (site-level accuracy) from genus-level to species-level is 6% based on a median genus-level Bray-Curtis similarity of and a species-level similarity of . The greatest decrease in Bray-Curtis similarity from genus-level to species-level of 22% was observed at WFSI_EglinAFB (longleaf pine) based on a genus-level Bray-Curtis similarity of and a species-level similarity of . The smallest decrease in Bray-Curtis similarity from genus-level to species-level of 0% was observed at CSFS_SWE (lodgepole pine) based on a genus-level Bray-Curtis similarity of and a species-level similarity of NA.</p>
+<p>The median decrease in overall accuracy (tree-level accuracy) from genus-level to species-level is 3% based on a median genus-level overall accuracy of 66% and a species-level accuracy of 56%. The greatest decrease in overall accuracy from genus-level to species-level of 24% was observed at USFS_UteCreek (dry-mesic mixed conifer) based on a genus-level overall accuracy of 86% and a species-level accuracy of 62%. The smallest decrease in overall accuracy from genus-level to species-level of 0% was observed at USFS_ManitouEF_N1 (ponderosa pine) based on a genus-level overall accuracy of 74% and a species-level accuracy of 74%.</p>
 
+</div>
 </div>
             </section>
 
