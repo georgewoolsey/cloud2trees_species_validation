@@ -1579,6 +1579,7 @@ project_data_df <-
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
 remove(this_data_site_nm,this_min_dbh_cm,this_min_ht_m)
+remove(list = ls()[grep("^csfs_swe",ls())])
 gc()
 ```
 

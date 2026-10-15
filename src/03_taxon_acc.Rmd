@@ -41,3 +41,220 @@ Accuracy metrics were evaluated at both the species and genus taxonomic levels t
 
 If the primary management objective requires highly accurate species-level classification at the individual tree level, then our proposed approach is likely to be insufficient and unreliable. Especially across structurally diverse forest types.
 
+```{r}
+# add descriptions to the data
+
+# | WFSI Elgin AFB | Florida | longleaf pine | ALS | tree locations |
+# | Manitou Experimental Forest (N1) | Colorado | ponderosa pine | UAS-lidar | tree locations |
+# | Manitou Experimental Forest (Big Plot) | Colorado | western mixed conifer | UAS-SfM | tree locations |
+# | Penobscot Experimental Forest | Maine | northern mixed conifer | ALS | tree locations |
+# | Ute Creek | Colorado | dry-mesic mixed conifer | UAS-SfM | tree locations |
+# | CSFS State Forest State Park | Colorado | lodgepole pine | UAS-lidar | plots |
+# | WFSI Fort Stewart | Georgia | southern yellow pine forest | UAS-lidar | plots |
+# | BLM Dawson Creek | Colorado | pinyon-juniper | UAS-SfM | tree locations |
+# | Wabikon Lake Forest Dynamics Plot (ForestGEO) | Wisconsin | northern mixed hardwood | ALS | tree locations |
+# | UC Santa Cruz Forest Ecology Research Plot (ForestGEO) | California | coastal mixed-evergreen & coast redwood | ALS | tree locations |
+# | Smithsonian Environmental Research Center (ForestGEO) | Maryland | mixed deciduous hardwood | ALS | tree locations |
+# | Smithsonian Conservation Biology Institute (ForestGEO) | Virginia | mid-atlantic deciduous | ALS | tree locations |
+project_data_df <- 
+  project_data_df %>% 
+  dplyr::mutate(
+    data_ftype_desc = dplyr::recode_values(
+      data_site_nm
+      , "BLM_TRFO" ~ "pinyon-juniper"
+      , "CSFS_SWE" ~ "lodgepole pine"
+      , "ForestGEO_IUFDP" ~ "xxx"
+      , "ForestGEO_OSBS" ~ "xxx"
+      , "ForestGEO_SCBI" ~ "mid-atlantic deciduous"
+      , "ForestGEO_SERC" ~ "mixed deciduous hardwood"
+      , "ForestGEO_UCSC_FERP" ~ "coastal mixed-evergreen & coast redwood"
+      , "ForestGEO_WLF" ~ "northern mixed hardwood"
+      , "USFS_ManitouEF_BigPlot" ~ "western mixed conifer"
+      , "USFS_ManitouEF_N1" ~ "ponderosa pine"
+      , "USFS_PenobscotEF" ~ "northern mixed conifer"
+      , "USFS_UteCreek" ~ "dry-mesic mixed conifer"
+      , "WFSI_EglinAFB" ~ "longleaf pine"
+      , "WFSI_FtStewart" ~ "southern yellow pine"
+    )
+  )
+```
+
+big overview table
+
+```{r}
+project_data_df %>%
+  dplyr::filter(
+    !is.na(acc_site_genus_bc_dissimilarity)
+  ) %>% 
+  dplyr::mutate(
+    site = paste0(
+      data_site_nm
+      , "<br />("
+      , data_ftype_desc
+      , ")"
+    )
+  ) %>% 
+  dplyr::select(
+    site, tidyselect::starts_with("acc_")
+  ) %>% 
+  dplyr::mutate(dplyr::across(
+    dplyr::where(is.numeric)
+    , ~scales::percent(.x,accuracy=0.1)
+  )) %>% 
+  tidyr::pivot_longer(-site) %>% 
+  dplyr::mutate(
+    taxon_level = stringr::str_extract(name,"(species|genus)") %>% stringr::str_to_title()
+    , name = stringr::str_remove(name,"^acc_") %>% 
+      stringr::str_remove(tolower(taxon_level)) %>% 
+      stringr::str_replace_all("__","_")
+  ) %>% 
+  tidyr::pivot_wider(names_from = name, values_from = value) %>% 
+  dplyr::select(taxon_level,site, tidyselect::starts_with("tree_"), tidyselect::starts_with("site_")) %>% 
+  dplyr::arrange(taxon_level,site) %>% 
+  kableExtra::kbl(
+    caption = "Proposed Tree Classification Method Accuracy Performance<br />by site"
+    , col.names = c(
+      "taxonomic-level"
+      , "site"
+      , "Overall Accuracy (TP Only)"
+      , "Bray-Curtis Dissimilarity"
+      , "Bray-Curtis Similarity"
+      , "Proportional RMSE"
+    )
+    , escape = F
+  ) %>% 
+  kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed","striped")) %>% # 
+  kableExtra::scroll_box(width = "100%") %>% #  put a HTML kable object in a fixed-height, fixed-width or both box and make it scrollable
+  kableExtra::add_header_above(
+    c(
+      " "=2
+      , "Tree Level" = 1
+      , "Site Level" = 3
+    )
+    , escape = F
+  ) %>% 
+  kableExtra::column_spec(1:2, bold = TRUE) %>% 
+  kableExtra::column_spec(c(2,3,6), border_right = TRUE, include_thead = TRUE) %>% 
+  kableExtra::collapse_rows(columns = 1, valign = "top")
+
+  # kableExtra::footnote(
+  #   # general = "*minimum height to be considered a 'tree': 2 m"
+  #   # , number = c("Footnote 1; ", "Footnote 2; ")
+  #   # , alphabet = c("Footnote A; ", "Footnote B; ")
+  #   # , symbol = c("Footnote Symbol 1; ", "Footnote Symbol 2")
+  # )
+```
+
+it's probably easier to *see* the data
+
+```{r, fig.height=10.5}
+project_data_df %>%
+  dplyr::filter(
+    !is.na(acc_site_genus_bc_dissimilarity)
+  ) %>% 
+  dplyr::mutate(
+    site = paste0(
+      data_site_nm
+      , "\n("
+      , data_ftype_desc
+      , ")"
+    ) %>% 
+    forcats::fct_reorder(acc_site_genus_bc_similarity)
+  ) %>% 
+  dplyr::select(
+    site, tidyselect::starts_with("acc_")
+  ) %>% 
+  # dplyr::mutate(dplyr::across(
+  #   dplyr::where(is.numeric)
+  #   , ~scales::percent(.x,accuracy=0.1)
+  # )) %>% 
+  tidyr::pivot_longer(-site) %>% 
+  dplyr::mutate(
+    taxon_level = stringr::str_extract(name,"(species|genus)") %>% stringr::str_to_title() %>% stringr::str_c("-level")
+    , sum_level = stringr::str_extract(name,"(site|tree)") %>% stringr::str_to_title() %>% stringr::str_c("-level")
+    , name = 
+      name %>% 
+      stringr::str_remove("^acc_tree_species_") %>%
+      stringr::str_remove("^acc_site_species_") %>%
+      stringr::str_remove("^acc_tree_genus_") %>%
+      stringr::str_remove("^acc_site_genus_")
+    # , metric = dplyr::case_when(
+    #   name == "overall" ~ "Overall Accuracy (TP Only)"
+    #   , name == "bc_dissimilarity" ~ "Bray-Curtis Dissimilarity"
+    #   , name == "bc_similarity" ~ "Bray-Curtis Similarity"
+    #   , name == "prop_rmse" ~ "Proportional RMSE"
+    # )
+    , metric = factor(
+      name 
+      , levels = c(
+        "overall" # ~ "Overall Accuracy (TP Only)"
+        , "bc_similarity" # ~ "Bray-Curtis Similarity"
+        , "bc_dissimilarity" # ~ "Bray-Curtis Dissimilarity"
+        , "prop_rmse" # ~ "Proportional RMSE"  
+      )
+      , ordered = T
+      , labels = c(
+        "Overall Accuracy (TP Only)" # "overall" 
+        , "Bray-Curtis Similarity" # "bc_similarity" 
+        , "Bray-Curtis Dissimilarity" # "bc_dissimilarity" 
+        , "Proportional RMSE"   # "prop_rmse" 
+      )
+    )
+    , value_lab = scales::percent(value,accuracy = 0.1)
+  ) %>% 
+  # plot
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = value, y = site, color = sum_level)
+  ) +
+  ggplot2::geom_segment(
+    mapping = ggplot2::aes(x = 0, xend = value, yend = site)
+  ) +
+  ggplot2::geom_point(size = 4) +
+  ggplot2::geom_text(
+    mapping = ggplot2::aes(label = value_lab, fontface = "bold")
+    , color = "black"
+    , size = 2.4
+    # , nudge_x = 0.006
+    , hjust = 0, vjust = -1
+    # , hjust = -0.4
+  ) +
+  ggplot2::facet_grid(
+    rows = dplyr::vars(taxon_level)
+    , cols = dplyr::vars(metric)
+    # , scales = "free_x"
+    , switch = "y"
+  ) +
+  ggplot2::scale_x_continuous(
+    limits = c(0,1)
+    , labels = scales::label_percent(accuracy = 1)
+    , expand = ggplot2::expansion(mult = c(0.02,0.07))
+  ) +
+  ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
+  ggplot2::labs(
+    title = "Proposed Tree Classification Method Accuracy Performance\nby site"
+    , x = "" # "metric value"
+    , y = "" # "study site"
+    , color = "" # "study site"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+    
+    , strip.placement = "outside"
+    , strip.text.y.left = ggplot2::element_text(size = 12, face = "bold", angle = 90, hjust = 0.5)
+    , strip.background.y = ggplot2::element_blank()
+    , panel.spacing.y = ggplot2::unit(2, "lines")
+    
+    , axis.text.y = ggplot2::element_text(face = "bold")
+    , panel.grid.major.x = element_blank()
+    , panel.grid.minor.x = element_blank()
+  ) +
+  ggplot2::guides(
+    color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
+    , fill = "none"
+  )
+```
+
+neat.
+
