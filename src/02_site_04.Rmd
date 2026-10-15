@@ -459,7 +459,7 @@ usfs_penobscotef_las_ctg_temp
 # usfs_penobscotef_las_ctg_temp@data %>% dplyr::glimpse()
 ```
 
-let's check out the lidar data coverage compared to the field plot data
+let's check out the point cloud data coverage compared to the field plot data
 
 ```{r}
 # usfs_penobscotef_las_ctg_temp@data %>%

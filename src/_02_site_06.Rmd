@@ -1,6 +1,6 @@
-# Colorado State Forest (Colorado){#site_06}
+# BLM-TRFO Pinyon-Juniper (Colorado){#site_06}
 
-Now that we have reviewed the [process and evaluation method](#site_01) and set up functions to standardize and streamline our data processing, let's do it for another site: Colorado State Forest Service's (CSFS) State Forest State Park 
+Now that we have reviewed the [process and evaluation method](#site_01) and set up functions to standardize and streamline our data processing, let's do it for another site: BLM Tres Rios Field Office  (BLM-TRFO; Colorado) of the Pinyon–Juniper Adaptive Silviculture project
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
@@ -10,62 +10,32 @@ gc()
 
 ## Field Data
 
-Field data from this study site is from: 
+This data is from the [Pinyon–Juniper Adaptive Silviculture project](https://nccasc.colorado.edu/sites/default/files/2026-09/PJ%20NC%20CASC%20Webinar%202026.pdf), a co-produced effort between researchers and practitioners, to develop ecologically grounded and operationally feasible thinning prescriptions that sustain pinyon-juniper woodlands led by [Miranda Redmond](https://mirandaredmond.weebly.com/). Data was acquired from plots in post-treatment blocks that were thinned under three experimental thinning prescriptions spanning a gradient of both thinning intensity and spatial variability: a uniform low-intensity treatment, a uniform high-intensity treatment, and a heterogeneous treatment.
 
-Colorado State Forest Service’s monitoring program led by [Ethan Bucholz](https://newsmediarelations.colostate.edu/contacts/ethan-bucholz/) installed snow water equivalent (SWE) sampling plots on the State Forest State Park at a lodgepole pine (Pinus contorta) treatment site. Two treatment applications included thinning with residual waste material subjected to either lop-and-scatter (LNS) or Pile-and-Burn (PLB) with nearby untreatend control sites also established. Across treatment and control sites, 1/10th acre monitoring plots were established with trees of at least 5 inch DBH measured for diameter, height, species, and crown status.
+Here are the notes I got along with the field inventory data:
 
-**Important Detail**
-Note that this is the first data set we have reviewed that does not include tree location data, we only have information on trees within plots. As such, we will only be able to evaluate the proportional compositions of each species predicted by the model against the reference proportions within the measured plot area (i.e. using Bray-Curtis dissimilarity/similarity index ).
+> Attached is a csv of the PJ data from the Dawson Creek site. I added the plot center locations and calculated locations of each measured tree from the original distance and azimuth information. Below is a list of notes (and unfortunately some weird things) about it.
 
-let's load in the plot data first
+> *	There are 65 rows (out of 1603) with any missing data. The missing parts are usually in a location-related column with several in a tree metric column.
+> *	There are 43 DRC (diameter at root collar) observations with two separate values separated by a comma. 
+> *	There are 8 circumstances where there are potential duplicate trees - where plot, distance, and azimuth are identical, but tree information is different. 
+> *	In the metadata crown length is described as "length from first longest side of the adult tree canopy, in m" and crown width is described as "width from second longest side of the adult tree canopy, in m". However, crown width is frequently greater than the length value and after some looking the length value doesn't seem to equal height-cbh either.
+> *	The plot column includes unit, treatment type, and plot ID whereas the tree_id column includes that information as well as a per-plot ID of each tree.
 
-```{r}
-csfs_swe_plots <-
-  sf::st_read(
-    "../data/csfs_swe/CSFS_Monitoring_Plots_SWE_2025/SWE_Plots.shp"
-    , quiet = T
-  ) %>% 
-  dplyr::rename_with(
-    ~ tolower(.x) %>% 
-      stringr::str_squish() %>% 
-      make.names() %>% 
-      stringr::str_replace_all( "\\.{2,}", ".") %>% 
-      stringr::str_remove( "\\.$") %>% 
-      stringr::str_replace_all( "\\.", "_")
-  ) %>% 
-  dplyr::mutate(
-    plot_id = 
-      stand_id %>%
-      stringr::str_squish() %>% 
-      stringr::str_c("_", stringr::str_squish(plot_id))
-    , plot_area_ac = 1/10
-    # 1 ha = 2.47105 acres
-    , plot_area_ha = plot_area_ac/2.47105
-    , plot_area_m2 = plot_area_ha*10000
-    , plot_radius_meters = sqrt(plot_area_m2 / pi)
-  ) %>% 
-  sf::st_buffer(.$plot_radius_meters) %>% 
-  dplyr::select(
-    plot_id, plot_area_m2, plot_radius_meters
-  )
-# huh?
-# csfs_swe_plots %>% dplyr::count(projection)
-# csfs_swe_plots %>% dplyr::glimpse()
-# csfs_swe_plots %>% sf::st_drop_geometry() %>% dplyr::count(mu,plot) %>% dplyr::filter(n>1)
-# csfs_swe_plots %>% sf::st_drop_geometry() %>% dplyr::count(plot_id) %>% dplyr::filter(n>1)
-```
+> The multiple DRC values are due to multiple stems splitting at ground level. I think we should treat these as one tree, as they're recorded in the data. To combine the two stem values into a single DRC, we could either take the larger of the two or sum them.
+
+> The location duplication issue is due to two trees (or more likely stems from the same individual that split below ground) growing very close together. We should continue to treat them as separate trees, as shown in the data.
+
+> Height, cbh, length and width are all in meters. DRC is in cm.
+
+plots used a 10 m radius to define a circular plot area
 
 load in the trees
 
 ```{r}
-this_min_dbh_cm <- 5/0.394 # measured trees >= 5 in
-# read locations first
-csfs_swe_trees <-
-  readr::read_csv(
-    "../data/csfs_swe/CSFS_Monitoring_Plots_SWE_2025/Monitoring_SWE_Trees.csv"
-    , progress = F
-    , show_col_types = F
-  ) %>% 
+this_min_ht_m <- 2
+blm_trfo_trees <-
+  readr::read_csv("c:/data/usfs/blm_trfo_uas/data/pj_trees_george.csv", show_col_types = F, progress = F) %>% 
   dplyr::rename_with(
     ~ tolower(.x) %>% 
       stringr::str_squish() %>% 
@@ -74,135 +44,164 @@ csfs_swe_trees <-
       stringr::str_remove( "\\.$") %>% 
       stringr::str_replace_all( "\\.", "_")
   ) %>% 
-  # convert units
   dplyr::mutate(
-    plot_id = tolower(full_id) %>% 
-      stringr::str_remove("^swe_") %>% 
-      stringr::str_remove("_posttreatment$") %>% 
-      toupper() %>% 
+    dplyr::across(
+      -c(plot,tree_id,species,unit,treatment_code,drc)
+      , as.numeric
+    )
+    , dplyr::across(
+      c(species,unit,treatment_code)
+      , ~ stringr::str_trim(.x) %>% toupper()
+    )
+  ) %>% 
+  # rename
+  dplyr::rename_with(
+    .cols = c(height,cbh,crown_width,crown_length)
+    , .fn = ~paste0(.x,"_m",recycle0 = T)
+  ) %>% 
+  dplyr::mutate(
+    plot_id = plot %>% 
       stringr::str_squish() %>% 
       dplyr::na_if("")
-    , dbh_cm = dbh/0.394
-    , tree_height_m = tree_length/3.281
+    # , dbh_cm = dbh/0.394
+    , tree_height_m = height_m
+    , species_symbol =
+      species %>% 
+      stringr::str_remove_all("\\s") %>% 
+      toupper() %>% 
+      dplyr::na_if("")
   ) %>% 
   # filter
   dplyr::filter(
-    !is.na(dbh_cm)
-    & dbh_cm >= this_min_dbh_cm # measured trees >= 5 in
-    & !is.na(species)
+    !is.na(plot_id)
+    & !is.na(tree_height_m)
+    & tree_height_m >= this_min_ht_m
+    & !is.na(species_symbol)
+    & !is.na(plot_center_x)
+    & !is.na(plot_center_y)
+    & !is.na(tree_x)
+    & !is.na(tree_y)
   ) %>% 
-  # keep only trees with a matching plot
-  dplyr::inner_join(
-    csfs_swe_plots %>% 
-      sf::st_drop_geometry() %>% 
-      dplyr::select(plot_id)
-    , by = "plot_id"
-  ) %>% 
+  dplyr::select(plot_id,tree_height_m,species_symbol,tree_x,tree_y,plot_center_x,plot_center_y) %>% 
+  # guessing this is WGS 84
+  sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = 4326, remove = F) %>% 
+  # transform to meter-based projection
+  sf::st_transform(sf::st_crs(6341)) %>% 
   dplyr::mutate(
     treeID = dplyr::row_number() %>% as.character()
-  ) %>% 
-  dplyr::select(plot_id,treeID,dbh_cm,tree_height_m,species)
-```
-
-this data includes numeric species codes. perhaps they match with the standard USFS numeric species codes?
-
-```{r}
-#### now we need to get the species data........
-# dplyr::glimpse(csfs_swe_trees)
-# fia_species_lookup %>% dplyr::glimpse()
-# csfs_swe_trees %>% 
-#   dplyr::distinct(spcd=species) %>% 
-#   dplyr::inner_join(fia_species_lookup) %>% 
-#   dplyr::glimpse()
-# # nice, they are
-csfs_swe_trees <- 
-  csfs_swe_trees %>% 
-  dplyr::rename(spcd=species) %>% 
-  dplyr::inner_join(
-    fia_species_lookup %>% 
-      dplyr::select(spcd,species_symbol)
-    , by = "spcd"
+    , tree_x = sf::st_coordinates(geometry)[,1] #lon
+    , tree_y = sf::st_coordinates(geometry)[,2] #lat
   )
+
+# blm_trfo_trees %>% dplyr::glimpse()
 ```
 
-let's check those field plots out to orient ourselves to the location
+get the plots, which for this data have coordinates in the tree level data
 
 ```{r}
-csfs_swe_plots %>% 
-  sf::st_centroid() %>% 
+blm_trfo_plots <-
+  blm_trfo_trees %>%
+  sf::st_drop_geometry() %>% 
+  dplyr::distinct(plot_id,plot_center_x,plot_center_y) %>% 
+  # spatial that
+  sf::st_as_sf(coords = c("plot_center_x", "plot_center_y"), crs = 4326, remove = F) %>% 
+  sf::st_transform(sf::st_crs(blm_trfo_trees)) %>% 
+  dplyr::mutate(
+    plot_radius_meters = 10
+  ) %>% 
+  sf::st_buffer(.$plot_radius_meters)
+# huh?
+# blm_trfo_plots %>% dplyr::glimpse()
+
+# keep only plots with trees and trees with plots
+# nrow(blm_trfo_plots)
+blm_trfo_plots <- blm_trfo_plots %>% dplyr::filter(plot_id %in% unique(blm_trfo_trees$plot_id))
+# nrow(blm_trfo_plots)
+# nrow(blm_trfo_trees)
+blm_trfo_trees <- blm_trfo_trees %>% dplyr::filter(plot_id %in% unique(blm_trfo_plots$plot_id))
+# nrow(blm_trfo_trees)
+
+# save to reference list
+# add to the ref trees list
+this_data_site_nm <- project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="blm_trfo") %>% 
+  dplyr::pull(data_site_nm)
+ref_plots_list[[this_data_site_nm]] <- blm_trfo_plots
+ref_trees_list[[this_data_site_nm]] <- blm_trfo_trees
+```
+
+let's check those field trees out to orient ourselves to the location
+
+```{r}
+ref_trees_list[[this_data_site_nm]] %>% 
   mapview::mapview(
-    zcol = "plot_id"
-    , layer.name="CSFS SWE: field plots"
+    zcol = "species_symbol"
+    , layer.name="BLM-TRFO Pinyon-Juniper: field trees"
     , popup=F
   )
-# csfs_swe_trees %>%
+# blm_trfo_trees %>%
 #   sf::st_union() %>%
 #   sf::st_bbox() %>%
 #   sf::st_as_sfc() %>%
 #   sf::st_centroid() %>%
 #   sf::st_transform(crs=4326) %>%
 #   sf::st_coordinates()
-# # # 44.85681,-68.62513
+# # # # 39.35402,-105.3837
 ```
 
 what is the distribution of species?
 
 ```{r}
-csfs_swe_trees %>% 
+ref_trees_list[[this_data_site_nm]] %>% 
+  sf::st_drop_geometry() %>% 
   dplyr::count(species_symbol) %>% 
   dplyr::arrange(desc(n)) %>% 
   dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
-
-csfs_swe_trees %>% sf::st_drop_geometry() %>% dplyr::count(plot_id)
-# save to reference list
-# add to the ref trees list
-this_data_site_nm <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
-  dplyr::pull(data_site_nm)
-ref_plots_list[[this_data_site_nm]] <- csfs_swe_plots
-ref_trees_list[[this_data_site_nm]] <- csfs_swe_trees
-# ref_plots_list
 ```
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
+remove(list = ls()[grep("^blm_trfo",ls())])
 gc()
 ```
 
 ## Point Cloud Data
 
-data was collected over the study site via a UAS-lidar flight at an altitude of 122 m (400 ft) and speed of 8.9 meters per second (20 miles per hour)
+data was collected over the study site via a UAS-DAP (digital aerial photogrammetry) flight. On April 29th and 30th, 2025, BLM Remote Sensing staff mapped approximately 2,000 acres of the Dawson site using an Uncrewed Aerial System (UAS). In total 24 flights were conducted to collect ~5,500 stereo-images. The raw imagery was then processed photogrammetrically with Agisoft Metashape software to produce high-resolution geospatial data products including 3D point cloud data and an RGB spectral orthomosaic.
 
 let's check out the raw point cloud data
 
-```{r}
-csfs_swe_las_f_temp <- "../data/csfs_swe/las/"
-csfs_swe_las_ctg_temp <- lidR::readLAScatalog(csfs_swe_las_f_temp)
-csfs_swe_las_ctg_temp
-# csfs_swe_las_ctg_temp@data %>% dplyr::glimpse()
+```{r, eval=F, include=T}
+blm_trfo_las_f_temp <- "d:/BLM_CO_SWDF_DawsonFuelsTreatment/Final/PointCloud/Tiles"
+blm_trfo_las_ctg_temp <- lidR::readLAScatalog(blm_trfo_las_f_temp)
+# blm_trfo_las_ctg_temp
+# blm_trfo_las_ctg_temp@data %>% dplyr::glimpse()
 ```
 
-let's check out the lidar data coverage compared to the field plot data
+let's check out the point cloud data coverage compared to the field plot data
+
+```{r, include = F, eval=T}
+# we don't need to process this again ;D
+blm_trfo_las_ctg_temp <- sf::st_read("c:/data/usfs/blm_trfo_uas/data/point_cloud_processing_delivery/raw_las_ctg_info.gpkg", quiet=T)
+# blm_trfo_las_ctg_temp %>% 
+#   dplyr::glimpse()
+```
 
 ```{r}
-# csfs_swe_las_ctg_temp@data %>%
-#   sf::st_set_geometry("geometry") %>%
-#   dplyr::mutate(f = basename(filename)) %>%
-#   ggplot() + geom_sf(alpha=0.5) + geom_sf_label(aes(label = f),size=2)
-
-csfs_swe_las_ctg_temp@data$geometry %>% 
+# there might be something wrong with this data...let's see what c2t makes of it
+blm_trfo_las_ctg_temp %>% 
   sf::st_union() %>% 
   sf::st_as_sf() %>% 
-  dplyr::mutate(data = "UAS-lidar data extent") %>% 
+  dplyr::mutate(data = "UAS-DAP data extent") %>% 
 mapview::mapview(
  zcol = "data"
-  , layer.name="CSFS SWE: UAS-lidar data"
+  , layer.name="BLM-TRFO Pinyon-Juniper: UAS-DAP data"
   , popup=F
 ) +
 mapview::mapview(
-  csfs_swe_plots %>% sf::st_centroid()
-  , zcol = "plot_id"
-  , layer.name="CSFS SWE: field plots"
+  ref_trees_list[[this_data_site_nm]]
+  , zcol = "species_symbol"
+  , layer.name="BLM-TRFO Pinyon-Juniper: field trees"
   , popup=F
 )
 ```
@@ -215,7 +214,7 @@ use `cloud2trees` to process the raw point cloud data to generate a CHM for use 
 ################################################
 # outdir
 c2t_output_dir_temp <- project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
+  dplyr::filter(tolower(data_site_nm)=="blm_trfo") %>% 
   dplyr::pull(data_dir)
 c2t_process_dir_temp <- file.path(c2t_output_dir_temp, "point_cloud_processing_delivery")
 # timer file
@@ -227,14 +226,31 @@ project_data_df <- project_data_df %>%
     , c2t_tracking_fnm = ifelse(data_dir==c2t_output_dir_temp, c2t_tracking_fnm_temp, c2t_tracking_fnm)
   )
 # project_data_df %>% print(n=nrow(project_data_df))
+```
 
+```{r, include = T, eval=F}
 # get point cloud density and raster resolutions
-get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(csfs_swe_las_ctg_temp)
+get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(blm_trfo_las_ctg_temp)
 # get_ptcld_density_chm_res_temp
+```
 
+```{r, include = F, eval=T}
+# we don't need to process this again ;D
+get_ptcld_density_chm_res_temp <- list(
+  chm_res_m = 0.1
+  , dtm_res_m = 0.25
+  , pts_m2 = 
+    readr::read_csv("c:/data/usfs/blm_trfo_uas/data/point_cloud_processing_delivery/processed_tracking_data.csv", progress = F, show_col_types = F) %>%
+    dplyr::mutate(pts_m2=number_of_points/las_area_m2) %>% 
+    dplyr::pull(pts_m2)
+)
+```
+
+```{r}
 # fnm
 chm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("chm_",get_ptcld_density_chm_res_temp$chm_res_m,"m.tif") )
 dtm_fnm_temp <- file.path(c2t_process_dir_temp, paste0("dtm_",get_ptcld_density_chm_res_temp$dtm_res_m,"m.tif") )
+
 # save to tracking df
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
@@ -260,7 +276,7 @@ if(
   # cloud2trees
   cloud2raster_ans <- cloud2trees::cloud2raster(
     output_dir = c2t_output_dir_temp
-    , input_las_dir = csfs_swe_las_f_temp
+    , input_las_dir = blm_trfo_las_f_temp
     , accuracy_level = 2
     , keep_intrmdt = F
     , dtm_res_m = get_ptcld_density_chm_res_temp$dtm_res_m # (1/sqrt(pts_m2_temp))*2
@@ -305,7 +321,7 @@ agg_chm_rast_temp <- agg_chm_rast_fn(
   , res = min_chm_res
   , dir = 
     project_data_df %>% 
-    dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
+    dplyr::filter(tolower(data_site_nm)=="blm_trfo") %>% 
     dplyr::pull(c2t_process_dir)
 )
 # agg_chm_rast_temp
@@ -316,29 +332,12 @@ chm_list[[this_data_site_nm]] <- agg_chm_rast_temp
 # chm_list
 ```
 
-let's check out the CHM
+what if we filter the CHM to height values >= 1.37 m and add the plot boundaries?
 
 ```{r}
 # plot to check out the fine-resolution CHM raster
 chm_list[[this_data_site_nm]] %>% 
-  terra::plot(
-    col = viridis::plasma(n=100)
-    , axes=F
-    , plg = list(
-      title = "CHM (m)"
-      , cex = 0.8
-      , title.cex = 0.9
-      , shrink = 0.6 
-    )
-  )
-```
-
-what if we filter the CHM to height values >= 2 m and add the plot boundaries?
-
-```{r}
-# plot to check out the fine-resolution CHM raster
-chm_list[[this_data_site_nm]] %>% 
-  terra::clamp(lower=2,values=F) %>% 
+  terra::clamp(lower=1.37,values=F) %>% 
   # terra::summary()
   terra::plot(
     col = viridis::plasma(n=100)
@@ -356,19 +355,24 @@ ref_plots_list[[this_data_site_nm]] %>%
   terra::plot(add=T, col = NA, border = "cyan")
 ```
 
+that's a large area
+
 and convert the reference trees and plot data to the point cloud data projection
 
 ```{r}
 ref_plots_list[[this_data_site_nm]] <- ref_plots_list[[this_data_site_nm]] %>% sf::st_transform(terra::crs(chm_list[[this_data_site_nm]]))
-ref_trees_list[[this_data_site_nm]] <- ref_trees_list[[this_data_site_nm]] ############this isn't even spatial
-# ref_plots_list$CSFS_SWE
-# ref_trees_list$CSFS_SWE
+ref_trees_list[[this_data_site_nm]] <- ref_trees_list[[this_data_site_nm]] %>% 
+  sf::st_transform(terra::crs(chm_list[[this_data_site_nm]])) %>% 
+  dplyr::mutate(
+    tree_x = sf::st_coordinates(geometry)[,1] #lon
+    , tree_y = sf::st_coordinates(geometry)[,2] #lat
+  )
 ```
-
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
-remove(csfs_swe_plots, csfs_swe_trees)
+remove(list = ls()[grep("^blm_trfo",ls())])
+remove(cloud2raster_ans)
 gc()
 ```
 
@@ -385,7 +389,7 @@ get the individual tree predictions for each window function for the area within
 ```{r}
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
+  dplyr::filter(tolower(data_site_nm)=="blm_trfo") %>% 
   dplyr::pull(c2t_process_dir)
 fnm_temp <- file.path(c2t_process_dir_temp,"ws_pred_trees.gpkg")
 project_data_df <- project_data_df %>% 
@@ -394,13 +398,13 @@ project_data_df <- project_data_df %>%
   )
 
 if(!file.exists(fnm_temp)){
-  csfs_swe_ws_pred_trees <-
+  blm_trfo_ws_pred_trees <-
     1:nrow(ref_plots_list[[this_data_site_nm]]) %>%
     purrr::map(
       \(rn)
       ws_testtest_fn(
         chm = chm_list[[this_data_site_nm]]
-        , buffer = 6 # since we only have one plot we're just going to go for it
+        , buffer = 5.5
         , plot_sf =
           ref_plots_list[[this_data_site_nm]] %>%
           dplyr::ungroup() %>%
@@ -413,8 +417,8 @@ if(!file.exists(fnm_temp)){
     purrr::list_rbind(names_to = "plot_dta_idx")
   
   # add plot id
-  csfs_swe_ws_pred_trees <- 
-    csfs_swe_ws_pred_trees %>% 
+  blm_trfo_ws_pred_trees <- 
+    blm_trfo_ws_pred_trees %>% 
     dplyr::left_join(
       ref_plots_list[[this_data_site_nm]] %>% 
         dplyr::mutate(plot_dta_idx=dplyr::row_number()) %>% 
@@ -424,27 +428,27 @@ if(!file.exists(fnm_temp)){
     ) %>% 
     sf::st_set_geometry("geometry")
   
-  # csfs_swe_ws_pred_trees %>% sf::st_crs()
-  # csfs_swe_ws_pred_trees %>% dplyr::glimpse()
-  # csfs_swe_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_fn_nm)
+  # blm_trfo_ws_pred_trees %>% sf::st_crs()
+  # blm_trfo_ws_pred_trees %>% dplyr::glimpse()
+  # blm_trfo_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_fn_nm)
   
   # get dbh
-  csfs_swe_ws_pred_trees_dbh_temp <- 
-    csfs_swe_ws_pred_trees %>% 
+  blm_trfo_ws_pred_trees_dbh_temp <- 
+    blm_trfo_ws_pred_trees %>% 
     dplyr::rename(xxxtreeID=treeID) %>% 
     dplyr::mutate(
       treeID = dplyr::row_number() %>% as.character()
     ) %>% 
     cloud2trees::trees_dbh()
-  # csfs_swe_ws_pred_trees_dbh_temp %>% dplyr::glimpse()
+  # blm_trfo_ws_pred_trees_dbh_temp %>% dplyr::glimpse()
   # add to trees
-  csfs_swe_ws_pred_trees <-
-    csfs_swe_ws_pred_trees %>% 
+  blm_trfo_ws_pred_trees <-
+    blm_trfo_ws_pred_trees %>% 
     dplyr::mutate(
       join_id = dplyr::row_number() %>% as.character()
     ) %>% 
     dplyr::left_join(
-      csfs_swe_ws_pred_trees_dbh_temp %>% 
+      blm_trfo_ws_pred_trees_dbh_temp %>% 
         sf::st_drop_geometry() %>% 
         dplyr::mutate(
           join_id = as.character(treeID)
@@ -454,10 +458,10 @@ if(!file.exists(fnm_temp)){
         )
       , by = "join_id"
     )
-  # csfs_swe_ws_pred_trees %>% dplyr::glimpse()
+  # blm_trfo_ws_pred_trees %>% dplyr::glimpse()
   
   # # plot real quick
-  # csfs_swe_ws_pred_trees %>% 
+  # blm_trfo_ws_pred_trees %>% 
   #   sf::st_drop_geometry() %>% 
   #   dplyr::slice_sample(n = 9999) %>% 
   #   ggplot2::ggplot(mapping = ggplot2::aes(x=tree_height_m,y=dbh_cm)) + 
@@ -466,11 +470,11 @@ if(!file.exists(fnm_temp)){
   #   ggplot2::geom_point(mapping = ggplot2::aes(y=fia_est_dbh_cm_upper),color="gray")
 
   # save
-  sf::st_write(csfs_swe_ws_pred_trees, dsn = fnm_temp, quiet = T, append = F)
+  sf::st_write(blm_trfo_ws_pred_trees, dsn = fnm_temp, quiet = T, append = F)
 }else{
-  csfs_swe_ws_pred_trees <- sf::st_read(fnm_temp, quiet = T)
+  blm_trfo_ws_pred_trees <- sf::st_read(fnm_temp, quiet = T)
 }
-csfs_swe_ws_pred_trees <- csfs_swe_ws_pred_trees %>% 
+blm_trfo_ws_pred_trees <- blm_trfo_ws_pred_trees %>% 
   dplyr::mutate(
     ws_type = 
       ws_fn_nm %>% 
@@ -482,8 +486,8 @@ csfs_swe_ws_pred_trees <- csfs_swe_ws_pred_trees %>%
       forcats::fct_inorder(ordered = T)
     , treeID = as.character(treeID)
   )
-# csfs_swe_ws_pred_trees %>% dplyr::glimpse()
-# csfs_swe_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_type)
+# blm_trfo_ws_pred_trees %>% dplyr::glimpse()
+# blm_trfo_ws_pred_trees %>% sf::st_drop_geometry() %>% dplyr::count(ws_type)
 ```
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
@@ -508,11 +512,11 @@ if(as.numeric(sf::st_area(p_temp))>2000){
 }
 # some trees
 t_temp <- 
-  csfs_swe_ws_pred_trees %>% 
+  blm_trfo_ws_pred_trees %>% 
   dplyr::filter(plot_id==p_temp$plot_id[1]) %>% 
   sf::st_intersection(p_temp) %>% 
   dplyr::inner_join(
-    csfs_swe_ws_pred_trees %>% 
+    blm_trfo_ws_pred_trees %>% 
       sf::st_drop_geometry() %>% 
       dplyr::distinct(ws_fn_nm,ws_type) %>% 
       dplyr::slice_sample(n = 3, by = ws_type) %>% 
@@ -575,284 +579,159 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-since we don't have reference tree location data, we are going to pick the best window function to use for tree detection based on tree density (i.e. TPH) at the plot level against the reference plot values. we'll calculate mean absolute percent error for TPH over the plot-level data for selecting the best window function for ITD.
-
-since we need to align the predicted trees with the reference trees, we need to filter the predicted trees based on the modeled DBH to match with the field sampling protocol. this introduces an additional reliance on the DBH model in combination with the ITD process. For example, if the DBH estimation method generally underpredicts DBH, then we will filter out trees that potentially should not be filtered out.
+now we need a function to perform instance matching of the predictions and reference data. to keep things simple, since all the reference field data includes point locations, we'll perform matching based on a spatial intersection of these points with the predicted tree crowns. if multiple tree points fall within a single crown, we'll select the tree that is closest in terms of size based on whatever field data is available (height or DBH). One predicted tree will only be matched with one field reference tree and vice-versa.
 
 ```{r}
-# # function using plot spatial, predicted trees, and reference trees
-# # ws_iter_instance_match_fn <- function(
-    
-ws_plot_level_fn <- function(
-  ref_plots
-  , ref_pts # needs plot_id
-  , pred_polys # needs plot_id
-  # minimum tree height
-  , min_ht_m = NA
-  # -OR- minimum DBH
-  , min_dbh_cm = NA
-  , tph_mape_only = F
-){
-
-
-
-if(
-    !any( stringr::str_equal(names(ref_plots),"plot_id") )
-  ){
-    stop("`ref_plots` needs column named `plot_id`")
-  }
-  if(
-    !any( stringr::str_equal(names(ref_pts),"plot_id") )
-  ){
-    stop("`ref_pts` needs column named `plot_id`")
-  }
-  if(
-    !any( stringr::str_equal(names(pred_polys),"plot_id") )
-  ){
-    stop("`pred_polys` needs column named `plot_id`")
-  }
-  
-  # filter based on field survey limit
-  if(
-    !is.na(as.numeric(min_dbh_cm))
-  ){
-    # do they exist? .... PRED
-    if(
-      any( stringr::str_equal(names(pred_polys),"dbh_cm") )
-      # && any( stringr::str_equal(names(pred_polys),"fia_est_dbh_cm_lower") )
-      # && any( stringr::str_equal(names(pred_polys),"fia_est_dbh_cm_upper") )
-    ){
-      pred_polys <- pred_polys %>% 
-        dplyr::filter(
-          # dplyr::coalesce(fia_est_dbh_cm_lower,0) <= as.numeric(min_dbh_cm)
-          # , dplyr::coalesce(fia_est_dbh_cm_upper,0) >= as.numeric(min_dbh_cm)
-          dplyr::coalesce(dbh_cm,0) >= as.numeric(min_dbh_cm)
-        ) %>% 
-        dplyr::mutate(xxx_comp=dbh_cm)
-    }else{
-      # stop("`pred_polys` needs column named `dbh_cm`, `fia_est_dbh_cm_lower`, `fia_est_dbh_cm_upper`")
-      stop("`pred_polys` needs column named `dbh_cm`")
-    }
-    
-    # do they exist? .... REF
-    if(
-      any( stringr::str_equal(names(ref_pts),"dbh_cm") )
-    ){
-      ref_pts <- ref_pts %>% 
-        dplyr::filter(
-          dplyr::coalesce(dbh_cm,0) >= as.numeric(min_dbh_cm)
-        ) %>% 
-        dplyr::mutate(xxx_comp=dbh_cm)
-    }else{
-      stop("`ref_pts` needs column named `dbh_cm`")
-    }
-  }else if(
-    !is.na(as.numeric(min_ht_m))
-  ){
-    # do they exist? .... PRED
-    if(
-      any( stringr::str_equal(names(pred_polys),"tree_height_m") )
-    ){
-      pred_polys <- pred_polys %>% 
-        dplyr::filter(
-          dplyr::coalesce(tree_height_m,0) >= as.numeric(min_ht_m)
-        ) %>% 
-        dplyr::mutate(xxx_comp=tree_height_m)
-    }else{
-      stop("`pred_polys` needs column named `tree_height_m`")
-    }
-    
-    # do they exist? .... REF
-    if(
-      any( stringr::str_equal(names(ref_pts),"tree_height_m") )
-    ){
-      ref_pts <- ref_pts %>% 
-        dplyr::filter(
-          dplyr::coalesce(tree_height_m,0) >= as.numeric(min_ht_m)
-        ) %>% 
-        dplyr::mutate(xxx_comp=tree_height_m)
-    }else{
-      stop("`ref_pts` needs column named `tree_height_m`")
-    }
-  }
-  
-  if(nrow(ref_pts)==0){return(NULL)}
-
-  # pred polys to points
-  if(
-    !any( stringr::str_equal(names(pred_polys),"ws_fn_nm") )
-  ){
-    stop("`pred_polys` needs column named `ws_fn_nm` ... see ws_testtest_fn() ")
-  }
-  if(
-    !any( stringr::str_equal(names(pred_polys),"tree_x") )
-  ){
-    stop("`pred_polys` needs column named `tree_x` ... see ws_testtest_fn() ")
-  }
-  if(
-    !any( stringr::str_equal(names(pred_polys),"tree_y") )
-  ){
-    stop("`pred_polys` needs column named `tree_y` ... see ws_testtest_fn() ")
-  }else{
-    pred_points <- 
-      pred_polys %>% 
-      sf::st_drop_geometry() %>% 
-      sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(pred_polys), remove = F)
-  }
-  # pred_points %>% dplyr::glimpse()
-  
-  ##### keep only pred trees within plot boundary
-  if(
-    !all( sf::st_geometry_type(ref_plots) == "POLYGON" )  
-  ){
-    stop("`ref_plots` must be POLYGON")
-  }
-  
-  # intersect
-  i_pred <- 
-    pred_points %>% 
-    sf::st_intersection(
-      ref_plots %>% 
-        sf::st_transform(sf::st_crs(pred_polys)) %>% 
-        dplyr::select(hey_sp_plot_id=plot_id)
-    ) %>% 
-    # ensure we keep only trees intended
-    dplyr::filter(
-      plot_id==hey_sp_plot_id
+##################################################################
+##################################################################
+##################################################################
+# plot_iter_instance_match_fn
+# loop over plots and ws functions for instance match
+##################################################################
+##################################################################
+##################################################################
+c2t_process_dir_temp <- 
+  project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="blm_trfo") %>% 
+  dplyr::pull(c2t_process_dir)
+fnm_temp <- file.path(c2t_process_dir_temp,"ws_instance_match.csv")
+if(!file.exists(fnm_temp)){
+  blm_trfo_ws_instance_match <- 
+    plot_iter_instance_match_fn(
+      ref_plots = ref_plots_list[[this_data_site_nm]]
+      , ref_pts = ref_trees_list[[this_data_site_nm]]
+      , pred_polys = blm_trfo_ws_pred_trees
+      , min_ht_m = this_min_ht_m
+      , min_dbh_cm = NA
     )
-  # i_pred %>% dplyr::glimpse()
-  # # row unique by: plot_id,ws_fn_nm,treeID
-  # i_pred %>% 
-  #   sf::st_drop_geometry() %>% 
-  #   dplyr::group_by(plot_id,ws_fn_nm,treeID) %>% 
-  #   dplyr::count() %>% 
-  #   dplyr::filter(n>1)
-  pct_diff_df <- 
-    tidyr::crossing(
-      ref_pts %>% sf::st_drop_geometry() %>% dplyr::distinct(plot_id)
-      , pred_polys %>% sf::st_drop_geometry() %>% dplyr::distinct(ws_fn_nm)
-    ) %>% 
-    # sum predictions
-    dplyr::left_join(
-      i_pred %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::group_by(plot_id,ws_fn_nm) %>% 
-        dplyr::summarise(
-          pred_n = dplyr::n()
-          , pred_xxx_comp = mean(xxx_comp,na.rm=T)
-        ) %>% 
-        dplyr::ungroup()
-      , by = dplyr::join_by(plot_id,ws_fn_nm)
-      , relationship = "one-to-one"
-    ) %>% 
-    # sum reference
-    dplyr::left_join(
-      ref_pts %>% 
-        sf::st_drop_geometry() %>% 
-        dplyr::group_by(plot_id) %>% 
-        dplyr::summarise(
-          ref_n = dplyr::n()
-          , ref_xxx_comp = mean(xxx_comp,na.rm=T)
-        ) %>% 
-        dplyr::ungroup()
-      , by = dplyr::join_by(plot_id)
-      , relationship = "many-to-one"
-    ) %>% 
-    dplyr::mutate(
-      dplyr::across(
-        tidyselect::ends_with("_n")
-        , ~ dplyr::coalesce(.x,0)
-      )
-      # symmetric mean absolute percentage error (sMAPE)
-      , abs_pct_diff_n = dplyr::case_when(
-        ref_n==0 & pred_n==0 ~ 0
-        , T ~ abs(ref_n-pred_n) / ( (abs(ref_n)+abs(pred_n))/2 )
-      )
-      , abs_pct_diff_xxx_comp = dplyr::case_when(
-        ref_xxx_comp==0 & pred_xxx_comp==0 ~ 0
-        , T ~ abs(ref_xxx_comp-pred_xxx_comp) / ( (abs(ref_xxx_comp)+abs(pred_xxx_comp))/2 )
-      )
-    ) 
-  # pct_diff_df %>% dplyr::filter(ws_fn_nm=="linear_01") %>% View()
-  
-  mape_df <- 
-    pct_diff_df %>% 
-    # dplyr::filter(ws_fn_nm=="chapman_richards_01") %>% View()
-    # aggregate by window fn
-    dplyr::group_by(ws_fn_nm) %>% 
-    dplyr::summarise(
-      n = dplyr::n()
-      , nomiss_xxx_comp = sum(!is.na(ref_xxx_comp) & !is.na(pred_xxx_comp))
-      , dplyr::across(
-        tidyselect::starts_with("abs_pct_diff_")
-        , ~sum(.x,na.rm=T)
-      )
-    ) %>% 
-    dplyr::ungroup() %>% 
-    dplyr::mutate(
-      mape = dplyr::case_when(
-        tph_mape_only ~ (abs_pct_diff_n/n)
-        , nomiss_xxx_comp==0 ~ (abs_pct_diff_n/n)*2
-        , T ~ ( (abs_pct_diff_n/n) + (abs_pct_diff_xxx_comp/nomiss_xxx_comp) ) / 2
-      )
-    ) %>% 
-    # dplyr::glimpse()
-    dplyr::select(ws_fn_nm,mape)
-  
-  
-  # mape_df %>% dplyr::glimpse()
-  # mape_df %>% dplyr::slice_min(n=10,order_by = mape)
-  # mape_df %>% dplyr::slice_min(n=1,order_by = mape,with_ties = F) %>% dplyr::inner_join(pct_diff_df)
-  
-  return(mape_df)
+  readr::write_csv(blm_trfo_ws_instance_match, file = fnm_temp, append = F, progress = F)
+}else{
+  blm_trfo_ws_instance_match <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
 }
-```
-
-```{r, include = F, eval = F}
-chm_list[[this_data_site_nm]] %>% 
-  terra::crop(
-    ref_plots_list[[this_data_site_nm]] %>% 
-      dplyr::filter(plot_id=="LNS_003") %>% 
-      sf::st_buffer(5) %>% 
-      sf::st_bbox() %>% 
-      sf::st_as_sfc()
-    , mask = T
-  ) %>% 
-  terra::plot()
-ref_plots_list[[this_data_site_nm]] %>% 
-  dplyr::filter(plot_id=="LNS_003") %>% 
-  terra::plot(add = T, border = "black", col = NA)
-csfs_swe_ws_pred_trees %>% 
-  dplyr::filter(plot_id=="LNS_003",ws_fn_nm=="chapman_richards_24") %>% 
-  terra::plot(add = T, border = "cyan", col = NA,lwd = 0.5)
-
-csfs_swe_ws_pred_trees %>% 
-  dplyr::filter(plot_id=="LNS_003",ws_fn_nm=="chapman_richards_24") %>% 
-  dplyr::pull(dbh_cm) %>% 
-  summary()
-# this_min_dbh_cm
+# huh?
+# blm_trfo_ws_instance_match %>% dplyr::glimpse()
+##################################################################
+##################################################################
+##################################################################
+# agg_ground_truth_match
+# loop over plots and ws functions for accuracy eval
+##################################################################
+##################################################################
+##################################################################
+c2t_process_dir_temp <- 
+  project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="blm_trfo") %>% 
+  dplyr::pull(c2t_process_dir)
+fnm_temp <- file.path(c2t_process_dir_temp,"agg_ground_truth_match_ans.csv")
+if(!file.exists(fnm_temp)){
+  # ?purrr::pmap
+  # A data frame is an important special case of .l. It will cause .f to be called once for each row.
+  blm_trfo_agg_ground_truth_match_ans <- 
+    blm_trfo_ws_instance_match %>% 
+    dplyr::distinct(plot_id,ws_fn_nm) %>% 
+    purrr::pmap(function(plot_id, ws_fn_nm) {
+      # the unique row data
+      d <- dplyr::tibble(plot_id = plot_id, ws_fn_nm = ws_fn_nm)
+      # filter full set based on the data
+      j <- 
+        blm_trfo_ws_instance_match %>% 
+        dplyr::inner_join(
+          d   
+          , by = dplyr::join_by("plot_id","ws_fn_nm")
+        )
+      # agg_ground_truth_match
+      d %>% 
+        dplyr::bind_cols(agg_ground_truth_match(j))
+      
+    }) %>% 
+    purrr::list_rbind()
+  readr::write_csv(blm_trfo_agg_ground_truth_match_ans, file = fnm_temp, append = F, progress = F)
+}else{
+  blm_trfo_agg_ground_truth_match_ans <- readr::read_csv(file = fnm_temp, show_col_types = F, progress = F)
+}
+# huh?
+# blm_trfo_agg_ground_truth_match_ans %>% dplyr::glimpse()
 ```
 
 aggregate the plot level data to the window function to get the answer we've been searching for
 
 ```{r}
-ws_plot_level_fn_ans_temp <- 
-  ws_plot_level_fn(
-    ref_plots = ref_plots_list[[this_data_site_nm]]
-    , ref_pts = ref_trees_list[[this_data_site_nm]]
-    , pred_polys = csfs_swe_ws_pred_trees
-    , min_ht_m = NA
-    , min_dbh_cm = this_min_dbh_cm # measured trees >= 5 in
-    , tph_mape_only = T
-  )
-# ws_plot_level_fn_ans_temp %>% dplyr::glimpse()
+# blm_trfo_agg_ground_truth_match_ans %>% 
+#   dplyr::count(ws_fn_nm) %>% 
+#   dplyr::count(n)
+agg_temp <- 
+  blm_trfo_agg_ground_truth_match_ans %>% 
+  dplyr::group_by(ws_fn_nm) %>% 
+  dplyr::summarize(
+    n_plots = dplyr::n()
+    , dplyr::across(
+      .cols = c(precision,recall,f_score,tidyselect::ends_with("_rate"))
+      , list( 
+        mean= ~ mean(.x,na.rm=T)
+        , median= ~ median(.x,na.rm=T)
+      )
+    )
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(
+    blm_trfo_ws_pred_trees %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::distinct(ws_fn_nm, ws_type)
+    , by = "ws_fn_nm"
+  ) %>% 
+  dplyr::mutate(
+    f_score_rank = dplyr::min_rank(-f_score_mean)
+    , ws_fn_nm_fact = forcats::fct_reorder(ws_fn_nm, f_score_rank)
+    # , dplyr::across(
+    #   .cols = dplyr::where(is.numeric)
+    #   , ~ round(.x,2) %>% as.character() %>% as.numeric()
+    # )
+  ) %>% 
+  dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean))
+# agg_temp %>% dplyr::glimpse()
 ```
 
-we can print the raw window function definition for those that achieved the lowest TPH MAPE
+let's check out the plot-level distribution of F-score for the top window functions (remember this particular data has one "plot", a stem map)
 
 ```{r}
-ws_plot_level_fn_ans_temp %>% 
-  dplyr::slice_min(n = 7, order_by = mape, with_ties = F) %>% 
+blm_trfo_agg_ground_truth_match_ans %>% 
+  # add agg data
+  dplyr::inner_join(
+    agg_temp %>% 
+      dplyr::filter(f_score_rank<=11) %>% 
+      dplyr::select(ws_fn_nm, ws_fn_nm_fact, ws_type)
+    , by = "ws_fn_nm"
+  ) %>% 
+  dplyr::arrange(ws_fn_nm_fact) %>% 
+  dplyr::mutate(ws_fn_nm_fact=forcats::fct_rev(ws_fn_nm_fact)) %>% 
+  # dplyr::pull(ws_fn_nm) %>% levels()
+  # View()
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = f_score, y = ws_fn_nm_fact, fill=ws_type)
+  ) +
+  ggplot2::geom_boxplot(
+    width = 0.4
+    , alpha=0.9
+    , outliers = F
+    , color = "black"
+  ) +
+  ggplot2::geom_point(color = "gray77") +
+  ggplot2::scale_fill_viridis_d() +
+  ggplot2::scale_x_continuous(labels = scales::percent_format()) +
+  ggplot2::labs(x="F-score", y="") +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "none"
+    , legend.direction  = "horizontal"
+  )
+```
+
+we can print the raw window function definition for those that achieved the highest F-score
+
+```{r}
+agg_temp %>% 
+  dplyr::filter(f_score_rank<=7) %>% 
+  dplyr::arrange(f_score_rank) %>% 
   dplyr::pull(ws_fn_nm) %>% 
   purrr::set_names() %>% 
   # purrr::map(\(nm) purrr::pluck(get_ws_fn_list_ans, nm))
@@ -865,8 +744,8 @@ ws_plot_level_fn_ans_temp %>%
   }) %>%
   purrr::list_rbind() %>% 
   dplyr::inner_join(
-    ws_plot_level_fn_ans_temp %>% 
-      dplyr::select(ws_fn_nm,mape) %>% 
+    agg_temp %>% 
+      dplyr::select(ws_fn_nm, f_score_mean, recall_mean, precision_mean) %>% 
       dplyr::mutate(
         dplyr::across(
           dplyr::where(is.numeric)
@@ -876,17 +755,19 @@ ws_plot_level_fn_ans_temp %>%
   ) %>% 
   dplyr::relocate(def,.after = dplyr::everything()) %>% 
   kableExtra::kbl(
-    caption = "CSFS SWE top ITD window functions"
+    caption = "BLM-TRFO Pinyon-Juniper top ITD window functions"
     , col.names = c(
       "function<br>name"
-      , "TPH MAPE<br>(mean)"
+      , "F-score<br>(mean)"
+      , "recall<br>(mean)"
+      , "precision<br>(mean)"
       , "function<br>definition"
     )
     , escape = F
   ) %>% 
   kableExtra::kable_styling(font_size = 12, bootstrap_options = c("responsive", "condensed")) %>% # 
   # make r line breaks (\n) and use monospace font for code
-  kableExtra::column_spec(3, monospace = T, extra_css = "white-space: pre;")
+  kableExtra::column_spec(5, monospace = T, extra_css = "white-space: pre;")
 ```
 
 nice, we'll select the best non-constant window function for use in evaluation of the species accuracy. if we were to use the constant functions, even if they are the best performing, we would likely be overfitting to this specific data set. in addition to being more in-line with real-world tree height-to-crown relationships, the variable window functions are likely more broadly applicable
@@ -895,16 +776,10 @@ nice, we'll select the best non-constant window function for use in evaluation o
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
     best_ws_fn_nm = ifelse(
-      tolower(data_site_nm)=="csfs_swe"
-      , ws_plot_level_fn_ans_temp %>% 
-        dplyr::inner_join(
-          csfs_swe_ws_pred_trees %>% 
-            sf::st_drop_geometry() %>% 
-            dplyr::distinct(ws_fn_nm,ws_type)
-          , by = "ws_fn_nm"
-        ) %>% 
+      tolower(data_site_nm)=="blm_trfo"
+      , agg_temp %>% 
         dplyr::filter(ws_type!="constant") %>% 
-        dplyr::arrange(mape) %>% 
+        dplyr::arrange(desc(f_score_mean),desc(f_score_median),desc(recall_mean),desc(precision_mean)) %>% 
         dplyr::slice(1) %>% 
         dplyr::pull(ws_fn_nm)
       , best_ws_fn_nm
@@ -913,18 +788,17 @@ project_data_df <- project_data_df %>%
 # project_data_df %>% dplyr::glimpse()
 ```
 
-```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
-remove(list = ls()[grep("_temp",ls())])
-gc()
-```
-
 full CHM data processing
 
 ```{r}
 c2t_process_dir_temp <- 
   project_data_df %>% 
-  dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
+  dplyr::filter(tolower(data_site_nm)=="blm_trfo") %>% 
   dplyr::pull(c2t_process_dir)
+nm_temp <- 
+  project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="blm_trfo") %>% 
+  dplyr::pull(data_site_nm)
 fnm_temp <- file.path(c2t_process_dir_temp,"best_ws_pred_trees.gpkg")
 project_data_df <- project_data_df %>% 
   dplyr::mutate(
@@ -1038,33 +912,28 @@ if(!file.exists(fnm_temp)){
 }else{
   pred_trees_temp <- sf::st_read(fnm_temp, quiet = T)
 }
-```
+# pred_trees_temp %>% dplyr::glimpse()
 
-we'll only keep predicted trees with tree top points that fall within the plot boundary since we aren't doing instance matching
-
-```{r}
 ###############################################################################################
 ###############################################################################################
+## now we need to do the matching 
 # again to only keep trees in plots for individual tree species comparisons
 ###############################################################################################
 ###############################################################################################
-# intersect
-i_temp <- 
-  pred_trees_temp %>% 
-  sf::st_drop_geometry() %>% 
-  sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(pred_trees_temp), remove = F) %>% 
-  sf::st_intersection(
-    ref_plots_list[[this_data_site_nm]] %>% 
-      sf::st_transform(sf::st_crs(pred_trees_temp)) %>% 
-      dplyr::select(hey_sp_plot_id=plot_id)
-  ) %>% 
-  # ensure we keep only trees intended
-  dplyr::filter(
-    plot_id==hey_sp_plot_id
-    , dbh_cm >= this_min_dbh_cm # measured trees >= 5 in
-  ) %>% 
-  dplyr::select(-hey_sp_plot_id)
-# i_temp %>% dplyr::glimpse()
+
+im_temp <- 
+  plot_iter_instance_match_fn(
+    ref_plots = ref_plots_list[[this_data_site_nm]]
+    , ref_pts = ref_trees_list[[this_data_site_nm]]
+    , pred_polys = pred_trees_temp
+    , min_ht_m = NA
+    , min_dbh_cm = 10
+  )
+
+# im_temp %>% dplyr::glimpse()
+
+# add to the ref trees list
+pred_ref_tree_match_list[[this_data_site_nm]] <- im_temp
 
 ###############################################################################################
 ###############################################################################################
@@ -1074,23 +943,31 @@ i_temp <-
 # let's also save the plot-level ITD predictions for this ws
 
 pred_trees_list[[this_data_site_nm]] <-
-  i_temp %>% 
+  pred_trees_temp %>% 
   # which ws
   dplyr::filter(
     ws_fn_nm %in% (
       project_data_df %>% 
-      dplyr::filter(tolower(data_site_nm)=="csfs_swe") %>% 
+      dplyr::filter(tolower(data_site_nm)=="blm_trfo") %>% 
       dplyr::pull(best_ws_fn_nm)
     )
+  ) %>% 
+  # filter for trees used in instance matching 
+    # which included thresholds used for measuring field trees 
+    # and plot spatial alignment
+  dplyr::inner_join(
+    pred_ref_tree_match_list[[this_data_site_nm]] %>% 
+      dplyr::select(plot_id,ws_fn_nm,pred_treeID) %>% 
+      dplyr::filter(!is.na(pred_treeID)) %>% 
+      dplyr::rename(treeID=pred_treeID)
+    , by = dplyr::join_by(plot_id,ws_fn_nm,treeID)
   )
 # pred_trees_list
-pred_trees_list[[this_data_site_nm]] %>% dplyr::glimpse()
 ```
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
-remove(list = ls()[grep("^csfs_swe",ls())])
-remove(cloud2raster_ans)
+remove(list = ls()[grep("^usfs_penobscot",ls())])
 gc()
 ```
 
@@ -1309,6 +1186,13 @@ let's check out the distribution of the predicted species
 
 ```{r}
 pred_trees_list[[this_data_site_nm]] %>%
+  dplyr::inner_join(
+    ref_plots_list[[this_data_site_nm]] %>% 
+      # dplyr::slice(1) %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::select(plot_id)
+    , by = "plot_id"
+  ) %>% 
   dplyr::arrange(desc(species_symbol)) %>% 
   sf::st_drop_geometry() %>% 
   dplyr::ungroup() %>% 
@@ -1386,8 +1270,48 @@ ref_trees_list[[this_data_site_nm]] %>%
 
 ### Tree-Level Accuracy
 
-**Important Detail**
-Note that this is the first data set we have reviewed that does not include tree location data, we only have information on trees within plots. As such, we will only be able to evaluate the proportional compositions of each species predicted by the model against the reference proportions within the measured plot area (i.e. using Bray-Curtis dissimilarity/similarity index ).
+we're going to use the tree-level prediction and reference data for all TP (true positive) predictions to perform confusion matrix accuracy evaluation of the species predictions. 
+
+using the confusion matrix evaluation we'll calculate the following metrics: 
+
+* **Overall Accuracy**: Measures the global percentage of all correctly classified trees out of the entire dataset of true positive (TP) observations. Provides an overall summary metric but can mask performance on uncommon species.
+* **User's Accuracy** (precision): Measures the reliability of specific predicted species. For example, if the method predicts a tree is a ponderosa pine, how often it is actually true.
+* **Producer's Accuracy** (recall): Measures how well the model successfully aligns with what was measured on the ground. For example, out of all real ponderosa pine trees measured in the field, what percentage did the method correctly identify.
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+let's make a function to get the confusion matrix and those accuracy metrics
+
+```{r}
+# test that
+confusion_matrix_species_temp <- confusion_matrix_tree_class_fn(
+  pred_ref_match = pred_ref_tree_match_list[[this_data_site_nm]]
+  , pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
+  , use_genus = F
+)
+confusion_matrix_genus_temp <- confusion_matrix_tree_class_fn(
+  pred_ref_match = pred_ref_tree_match_list[[this_data_site_nm]]
+  , pred_trees = pred_trees_list[[this_data_site_nm]]
+  , ref_trees = ref_trees_list[[this_data_site_nm]]
+  , use_genus = T
+)
+```
+
+let's check out the confusion matrix at the **species** level
+
+```{r, results='asis'}
+confusion_matrix_species_temp$kbl_html_table
+```
+
+and the confusion matrix at the **genus** level
+
+```{r, results='asis'}
+confusion_matrix_genus_temp$kbl_html_table
+```
 
 ### Site-Level Accuracy
 
@@ -1534,6 +1458,19 @@ lastly, we'll update our tracking data to include these accuracy metrics
 ```{r}
 project_data_df <-
   project_data_df %>% 
+  dplyr::mutate(
+    ## tree level
+    acc_tree_species_overall = ifelse(
+      data_site_nm==this_data_site_nm
+      , confusion_matrix_species_temp$overall_accuracy
+      , acc_tree_species_overall
+    )
+    , acc_tree_genus_overall = ifelse(
+      data_site_nm==this_data_site_nm
+      , confusion_matrix_genus_temp$overall_accuracy
+      , acc_tree_genus_overall
+    )
+  ) %>% 
   ## site level: species
   ### for the other times, just dplyr::rows_patch...
   dplyr::rows_patch(
@@ -1579,7 +1516,7 @@ project_data_df <-
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
 remove(this_data_site_nm,this_min_dbh_cm,this_min_ht_m)
-remove(list = ls()[grep("^csfs_swe",ls())])
+remove(list = ls()[grep("^blm_trfo",ls())])
 gc()
 ```
 

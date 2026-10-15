@@ -151,7 +151,7 @@ get_ptcld_density_chm_res_temp <- get_ptcld_density_chm_res_fn(usfs_manitouef_bi
 
 ```
 
-let's check out the lidar data coverage compared to the field plot data
+let's check out the point cloud data coverage compared to the field plot data
 
 ```{r, eval = F, include = T}
 usfs_manitouef_bigplot_las_ctg_temp@data$geometry %>% 

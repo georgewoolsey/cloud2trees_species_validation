@@ -180,7 +180,7 @@ usfs_utecreek_las_ctg_temp
 # usfs_utecreek_las_ctg_temp@data %>% dplyr::glimpse()
 ```
 
-let's check out the lidar data coverage compared to the field plot data
+let's check out the point cloud data coverage compared to the field plot data
 
 ```{r,include=FALSE,eval=FALSE}
 usfs_utecreek_las_ctg_temp@data %>%
@@ -209,10 +209,10 @@ usfs_utecreek_las_ctg_temp %>%
   purrr::pluck("data") %>% 
   sf::st_union() %>% 
   sf::st_as_sf() %>% 
-  dplyr::mutate(data = "ALS data extent") %>% 
+  dplyr::mutate(data = "UAS-DAP data extent") %>% 
 mapview::mapview(
  zcol = "data"
-  , layer.name="USFS Ute Creek: ALS data"
+  , layer.name="USFS Ute Creek: UAS-DAP data"
   , popup=F
 ) +
 mapview::mapview(
