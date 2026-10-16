@@ -267,8 +267,8 @@ df_temp %>%
     , panel.spacing.y = ggplot2::unit(2, "lines")
     
     , axis.text.y = ggplot2::element_text(face = "bold")
-    , panel.grid.major.x = element_blank()
-    , panel.grid.minor.x = element_blank()
+    , panel.grid.major.x = ggplot2::element_blank()
+    , panel.grid.minor.x = ggplot2::element_blank()
   ) +
   ggplot2::guides(
     color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
@@ -296,6 +296,149 @@ oa_min_temp <- project_data_df %>% dplyr::slice_min(n=1,order_by = acc_tree_genu
 Genus-level Bray-Curtis Similarity (site level) ranged from `r scales::percent(sim_min_temp$acc_site_genus_bc_similarity,accuracy = 0.1)` (dissimilarity of `r scales::percent(sim_min_temp$acc_site_genus_bc_dissimilarity,accuracy = 0.1)`) at `r paste0(sim_min_temp$data_site_nm, " (", sim_min_temp$data_ftype_desc, ")")` to `r scales::percent(sim_max_temp$acc_site_genus_bc_similarity,accuracy = 0.1)` (dissimilarity of `r scales::percent(sim_max_temp$acc_site_genus_bc_dissimilarity,accuracy = 0.1)`) at `r paste0(sim_max_temp$data_site_nm, " (", sim_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_site_genus_bc_similarity,na.rm=T),accuracy = 0.1)` (dissimilarity of `r scales::percent(median(project_data_df$acc_site_genus_bc_dissimilarity,na.rm=T),accuracy = 0.1)`). 
 
 Genus-level overall accuracy (tree level) ranged from `r scales::percent(oa_min_temp$acc_tree_genus_overall,accuracy = 0.1)` at `r paste0(oa_min_temp$data_site_nm, " (", oa_min_temp$data_ftype_desc, ")")` to `r scales::percent(oa_max_temp$acc_tree_genus_overall,accuracy = 0.1)` at `r paste0(oa_max_temp$data_site_nm, " (", oa_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_tree_genus_overall,na.rm=T),accuracy = 0.1)`.
+
+Let's compare the compositional profiles of genera in the predicted and reference data at the site-level. This is the data used to calculate the Bray-Curtis similarity/dissimilarity and proportional RMSE accuracy metrics.
+
+```{r, fig.height=12.2,fig.width=10.2}
+comp_df_temp <- 
+  ref_trees_list %>% 
+  purrr::compact() %>% 
+  names() %>% 
+  purrr::set_names() %>% 
+  purrr::map(function(nm){
+    ref_trees_list[[nm]] %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::ungroup() %>% 
+      dplyr::left_join(fia_species_lookup %>% dplyr::select(species_symbol,genus), by="species_symbol") %>% 
+      dplyr::count(species_symbol,genus) %>% 
+      dplyr::mutate(pct = n/sum(n)) %>% 
+      dplyr::rename_with(.cols=dplyr::where(is.numeric),.fn = ~paste0("ref_",.x,recycle0 = T)) %>% 
+      dplyr::full_join(
+        pred_trees_list[[nm]] %>% 
+          sf::st_drop_geometry() %>% 
+          dplyr::ungroup() %>% 
+          dplyr::left_join(fia_species_lookup %>% dplyr::select(species_symbol,genus), by="species_symbol") %>% 
+          dplyr::count(species_symbol,genus) %>% 
+          dplyr::mutate(pct = n/sum(n)) %>% 
+          dplyr::rename_with(.cols=dplyr::where(is.numeric),.fn = ~paste0("pred_",.x,recycle0 = T))
+        , by = dplyr::join_by(species_symbol,genus)
+      ) %>% 
+      dplyr::mutate(
+        dplyr::across(
+          .cols=dplyr::where(is.numeric)
+          ,.fn = ~dplyr::coalesce(.x,0)
+        )
+        # , dplyr::across(
+        #   .cols=tidyselect::ends_with("_pct")
+        #   , .fn = ~scales::percent(.x)
+        #   , .names = "{.col}_lab"
+        # )
+      )
+  }) %>% 
+  purrr::list_rbind(names_to = "data_site_nm")
+
+# comp_df_temp %>% dplyr::glimpse()
+
+comp_df_temp %>% 
+  dplyr::group_by(data_site_nm,genus) %>% 
+  dplyr::summarise(
+    dplyr::across(
+      .cols = tidyselect::ends_with("_pct")
+      , .fns = ~sum(.x,na.rm=T)
+    )
+  ) %>% 
+  dplyr::ungroup() %>% 
+  # factor that to order by site
+  dplyr::mutate(
+    y_lab_fact = 
+      paste0(genus, "_xxx_", data_site_nm) %>% 
+      forcats::fct_reorder(ref_pct)
+    # fake the pred
+    , pred_pct = -pred_pct
+  ) %>% 
+  tidyr::pivot_longer(cols = c(tidyselect::ends_with("_pct"))) %>% 
+  dplyr::mutate(
+    name = factor(
+      name
+      , levels = c("ref_pct","pred_pct")
+      , labels = c("reference","predicted")
+      , ordered = T
+    )
+    , value_lab = dplyr::case_when(
+      name=="predicted" ~ scales::percent(-value,accuracy=1)
+      , T ~ scales::percent(value,accuracy=1)
+    )
+  ) %>% 
+  # dplyr::glimpse()
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x=value,y=y_lab_fact,fill=name)
+  ) +
+  ggplot2::geom_col(width = 0.5) +
+  ggplot2::geom_vline(xintercept = 0, color = "gray22",lwd=0.5) +
+  # pred labs
+  ggplot2::geom_text(
+    data = ~dplyr::filter(.x,name=="predicted")
+    , mapping = ggplot2::aes(label = value_lab, fontface = "bold")
+    , size = 3
+    # , hjust = 0.5, vjust = 2.2
+    , hjust = 1
+    , nudge_x = -0.02
+  ) +
+  # ref labs
+  ggplot2::geom_text(
+    data = ~dplyr::filter(.x,name=="reference")
+    , mapping = ggplot2::aes(label = value_lab, fontface = "bold")
+    , size = 3
+    , hjust = 0
+    , nudge_x = 0.02
+  ) +
+  # annotate since we faked the value for pred (-value ;)
+  ggplot2::annotate(
+    "text"
+    , x = -0.15
+    , y = -Inf
+    , label = "Predicted"
+    , size = 3.6
+    , fontface = "bold"
+    , hjust = 1
+    , vjust = -0.5
+  ) +
+  ggplot2::annotate(
+    "text"
+    , x = 0.15
+    , y = -Inf
+    , label = "Reference"
+    , size = 3.6
+    , fontface = "bold"
+    , hjust = 0
+    , vjust = -0.5
+  ) +
+  ggplot2::facet_wrap(facets = dplyr::vars(data_site_nm), scales = "free_y") + 
+  harrypotter::scale_fill_hp_d(option = "hermionegranger") +
+  # display only the genus on the axis so we can order
+  ggplot2::scale_y_discrete(
+    labels = function(x) stringr::str_replace(x,"_xxx_.*$", "")
+  ) +
+  ggplot2::scale_x_continuous(
+    expand = ggplot2::expansion(mult = c(0.09))
+  ) +
+  ggplot2::labs(
+    x="",y="Genus"
+    , title = "Genus-level"
+    , subtitle = "site-level compositional profiles of genus: predicted versus reference"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "none"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+    , panel.grid.major.x = ggplot2::element_blank()
+    , panel.grid.minor.x = ggplot2::element_blank()
+    , axis.text.x = ggplot2::element_blank()
+    # , plot.subtitle = ggplot2::element_text(margin = ggplot2::margin(t = -20, unit = "pt"))
+  )
+```
+
+neat. you can really see it with that plot.
 
 ## Species-level
 
@@ -359,8 +502,8 @@ df_temp %>%
     , panel.spacing.y = ggplot2::unit(2, "lines")
     
     , axis.text.y = ggplot2::element_text(face = "bold")
-    , panel.grid.major.x = element_blank()
-    , panel.grid.minor.x = element_blank()
+    , panel.grid.major.x = ggplot2::element_blank()
+    , panel.grid.minor.x = ggplot2::element_blank()
   ) +
   ggplot2::guides(
     color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
@@ -378,6 +521,106 @@ oa_min_temp <- project_data_df %>% dplyr::slice_min(n=1,order_by = acc_tree_spec
 Species-level Bray-Curtis Similarity (site level) ranged from `r scales::percent(sim_min_temp$acc_site_species_bc_similarity,accuracy = 0.1)` (dissimilarity of `r scales::percent(sim_min_temp$acc_site_species_bc_dissimilarity,accuracy = 0.1)`) at `r paste0(sim_min_temp$data_site_nm, " (", sim_min_temp$data_ftype_desc, ")")` to `r scales::percent(sim_max_temp$acc_site_species_bc_similarity,accuracy = 0.1)` (dissimilarity of `r scales::percent(sim_max_temp$acc_site_species_bc_dissimilarity,accuracy = 0.1)`) at `r paste0(sim_max_temp$data_site_nm, " (", sim_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_site_species_bc_similarity,na.rm=T),accuracy = 0.1)` (dissimilarity of `r scales::percent(median(project_data_df$acc_site_species_bc_dissimilarity,na.rm=T),accuracy = 0.1)`). 
 
 Species-level overall accuracy (tree level) ranged from `r scales::percent(oa_min_temp$acc_tree_species_overall,accuracy = 0.1)` at `r paste0(oa_min_temp$data_site_nm, " (", oa_min_temp$data_ftype_desc, ")")` to `r scales::percent(oa_max_temp$acc_tree_species_overall,accuracy = 0.1)` at `r paste0(oa_max_temp$data_site_nm, " (", oa_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_tree_species_overall,na.rm=T),accuracy = 0.1)`.
+
+Let's compare the compositional profiles of genera in the predicted and reference data at the site-level. This is the data used to calculate the Bray-Curtis similarity/dissimilarity and proportional RMSE accuracy metrics.
+
+```{r, fig.height=12.2,fig.width=10.2}
+# comp_df_temp %>% dplyr::glimpse()
+
+comp_df_temp %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(data_site_nm, species_symbol, tidyselect::ends_with("_pct")) %>% 
+  # factor that to order by site
+  dplyr::mutate(
+    y_lab_fact = 
+      paste0(species_symbol, "_xxx_", data_site_nm) %>% 
+      forcats::fct_reorder(ref_pct)
+    # fake the pred
+    , pred_pct = -pred_pct
+  ) %>% 
+  tidyr::pivot_longer(cols = c(tidyselect::ends_with("_pct"))) %>% 
+  dplyr::mutate(
+    name = factor(
+      name
+      , levels = c("ref_pct","pred_pct")
+      , labels = c("reference","predicted")
+      , ordered = T
+    )
+    , value_lab = dplyr::case_when(
+      name=="predicted" ~ scales::percent(-value,accuracy=1)
+      , T ~ scales::percent(value,accuracy=1)
+    )
+  ) %>% 
+  # dplyr::glimpse()
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x=value,y=y_lab_fact,fill=name)
+  ) +
+  ggplot2::geom_col(width = 0.5) +
+  ggplot2::geom_vline(xintercept = 0, color = "gray22",lwd=0.5) +
+  # pred labs
+  ggplot2::geom_text(
+    data = ~dplyr::filter(.x,name=="predicted")
+    , mapping = ggplot2::aes(label = value_lab, fontface = "bold")
+    , size = 3
+    # , hjust = 0.5, vjust = 2.2
+    , hjust = 1
+    , nudge_x = -0.02
+  ) +
+  # ref labs
+  ggplot2::geom_text(
+    data = ~dplyr::filter(.x,name=="reference")
+    , mapping = ggplot2::aes(label = value_lab, fontface = "bold")
+    , size = 3
+    , hjust = 0
+    , nudge_x = 0.02
+  ) +
+  # annotate since we faked the value for pred (-value ;)
+  ggplot2::annotate(
+    "text"
+    , x = -0.15
+    , y = -Inf
+    , label = "Predicted"
+    , size = 3.6
+    , fontface = "bold"
+    , hjust = 1
+    , vjust = -0.5
+  ) +
+  ggplot2::annotate(
+    "text"
+    , x = 0.15
+    , y = -Inf
+    , label = "Reference"
+    , size = 3.6
+    , fontface = "bold"
+    , hjust = 0
+    , vjust = -0.5
+  ) +
+  ggplot2::facet_wrap(facets = dplyr::vars(data_site_nm), scales = "free_y") + 
+  harrypotter::scale_fill_hp_d(option = "hermionegranger") +
+  # display only the genus on the axis so we can order
+  ggplot2::scale_y_discrete(
+    labels = function(x) stringr::str_replace(x,"_xxx_.*$", "")
+  ) +
+  ggplot2::scale_x_continuous(
+    expand = ggplot2::expansion(mult = c(0.09))
+  ) +
+  ggplot2::labs(
+    x="",y="Species"
+    , title = "Species-level"
+    , subtitle = "site-level compositional profiles of species: predicted versus reference"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "none"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+    , panel.grid.major.x = ggplot2::element_blank()
+    , panel.grid.minor.x = ggplot2::element_blank()
+    , axis.text.x = ggplot2::element_blank()
+    # , plot.subtitle = ggplot2::element_text(margin = ggplot2::margin(t = -20, unit = "pt"))
+  )
+```
+
+neat. you can really see it with that plot.
 
 ## Species- vs. Genus-level
 
@@ -454,7 +697,7 @@ df_temp %>%
     , labels = scales::label_percent(accuracy = 1)
     , expand = ggplot2::expansion(mult = c(0.02,0.1))
   ) +
-  scale_x_discrete(expand = expansion(mult = c(0.6, 0.2))) + 
+  scale_x_discrete(expand = ggplot2::expansion(mult = c(0.6, 0.2))) + 
   # ggplot2::scale_color_viridis_d(option="magma",begin = 0.5, end = 0.66) +
   ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
   ggplot2::labs(

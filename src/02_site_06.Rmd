@@ -30,7 +30,7 @@ Here are the notes I got along with the field inventory data:
 
 plots used a 10 m radius to define a circular plot area
 
-load in the trees
+load in the trees which were measured if they were at least 2m in height
 
 ```{r}
 this_min_ht_m <- 2

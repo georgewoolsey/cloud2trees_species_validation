@@ -9,9 +9,9 @@ We compiled a collection of validation datasets across diverse forest conditions
 | Manitou Experimental Forest (Big Plot) | Colorado | western mixed conifer | UAS-SfM | tree locations |
 | Penobscot Experimental Forest | Maine | northern mixed conifer | ALS | tree locations |
 | Ute Creek | Colorado | dry-mesic mixed conifer | UAS-SfM | tree locations |
+| BLM Dawson Creek | Colorado | pinyon-juniper | UAS-SfM | tree locations |
 | CSFS State Forest State Park | Colorado | lodgepole pine | UAS-lidar | plots |
 | WFSI Fort Stewart | Georgia | southern yellow pine forest | UAS-lidar | plots |
-| BLM Dawson Creek | Colorado | pinyon-juniper | UAS-SfM | tree locations |
 | Wabikon Lake Forest Dynamics Plot (ForestGEO) | Wisconsin | northern mixed hardwood | ALS | tree locations |
 | UC Santa Cruz Forest Ecology Research Plot (ForestGEO) | California | coastal mixed-evergreen & coast redwood | ALS | tree locations |
 | Smithsonian Environmental Research Center (ForestGEO) | Maryland | mixed deciduous hardwood | ALS | tree locations |
@@ -4265,10 +4265,12 @@ ref_trees_list[[this_data_site_nm]] %>%
 eh. there is one genus only observation and many "HDWD" observations (which i assume is "hard wood"). let's just use the most common of the same genus
 
 ```{r}
+# fia_species_lookup %>% dplyr::filter(stringr::str_starts(species_symbol,"QULA")) %>% head()
 ref_trees_list[[this_data_site_nm]] <- ref_trees_list[[this_data_site_nm]] %>% 
   dplyr::mutate(
     species_symbol = dplyr::case_when(
-      species_symbol %in% c("QU","HDWD") ~ "QULA2"
+      species_symbol %in% c("QULA") ~ "QULA2" # QULA = Lacey oak which is in SW-US Texas & Northern Mexico
+      , species_symbol %in% c("QU","HDWD") ~ "QULA2"
       , T ~ species_symbol
     )
   )

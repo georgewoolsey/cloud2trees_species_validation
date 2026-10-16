@@ -15,6 +15,7 @@ Field data from this study site is from: a stem map including all trees with a h
 the sampling protocol for trees was: measure all trees at least 2 m in height for height, DBH, and species and record distance and azimuth from gridded plot centers over square study area.
 
 ```{r}
+this_min_ht_m <- 2
 usfs_manitouef_n1_trees <-
   # we have used this data before
   readxl::read_excel("c:/data/usfs/uas_lidar_n1/data/N1_2024_Field_Trees.xlsx") %>% 
@@ -62,7 +63,7 @@ usfs_manitouef_n1_trees <-
     !is.na(dbh_cm)
     & !is.na(tree_height_m)
     & sf::st_is_valid(geometry)
-    & tree_height_m >= 2
+    & tree_height_m >= this_min_ht_m
     & !is.na(species_symbol)
     & species_symbol!=""
   )
@@ -548,7 +549,7 @@ if(!file.exists(fnm_temp)){
       ref_plots = ref_plots_list[[this_data_site_nm]]
       , ref_pts = ref_trees_list[[this_data_site_nm]]
       , pred_polys = usfs_manitouef_n1_ws_pred_trees
-      , min_ht_m = 2
+      , min_ht_m = this_min_ht_m
       , min_dbh_cm = NA
     )
   readr::write_csv(usfs_manitouef_n1_ws_instance_match, file = fnm_temp, append = F, progress = F)
@@ -818,7 +819,7 @@ im_temp <-
     ref_plots = ref_plots_list[[this_data_site_nm]]
     , ref_pts = ref_trees_list[[this_data_site_nm]]
     , pred_polys = pred_trees_temp
-    , min_ht_m = 2
+    , min_ht_m = this_min_ht_m
     , min_dbh_cm = NA
   )
 
