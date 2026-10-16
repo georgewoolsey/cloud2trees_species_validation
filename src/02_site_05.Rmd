@@ -928,7 +928,7 @@ im_temp <-
     , ref_pts = ref_trees_list[[this_data_site_nm]]
     , pred_polys = pred_trees_temp
     , min_ht_m = NA
-    , min_dbh_cm = 10
+    , min_dbh_cm = this_min_dbh_cm
   )
 
 # im_temp %>% dplyr::glimpse()

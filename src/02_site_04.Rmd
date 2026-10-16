@@ -73,6 +73,7 @@ usfs_penobscotef_plots <- readr::read_csv(
 load in the trees
 
 ```{r}
+this_min_dbh_cm <- 4.5/0.394
 # read locations first
 usfs_penobscotef_trees <- 
   readr::read_csv(
@@ -170,7 +171,7 @@ usfs_penobscotef_trees <-
   dplyr::filter(
     !is.na(dbh_cm)
     & sf::st_is_valid(geometry)
-    & dbh_cm >= 4.5/0.394 # measured trees >= 4.5 in
+    & dbh_cm >= this_min_dbh_cm # measured trees >= 4.5 in
     # & !is.na(species_symbol)
     # & species_symbol!=""
   )
@@ -858,7 +859,7 @@ if(!file.exists(fnm_temp)){
       , ref_pts = ref_trees_list[[this_data_site_nm]]
       , pred_polys = usfs_penobscotef_ws_pred_trees
       , min_ht_m = NA
-      , min_dbh_cm = 4.5/0.394 # measured trees >= 4.5 in
+      , min_dbh_cm = this_min_dbh_cm # measured trees >= 4.5 in
     )
   readr::write_csv(usfs_penobscotef_ws_instance_match, file = fnm_temp, append = F, progress = F)
 }else{
@@ -1183,7 +1184,7 @@ im_temp <-
     , ref_pts = ref_trees_list[[this_data_site_nm]]
     , pred_polys = pred_trees_temp
     , min_ht_m = NA
-    , min_dbh_cm = 10
+    , min_dbh_cm = this_min_dbh_cm
   )
 
 # im_temp %>% dplyr::glimpse()
