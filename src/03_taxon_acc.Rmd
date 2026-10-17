@@ -379,7 +379,7 @@ comp_df_temp %>%
   ggplot2::geom_text(
     data = ~dplyr::filter(.x,name=="predicted")
     , mapping = ggplot2::aes(label = value_lab, fontface = "bold")
-    , size = 3
+    , size = 2.8
     # , hjust = 0.5, vjust = 2.2
     , hjust = 1
     , nudge_x = -0.02
@@ -388,39 +388,39 @@ comp_df_temp %>%
   ggplot2::geom_text(
     data = ~dplyr::filter(.x,name=="reference")
     , mapping = ggplot2::aes(label = value_lab, fontface = "bold")
-    , size = 3
+    , size = 2.8
     , hjust = 0
     , nudge_x = 0.02
   ) +
   # annotate since we faked the value for pred (-value ;)
   ggplot2::annotate(
     "text"
-    , x = -0.15
+    , x = -0.23
     , y = -Inf
     , label = "Predicted"
-    , size = 3.6
+    , size = 3.4
     , fontface = "bold"
     , hjust = 1
     , vjust = -0.5
   ) +
   ggplot2::annotate(
     "text"
-    , x = 0.15
+    , x = 0.23
     , y = -Inf
     , label = "Reference"
-    , size = 3.6
+    , size = 3.4
     , fontface = "bold"
     , hjust = 0
     , vjust = -0.5
   ) +
-  ggplot2::facet_wrap(facets = dplyr::vars(data_site_nm), scales = "free_y") + 
+  ggplot2::facet_wrap(facets = dplyr::vars(data_site_nm), ncol = 3, scales = "free_y") + 
   harrypotter::scale_fill_hp_d(option = "hermionegranger") +
   # display only the genus on the axis so we can order
   ggplot2::scale_y_discrete(
     labels = function(x) stringr::str_replace(x,"_xxx_.*$", "")
   ) +
   ggplot2::scale_x_continuous(
-    expand = ggplot2::expansion(mult = c(0.09))
+    expand = ggplot2::expansion(mult = c(0.14))
   ) +
   ggplot2::labs(
     x="",y="Genus"
@@ -522,7 +522,7 @@ Species-level Bray-Curtis Similarity (site level) ranged from `r scales::percent
 
 Species-level overall accuracy (tree level) ranged from `r scales::percent(oa_min_temp$acc_tree_species_overall,accuracy = 0.1)` at `r paste0(oa_min_temp$data_site_nm, " (", oa_min_temp$data_ftype_desc, ")")` to `r scales::percent(oa_max_temp$acc_tree_species_overall,accuracy = 0.1)` at `r paste0(oa_max_temp$data_site_nm, " (", oa_max_temp$data_ftype_desc, ")")` with a median overall accuracy across all sites analyzed of `r scales::percent(median(project_data_df$acc_tree_species_overall,na.rm=T),accuracy = 0.1)`.
 
-Let's compare the compositional profiles of genera in the predicted and reference data at the site-level. This is the data used to calculate the Bray-Curtis similarity/dissimilarity and proportional RMSE accuracy metrics.
+Let's compare the compositional profiles of species in the predicted and reference data at the site-level. This is the data used to calculate the Bray-Curtis similarity/dissimilarity and proportional RMSE accuracy metrics.
 
 ```{r, fig.height=12.2,fig.width=10.2}
 # comp_df_temp %>% dplyr::glimpse()
@@ -561,7 +561,7 @@ comp_df_temp %>%
   ggplot2::geom_text(
     data = ~dplyr::filter(.x,name=="predicted")
     , mapping = ggplot2::aes(label = value_lab, fontface = "bold")
-    , size = 3
+    , size = 2.8
     # , hjust = 0.5, vjust = 2.2
     , hjust = 1
     , nudge_x = -0.02
@@ -570,39 +570,39 @@ comp_df_temp %>%
   ggplot2::geom_text(
     data = ~dplyr::filter(.x,name=="reference")
     , mapping = ggplot2::aes(label = value_lab, fontface = "bold")
-    , size = 3
+    , size = 2.8
     , hjust = 0
     , nudge_x = 0.02
   ) +
   # annotate since we faked the value for pred (-value ;)
   ggplot2::annotate(
     "text"
-    , x = -0.15
+    , x = -0.23
     , y = -Inf
     , label = "Predicted"
-    , size = 3.6
+    , size = 3.4
     , fontface = "bold"
     , hjust = 1
     , vjust = -0.5
   ) +
   ggplot2::annotate(
     "text"
-    , x = 0.15
+    , x = 0.23
     , y = -Inf
     , label = "Reference"
-    , size = 3.6
+    , size = 3.4
     , fontface = "bold"
     , hjust = 0
     , vjust = -0.5
   ) +
-  ggplot2::facet_wrap(facets = dplyr::vars(data_site_nm), scales = "free_y") + 
+  ggplot2::facet_wrap(facets = dplyr::vars(data_site_nm), ncol = 3, scales = "free_y") + 
   harrypotter::scale_fill_hp_d(option = "hermionegranger") +
   # display only the genus on the axis so we can order
   ggplot2::scale_y_discrete(
     labels = function(x) stringr::str_replace(x,"_xxx_.*$", "")
   ) +
   ggplot2::scale_x_continuous(
-    expand = ggplot2::expansion(mult = c(0.09))
+    expand = ggplot2::expansion(mult = c(0.14))
   ) +
   ggplot2::labs(
     x="",y="Species"
@@ -673,7 +673,7 @@ df_temp %>%
     , mapping = ggplot2::aes(label = hey_lab)
     , size = 2.4
     , hjust = 0
-    , nudge_x = 0.02
+    , nudge_x = 0.03
     , direction = "y"
     , box.padding = 0.1
     , point.padding = 0

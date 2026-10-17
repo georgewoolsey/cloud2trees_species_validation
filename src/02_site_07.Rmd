@@ -153,7 +153,7 @@ csfs_swe_trees %>%
   dplyr::arrange(desc(n)) %>% 
   dplyr::mutate(pct=scales::percent(n/sum(n), accuracy=0.1))
 
-csfs_swe_trees %>% sf::st_drop_geometry() %>% dplyr::count(plot_id)
+# csfs_swe_trees %>% sf::st_drop_geometry() %>% dplyr::count(plot_id)
 # save to reference list
 # add to the ref trees list
 this_data_site_nm <- project_data_df %>% 
