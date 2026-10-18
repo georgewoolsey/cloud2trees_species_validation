@@ -82,6 +82,34 @@ project_data_df <-
   )
 ```
 
+```{r, include=F, eval=F}
+# ?runif
+comp_df_temp <- 
+  letters %>% 
+  sample(size=8) %>% 
+  purrr::set_names() %>% 
+  purrr::map(function(x){
+    n <- floor(runif(n = 1, min = 3, max = 11))
+    fia_species_lookup %>% 
+      dplyr::select(genus,species_symbol) %>% 
+      dplyr::slice_sample(n=n)
+  }) %>% 
+  purrr::list_rbind(names_to = "data_site_nm") %>% 
+  dplyr::mutate(ref_n = runif(n=dplyr::n())-0.02)
+# comp_df_temp %>% dplyr::glimpse()
+project_data_df <- comp_df_temp %>% 
+  dplyr::distinct(data_site_nm) %>% 
+  dplyr::mutate(
+    acc_site_genus_bc_similarity = runif(n = dplyr::n())
+    , acc_tree_genus_overall = runif(n = dplyr::n())
+    , acc_site_species_bc_similarity = runif(n = dplyr::n())
+    , acc_tree_species_overall = runif(n = dplyr::n())
+    , data_ftype_desc = sample(LETTERS,size=dplyr::n())
+    , data_ftype_desc = paste0(data_ftype_desc,data_ftype_desc,data_ftype_desc)
+  )
+project_data_df
+```
+
 ## Summary Table
 
 ```{r}
@@ -158,7 +186,7 @@ Let's start by looking at the **genus** accuracy results. We anticipate classifi
 df_temp <- 
   project_data_df %>%
   dplyr::filter(
-    !is.na(acc_site_genus_bc_dissimilarity)
+    !is.na(acc_site_genus_bc_similarity)
   ) %>% 
   dplyr::mutate(
     site = paste0(
@@ -170,13 +198,13 @@ df_temp <-
     forcats::fct_reorder(acc_site_genus_bc_similarity)
   ) %>% 
   dplyr::select(
-    site, tidyselect::starts_with("acc_")
+    data_site_nm, site, tidyselect::starts_with("acc_")
   ) %>% 
   # dplyr::mutate(dplyr::across(
   #   dplyr::where(is.numeric)
   #   , ~scales::percent(.x,accuracy=0.1)
   # )) %>% 
-  tidyr::pivot_longer(-site) %>% 
+  tidyr::pivot_longer(-c(site,data_site_nm)) %>% 
   dplyr::mutate(
     taxon_level = stringr::str_extract(name,"(species|genus)") %>% stringr::str_to_title() %>% stringr::str_c("-level")
     , sum_level = stringr::str_extract(name,"(site|tree)") %>% stringr::str_to_title() %>% stringr::str_c("-level")
@@ -439,6 +467,78 @@ comp_df_temp %>%
 ```
 
 neat. you can really see it with that plot.
+
+let's check out the relationship between the accuracy of the proposed taxonimic classification method and the number of species/genera (i.e. species diversity) at a site
+
+```{r,fig.height=9}
+# plot
+df_temp %>%
+  dplyr::filter(stringr::str_starts(tolower(taxon_level),"genus")) %>% 
+  # add on diversity counts
+  dplyr::left_join(
+    comp_df_temp %>% 
+      dplyr::filter(ref_n>0) %>% 
+      dplyr::group_by(data_site_nm) %>% 
+      dplyr::summarise(taxon_count = dplyr::n_distinct(genus,na.rm=T))
+    , by = "data_site_nm"
+    , relationship = "many-to-one"
+  ) %>% 
+  dplyr::mutate(taxon_count = dplyr::coalesce(taxon_count,0)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    site = site %>% forcats::fct_reorder(taxon_count)
+  ) %>% 
+  # plot
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = taxon_count, y = value, color = sum_level)
+  ) +
+  ggplot2::geom_point(size = 4, alpha = 0.8) +
+  ggrepel::geom_text_repel(
+    mapping = ggplot2::aes(label = data_site_nm, fontface = "bold")
+    , color = "black"
+    , size = 2.4
+  ) +
+  ggplot2::facet_grid(
+    cols = dplyr::vars(metric)
+    # , rows = dplyr::vars(taxon_level)
+    # , switch = "y"
+  ) +
+  ggplot2::scale_y_continuous(
+    limits = c(0,1)
+    , labels = scales::label_percent(accuracy = 1)
+    , expand = ggplot2::expansion(mult = c(0.02,0.07))
+    , breaks = scales::breaks_extended(n = 7)
+  ) +
+  ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
+  ggplot2::labs(
+    title = "Genus-level"
+    , subtitle = "proposed tree classification method accuracy performance versus taxonomic diversity"
+    , x = "# unique reference genera" # 
+    , y = "metric value" # "study site"
+    , color = "" # "study site"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+    
+    , strip.placement = "outside"
+    , strip.text.y.left = ggplot2::element_text(size = 12, face = "bold", angle = 90, hjust = 0.5)
+    , strip.background.y = ggplot2::element_blank()
+    , panel.spacing.y = ggplot2::unit(2, "lines")
+    
+    , axis.text.y = ggplot2::element_text()
+    , axis.title.y = ggplot2::element_text(size=7)
+    , panel.grid.major.x = ggplot2::element_blank()
+    , panel.grid.minor.x = ggplot2::element_blank()
+  ) +
+  ggplot2::guides(
+    color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
+    , fill = "none"
+  )
+```
+
+is there a relationship between the taxonomic diversity and the accuracy of the proposed classification method?
 
 ## Species-level
 
@@ -740,6 +840,79 @@ min_diff_site_temp <- diff_site_temp %>% dplyr::slice_min(n=1,order_by = diff,wi
 The median decrease in Bray-Curtis similarity (site-level accuracy) from genus-level to species-level is `r scales::percent(median(diff_site_temp$diff,na.rm=T))`. The greatest decrease in Bray-Curtis similarity from genus-level to species-level of `r scales::percent(max_diff_site_temp$diff)` was observed at `r paste0(max_diff_site_temp$data_site_nm, " (", max_diff_site_temp$data_ftype_desc, ")")` based on a genus-level Bray-Curtis similarity of `r scales::percent(max_diff_site_temp$acc_site_genus_bc_similarity)` and a species-level similarity of `r scales::percent(max_diff_site_temp$acc_site_species_bc_similarity)`. The smallest decrease in Bray-Curtis similarity from genus-level to species-level of `r scales::percent(min_diff_site_temp$diff)` was observed at `r paste0(min_diff_site_temp$data_site_nm, " (", min_diff_site_temp$data_ftype_desc, ")")` based on a genus-level Bray-Curtis similarity of `r scales::percent(min_diff_site_temp$acc_site_genus_bc_similarity)` and a species-level similarity of `r scales::percent(min_diff_site_temp$acc_site_species_bc_similarity)`. 
 
 The median decrease in overall accuracy (tree-level accuracy) from genus-level to species-level is `r scales::percent(median(diff_tree_temp$diff,na.rm=T))`. The greatest decrease in overall accuracy from genus-level to species-level of `r scales::percent(max_diff_tree_temp$diff)` was observed at `r paste0(max_diff_tree_temp$data_site_nm, " (", max_diff_tree_temp$data_ftype_desc, ")")` based on a genus-level overall accuracy of `r scales::percent(max_diff_tree_temp$acc_tree_genus_overall)` and a species-level accuracy of `r scales::percent(max_diff_tree_temp$acc_tree_species_overall)`. The smallest decrease in overall accuracy from genus-level to species-level of `r scales::percent(min_diff_tree_temp$diff)` was observed at `r paste0(min_diff_tree_temp$data_site_nm, " (", min_diff_tree_temp$data_ftype_desc, ")")` based on a genus-level overall accuracy of `r scales::percent(min_diff_tree_temp$acc_tree_genus_overall)` and a species-level accuracy of `r scales::percent(min_diff_tree_temp$acc_tree_species_overall)`. 
+
+let's check out the relationship between the accuracy of the proposed taxonimic classification method and the number of species/genera (i.e. species diversity) at a site
+
+```{r,fig.height=9}
+# plot
+df_temp %>%
+  dplyr::filter(stringr::str_starts(tolower(taxon_level),"species")) %>% 
+  # add on diversity counts
+  dplyr::left_join(
+    comp_df_temp %>% 
+      dplyr::filter(ref_n>0) %>% 
+      dplyr::group_by(data_site_nm) %>% 
+      dplyr::summarise(taxon_count = dplyr::n_distinct(species_symbol,na.rm=T))
+    , by = "data_site_nm"
+    , relationship = "many-to-one"
+  ) %>% 
+  dplyr::mutate(taxon_count = dplyr::coalesce(taxon_count,0)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    site = site %>% forcats::fct_reorder(taxon_count)
+  ) %>% 
+  # plot
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = taxon_count, y = value, color = sum_level)
+  ) +
+  ggplot2::geom_point(size = 4, alpha = 0.8) +
+  ggrepel::geom_text_repel(
+    mapping = ggplot2::aes(label = data_site_nm, fontface = "bold")
+    , color = "black"
+    , size = 2.4
+  ) +
+  ggplot2::facet_grid(
+    cols = dplyr::vars(metric)
+    # , rows = dplyr::vars(taxon_level)
+    # , switch = "y"
+  ) +
+  ggplot2::scale_y_continuous(
+    limits = c(0,1)
+    , labels = scales::label_percent(accuracy = 1)
+    , expand = ggplot2::expansion(mult = c(0.02,0.07))
+    , breaks = scales::breaks_extended(n = 7)
+  ) +
+  ggplot2::scale_color_viridis_d(begin = 0.3, end = 0.7) +
+  ggplot2::labs(
+    title = "Species-level"
+    , subtitle = "proposed tree classification method accuracy performance versus taxonomic diversity"
+    , x = "# unique reference species" # 
+    , y = "metric value" # "study site"
+    , color = "" # "study site"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+    
+    , strip.placement = "outside"
+    , strip.text.y.left = ggplot2::element_text(size = 12, face = "bold", angle = 90, hjust = 0.5)
+    , strip.background.y = ggplot2::element_blank()
+    , panel.spacing.y = ggplot2::unit(2, "lines")
+    
+    , axis.text.y = ggplot2::element_text()
+    , axis.title.y = ggplot2::element_text(size=7)
+    , panel.grid.major.x = ggplot2::element_blank()
+    , panel.grid.minor.x = ggplot2::element_blank()
+  ) +
+  ggplot2::guides(
+    color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
+    , fill = "none"
+  )
+```
+
+is there a relationship between the taxonomic diversity and the accuracy of the proposed classification method?
+
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
  # based on a median genus-level Bray-Curtis similarity of `r scales::percent(median(diff_site_temp$acc_site_genus_bc_similarity,na.rm=T))` and a species-level similarity of `r scales::percent(median(diff_site_temp$acc_site_species_bc_similarity,na.rm=T))`

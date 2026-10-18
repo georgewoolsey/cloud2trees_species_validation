@@ -1,4 +1,4 @@
-# Fort Stewart (Georgia){#site_07}
+# Fort Stewart (Georgia){#site_08}
 
 Now that we have reviewed the [process and evaluation method](#site_01) and set up functions to standardize and streamline our data processing, let's do it for another site: Wildland Fire Science Initiative Fort Stewart (Georgia)
 
@@ -1410,7 +1410,7 @@ ref_trees_list[[this_data_site_nm]] <- ref_trees_list[[this_data_site_nm]] %>%
   dplyr::mutate(
     species_symbol = dplyr::case_when(
       species_symbol %in% c("TA") ~ "TAAS" # Taxodium ascendis (TAAS) or distichum (TADI2)
-      , species_symbol %in% c("QU") ~ "QUNI" # QUNI, QUFA, QUVI, QUMA3 ... maybe even QUGE2???
+      , species_symbol %in% c("QU") ~ "QUVI" # QUNI, QUFA, QUVI, QUMA3 ... maybe even QUGE2???
       , species_symbol %in% c("PI") ~ "PIEL" # PIEL, PIPA2, PITA
       , species_symbol %in% c("AC") ~ "ACRU" # Acer ???? https://home.army.mil/stewart/application/files/1115/2051/7271/Final_FNSI__EA_for_Shadow_UAS_Actions_at_WAAF-Fort_Stewart_GA.pdf
       , T ~ species_symbol
