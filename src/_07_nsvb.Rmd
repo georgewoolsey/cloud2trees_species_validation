@@ -1,29 +1,5 @@
 # `NSVB` for Biomass
 
-```{r, warning=FALSE, message=FALSE}
-# bread-and-butter
-library(tidyverse) # the tidyverse
-library(viridis) # viridis colors
-library(harrypotter) # hp colors
-library(RColorBrewer) # brewer colors
-library(scales) # work with number and plot scales
-library(latex2exp)
-
-# visualization
-library(mapview) # interactive html maps
-library(kableExtra) # tables
-library(patchwork) # combine plots
-
-# spatial analysis
-library(terra) # raster
-library(sf) # simple features
-library(lidR) # lidar data
-library(cloud2trees) # the cloud2trees
-
-# other
-library(vegan) # community analysis
-```
-
 ```{r, include=F, warning=F, message=F, eval = F}
 ######################################################################################################################
 ######################################################################################################################
@@ -128,7 +104,15 @@ now that we have a species classification framework, We will test out a method f
 
 We're going to attempt to use the [US National Scale Volume Biomass (NSVB) models](https://doi.org/10.2737/WO-GTR-104) to predict tree volume, biomass, and carbon. We'll implement code and functionality made available by Matthew Russell at [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB).
 
-since the files and code at [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB) are not released as a package (and also include the requirement to set a working directory), we'll need to create a workflow to download the files and data, update the directories in the file that defines the functions, and then load the functions using `base::source()`. also, the `nsvb.R` file from that repository isn't entirely a collection of functions but a mix of function definitions and demonstrations, so we need to define the `tree` data used during some parts of that script
+since the files and code at [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB) are not released as a package (and also include the requirement to set a working directory), we'll need to create a workflow to download the files and data, update the directories in the file that defines the functions, and then load the functions using `base::source()`. also, the `nsvb.Rmd` [file](https://github.com/mbrussell/NSVB/blob/35c58efb170ecc9dd4c59502d8af7bb925b2e56d/nsvb.Rmd) from that repository isn't entirely a collection of functions but a mix of function definitions and demonstrations, so we need to define the `tree` data used during some parts of that script.
+
+The `nsvb.Rmd` script cannot be run immediately out of the box due to configuration dependencies including:
+
+* **Hardcoded Paths**: It explicitly contains setwd("my/directory").	It will error out immediately unless rewritten to match your local folders.
+* **Undefined Data Paths**:	It attempts to load several data tables (e.g., REF_SPECIES.csv, Table S1a_volib_coefs_spcd.csv).	If these files aren't in the working directory, it will throw a file not found error.
+* **Dependant Workspace Objects**: It performs operations like `dplyr::inner_join(tree, spp_vol_ib_all)` without declaring what `tree` is.	It assumes a dataframe named `tree` with predefined columns already exists in the active workspace environment.
+
+we need to do some cleanup of the `nsvb.Rmd` script so that we can at least load the data and functions it defines. then, maybe we can use the functionality with our own tree list data
 
 ```{r, include=F, eval=F}
 ## # for working with "mbrussell/NSVB/blob/main/westfall%20gtr/WO-GTR-104-Supp1/nsvb.R"
@@ -225,6 +209,8 @@ nsvb_dir_temp <- "../data/nsvb_files"
 
 ```
 
+download the files
+
 ```{r}
 ## # for working with "mbrussell/NSVB/blob/main/nsvb.Rmd"
 ## # for working with "mbrussell/NSVB/blob/main/nsvb.Rmd"
@@ -235,8 +221,7 @@ nsvb_dir_temp <- "../data/nsvb_files"
 ## # for working with "mbrussell/NSVB/blob/main/nsvb.Rmd"
 ## # for working with "mbrussell/NSVB/blob/main/nsvb.Rmd"
 ## # for working with "mbrussell/NSVB/blob/main/nsvb.Rmd"
-
-# 1. Define the target directory and GitHub repository details
+# where to dl nsvb files to?
 nsvb_dir_temp <- "../data/nsvb_files"
 
 if (!dir.exists(nsvb_dir_temp)) {
@@ -256,94 +241,474 @@ if (!dir.exists(nsvb_dir_temp)) {
   
   # utils::download.file(url = url_temp, destfile = zip_file_temp, mode = "wb", quiet = T)
   
-
-  # nsvb.R has hardcoded paths... fix its internal working directory path
-  script_dir_temp <- file.path(nsvb_dir_temp, "NSVB")
-  nsvb_f_temp  <- file.path(script_dir_temp, "nsvb.Rmd")
-  
-  if(file.exists(nsvb_f_temp)){
-    lines_temp <- readLines(nsvb_f_temp, warn = FALSE)
-    lines_temp %>% head(n=33)
-    
-    # relative path
-    rel_script_dir_temp <- normalizePath(script_dir_temp, winslash = "/", mustWork = T)
-    # rel_script_dir_temp
-    # 
-    # # columns in some nebulous "tree" dataframe
-    # # tribble(
-    # #   ~EXAMPLE, ~DIVISION, ~PROVINCE, ~STDORGCD, ~SPCD, ~DIA, ~HT, ~ACTUALHT, ~CR, ~CULL, ~DECAYCD, ~STATUSCD, ~Westfall_vol, ~Westfall_bio,  ~Westfall_c,
-    # #   1, "240",   NA,    NA, 202, 20,  110, 110, NA,  0, 0, 1, 88.4522, 3154.553, 1626.474,
-    # #   2, "M210",  NA,    NA, 316, 11.1, 38,  38, NA,  3, 0, 1, 9.42711, 528.13, 256.53, 
-    # #   3, "240",  "M242", NA, 631, 11.3, 28,  21, NA, 10, 2, 2, 7.2831, 241.96, 114.45, 
-    # #   4, "M220",  NA,    NA, 802, 18.1, 65,  59, 30,  2, 0, 1, 42.277, 2096.669, 1039.31 
-    # # )
-    # tree_df_temp <-
-    #   paste0(
-    #     "tree <- base::data.frame("
-    #     , "EXAMPLE = base::numeric(0), "
-    #     , "DIVISION = base::character(0), "
-    #     , "PROVINCE = base::character(0), "
-    #     , "STDORGCD = base::logical(0), "
-    #     , "SPCD = base::numeric(0), "
-    #     , "DIA = base::numeric(0), "
-    #     , "HT = base::numeric(0), "
-    #     , "ACTUALHT = base::numeric(0), "
-    #     , "CR = base::numeric(0), "
-    #     , "CULL = base::numeric(0), "
-    #     , "DECAYCD = base::numeric(0), "
-    #     , "STATUSCD = base::numeric(0), "
-    #     , "Westfall_vol = base::numeric(0), "
-    #     , "Westfall_bio = base::numeric(0), "
-    #     , "Westfall_c = base::numeric(0)"
-    #     , ")"
-    #   )
-    
-    tree_df_temp <- base::paste(
-      "tree <- tibble::tribble("
-      , "  ~EXAMPLE, ~DIVISION, ~PROVINCE, ~STDORGCD, ~SPCD, ~DIA,  ~HT, ~ACTUALHT, ~CR,  ~CULL, ~DECAYCD, ~STATUSCD, ~Westfall_vol, ~Westfall_bio, ~Westfall_c,"
-      , "  1,        '240',      NA,        NA,         202,   20,   110, 110,       NA,   0,     0,        1,         88.4522,       3154.553,      1626.474,"
-      , "  2,        'M210',     NA,        NA,         316,   11.1, 38,  38,        NA,   3,     0,        1,         9.42711,       528.13,        256.53,"
-      , "  3,        '240',      'M242',    NA,         631,   11.3, 28,  21,        NA,   10,    2,        2,         7.2831,        241.96,        114.45,"
-      , "  4,        'M220',     NA,        NA,         802,   18.1, 65,  59,        30,   2,     0,        1,         42.277,        2096.669,      1039.31"
-      , ")"
-      , sep = "\n"
-    )
-    # tree_df_temp
-    
-    # add it
-    lines_temp[31] <- tree_df_temp
-    # lines_temp %>% head(n=33)
-    
-    # overwrite the hardcoded setwd() with our new local directory path
-    wtf_script_dir_temp <- file.path(nsvb_dir_temp, "NSVB", "westfall gtr", "WO-GTR-104-Supp1")
-    wtf_rel_script_dir_temp <- normalizePath(wtf_script_dir_temp, winslash = "/", mustWork = T)
-    updt_lines_temp <-
-      stringr::str_replace(
-        lines_temp
-        , pattern     = "setwd.*" 
-        , replacement = sprintf('setwd("%s")', wtf_rel_script_dir_temp) # safely enclose path
-      )
-    # updt_lines_temp %>% head(n=33)
-    writeLines(updt_lines_temp, nsvb_f_temp)
-  }else{
-    stop(paste0("oops, can't find `",nsvb_f_temp,"` "))
-  }
-
-  # source it to load the functions
-  source_script_wo_dir_change_fn <- function(file_path) {
-    old_dir <- getwd()
-    on.exit(setwd(old_dir)) # always restore initial working directory
-    source(knitr::purl(file_path, quiet = T))
-  }
-  
-  # nsvb_f_temp
-  source_script_wo_dir_change_fn(nsvb_f_temp)
-
 }
-
-xxxxxxx
 ```
 
+update the `nsvb.Rmd` file so that we can run it to load the data and functions
+
+```{r}
+# nsvb.R has hardcoded paths... fix its internal working directory path
+script_dir_temp <- file.path(nsvb_dir_temp, "NSVB")
+nsvb_f_temp  <- file.path(script_dir_temp, "nsvb.Rmd")
+
+if(file.exists(nsvb_f_temp)){
+  lines_temp <- readLines(nsvb_f_temp, warn = FALSE)
+  # lines_temp %>% head(n=33)
+  
+  # relative path
+  rel_script_dir_temp <- normalizePath(script_dir_temp, winslash = "/", mustWork = T)
+  # rel_script_dir_temp
+  # 
+  # # columns in some nebulous "tree" dataframe
+  # # tribble(
+  # #   ~EXAMPLE, ~DIVISION, ~PROVINCE, ~STDORGCD, ~SPCD, ~DIA, ~HT, ~ACTUALHT, ~CR, ~CULL, ~DECAYCD, ~STATUSCD, ~Westfall_vol, ~Westfall_bio,  ~Westfall_c,
+  # #   1, "240",   NA,    NA, 202, 20,  110, 110, NA,  0, 0, 1, 88.4522, 3154.553, 1626.474,
+  # #   2, "M210",  NA,    NA, 316, 11.1, 38,  38, NA,  3, 0, 1, 9.42711, 528.13, 256.53, 
+  # #   3, "240",  "M242", NA, 631, 11.3, 28,  21, NA, 10, 2, 2, 7.2831, 241.96, 114.45, 
+  # #   4, "M220",  NA,    NA, 802, 18.1, 65,  59, 30,  2, 0, 1, 42.277, 2096.669, 1039.31 
+  # # )
+  # tree_df_temp <-
+  #   paste0(
+  #     "tree <- base::data.frame("
+  #     , "EXAMPLE = base::numeric(0), "
+  #     , "DIVISION = base::character(0), "
+  #     , "PROVINCE = base::character(0), "
+  #     , "STDORGCD = base::logical(0), "
+  #     , "SPCD = base::numeric(0), "
+  #     , "DIA = base::numeric(0), "
+  #     , "HT = base::numeric(0), "
+  #     , "ACTUALHT = base::numeric(0), "
+  #     , "CR = base::numeric(0), "
+  #     , "CULL = base::numeric(0), "
+  #     , "DECAYCD = base::numeric(0), "
+  #     , "STATUSCD = base::numeric(0), "
+  #     , "Westfall_vol = base::numeric(0), "
+  #     , "Westfall_bio = base::numeric(0), "
+  #     , "Westfall_c = base::numeric(0)"
+  #     , ")"
+  #   )
+  
+  tree_df_temp <- base::paste(
+    "tree <- tibble::tribble("
+    , "  ~EXAMPLE, ~DIVISION, ~PROVINCE, ~STDORGCD, ~SPCD, ~DIA,  ~HT, ~ACTUALHT, ~CR,  ~CULL, ~DECAYCD, ~STATUSCD, ~Westfall_vol, ~Westfall_bio, ~Westfall_c,"
+    , "  1,        '240',      NA,        NA,         202,   20,   110, 110,       NA,   0,     0,        1,         88.4522,       3154.553,      1626.474,"
+    , "  2,        'M210',     NA,        NA,         316,   11.1, 38,  38,        NA,   3,     0,        1,         9.42711,       528.13,        256.53,"
+    , "  3,        '240',      'M242',    NA,         631,   11.3, 28,  21,        NA,   10,    2,        2,         7.2831,        241.96,        114.45,"
+    , "  4,        'M220',     NA,        NA,         802,   18.1, 65,  59,        30,   2,     0,        1,         42.277,        2096.669,      1039.31"
+    , ")"
+    , sep = "\n"
+  )
+  # tree_df_temp
+  
+  # add it
+  if(!stringr::str_starts(lines_temp[31],"tree")){
+    lines_temp[31] <- tree_df_temp 
+  }
+  # lines_temp %>% head(n=33)
+  
+  # overwrite the hardcoded setwd() with our new local directory path
+  wtf_script_dir_temp <- file.path(nsvb_dir_temp, "NSVB", "westfall gtr", "WO-GTR-104-Supp1")
+  wtf_rel_script_dir_temp <- normalizePath(wtf_script_dir_temp, winslash = "/", mustWork = T)
+  updt_lines_temp <-
+    stringr::str_replace(
+      lines_temp
+      , pattern     = "setwd.*" 
+      , replacement = sprintf('setwd("%s")', wtf_rel_script_dir_temp) # safely enclose path
+    )
+  # updt_lines_temp %>% head(n=33)
+  writeLines(updt_lines_temp, nsvb_f_temp)
+}else{
+  stop(paste0("oops, can't find `",nsvb_f_temp,"` "))
+}
+
+# source it to load the functions
+source_script_wo_dir_change_fn <- function(file_path) {
+  old_dir <- getwd()
+  on.exit(setwd(old_dir)) # always restore initial working directory
+  source(knitr::purl(file_path, quiet = T))
+}
+
+# nsvb_f_temp
+source_script_wo_dir_change_fn(nsvb_f_temp)
+
+```
+
+running the `nsvb.Rmd` file creates 97 objects
+
+```{r}
+# ls()
+
+##### running the `nsvb.Rmd` file creates 97 objects btw
+# make a function to remove them
+clean_nsvb_objects_fn <- function() {
+  suppressWarnings(suppressMessages( 
+    remove(
+      list = 
+          c(
+            "agb","agb_all_division_na","agb_division","agb_division_na","agb_jenkins","agb_jenkins_spp","bark_division"
+            ,"bark_division_na","bark_wt","bark_wt_division_na","bark_wt_jenkins","bark_wt_jenkins_spp","branch_division"
+            ,"branch_division_na","branch_wt","branch_wt_division_na","branch_wt_jenkins","branch_wt_jenkins_spp","cr_prop"
+            ,"cr_prop2","dead","eco_div_prov","foliage","foliage_all_division_na","foliage_division","foliage_division_na"
+            ,"foliage_jenkins","foliage_jenkins_spp","get_hm","get_nsvb","get_V_ratio","prov_hw","prov_sw","provs","ref_spp"
+            ,"source_script_wo_dir_change_fn","spp_agb","spp_agb_all","spp_agb_division","spp_agb_division_na","spp_agb_jenkins"
+            ,"spp_already_have","spp_bark_division","spp_bark_division_na","spp_bark_wt","spp_bark_wt_all","spp_bark_wt_jenkins"
+            ,"spp_branch_division","spp_branch_division_na","spp_branch_wt","spp_branch_wt_all","spp_branch_wt_jenkins","spp_dead"
+            ,"spp_foliage","spp_foliage_all","spp_foliage_division","spp_foliage_division_na","spp_foliage_jenkins","spp_live"
+            ,"spp_vol_bark","spp_vol_bark_all","spp_vol_bark_jenkins","spp_vol_division","spp_vol_division_na","spp_vol_ib"
+            ,"spp_vol_ib_all","spp_vol_ib_jenkins","spp_vol_ob","spp_vol_ob_all","spp_vol_ob_jenkins","spp_vol_ratio"
+            ,"spp_vol_ratio_all","spp_vol_ratio_jenkins","tree","vol_bark","vol_bark_division_na","vol_bark_jenkins"
+            ,"vol_bark_jenkins_spp","vol_division","vol_division_na","vol_ib","vol_ib_division_na","vol_ib_jenkins"
+            ,"vol_ib_jenkins_spp","vol_ob","vol_ob_division_na","vol_ob_jenkins","vol_ob_jenkins_spp","vol_ob1"
+            ,"vol_ob1_jenkins","vol_ob2","vol_ob2_jenkins","vol_ratio","vol_ratio_division_na","vol_ratio_jenkins"
+            ,"vol_ratio_jenkins_spp","wdsg"
+          )
+      , envir = .GlobalEnv
+    )
+  ))
+  suppressWarnings(suppressMessages( gc(verbose = F) ))
+}
+# ls()
+# clean_nsvb_objects_fn()
+# ls()
+```
+
+while the `nsvb.Rmd` file contains function definitions, it is more of a procedural template script. let's try to figure out what we need to work with our own tree data
+
+the first thing we need to figure out is this `SPCD` data attribute which is described by Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) as:
+
+>For tree biomass prediction, the accuracy and precision of models were essentially unknown due to the pseudo-data approach used in the original research. Thus, efforts were undertaken to develop a national methodology for compatible predictions of tree volume, biomass, and carbon content (Radtke et al. 2015, 2017; Weiskittel et al. 2015) for species commonly occurring on U.S. forest land. Specifically, the targeted species are inclusive of those identified by FIA species code (SPCD) ≤999, except for those designated as woodland species (USDA Forest Service 2022). The resulting methodology is hereafter referred to as the national-scale volume and biomass (NSVB) framework. (p. 1)
+
+we know this data! this is what we have been working so hard to get up to this point in the analysis. we'll start by using the FIA species code lookup table to get FIA species code, genus, and species for all of our data sets based on the `species_symbol` (e.g. "PIPO", "POTR5", "QURU")
+
+```{r}
+# fia_species_lookup %>% dplyr::glimpse()
+# ref_trees_list
+ref_trees_list <- 
+  ref_trees_list %>% 
+  purrr::compact() %>% 
+  purrr::map(
+    \(df)
+    df %>% 
+      # get rid of columns we'll create
+      dplyr::select( -dplyr::any_of(c(
+        "hey_xxxxxxxxxx"
+        , "spcd"
+        , "genus"
+        , "species"
+        , "common_name"
+      ))) %>% 
+      dplyr::left_join(
+        fia_species_lookup %>% 
+          dplyr::select(
+            species_symbol
+            , spcd
+            , genus
+            , species
+            , common_name
+          )
+        , by = "species_symbol"
+        , relationship = "many-to-one"
+      )
+  )
+# pred_trees_list
+pred_trees_list <- 
+  pred_trees_list %>% 
+  purrr::compact() %>% 
+  purrr::map(
+    \(df)
+    df %>% 
+      # get rid of columns we'll create
+      dplyr::select( -dplyr::any_of(c(
+        "hey_xxxxxxxxxx"
+        , "spcd"
+        , "genus"
+        , "species"
+        , "common_name"
+      ))) %>% 
+      dplyr::left_join(
+        fia_species_lookup %>% 
+          dplyr::select(
+            species_symbol
+            , spcd
+            , genus
+            , species
+            , common_name
+          )
+        , by = "species_symbol"
+        , relationship = "many-to-one"
+      )
+  )
+```
+
+the next thing is this `DIVISION` data attribute. Based on Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)), it looks like this refers to Ecodivisions used by Forest Inventory and Analysis for (a) 48 of the 50 United States (Source: Cleland et al. 2007) and (b) Alaska (Source: Nowacki et al. 2003). however, the current authoritative "[EcoMapDivisions](https://data-usfs.hub.arcgis.com/datasets/usfs::ecosys-ecomapdivisions-2025/about)" data set on the [USFS Geospatial Data Discovery](https://data-usfs.hub.arcgis.com/) does not align with data used in Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)). We need to find the older version......
+
+........after some digging, this Ecodivision spatial data used for NSVB may still be available on the [FSGeodata Clearinghouse](https://data.fs.usda.gov/geodata/edw/datasets.php) under the title "[Ecological Sections](https://data.fs.usda.gov/geodata/edw/edw_resources/meta/Ecosys_EcomapSections_2007.xml)" and it may also available on the data discovery tool [here](https://data-usfs.hub.arcgis.com/datasets/usfs::ecological-sections-feature-layer/about)
+
+```{r, results=F, eval = F}
+# call cloud2trees:::get_url_data()
+get_url_data_ans_temp <- cloud2trees:::get_url_data(
+  eval_url = 
+    # "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/Ecosys_EcomapSubsections_2007.zip"
+    "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/Ecosys_EcomapSections_2007.zip"
+  , my_name = 
+    "Ecosys_EcomapSections_2007"
+  , savedir = normalizePath("../data")
+  , req_file_list = 
+    c("S_USA.Ecosys_EcomapSections_2007.shp")
+  , force = F
+)
+```
+
+let's load that data, clean it, and check it
+
+```{r}
+fia_ecodivisions_sf <- 
+  sf::st_read("../data/Ecosys_EcomapSections_2007/S_USA.Ecosys_EcomapSections_2007.shp", quiet = T) %>%
+  dplyr::rename_with(
+    ~ tolower(.x) %>% 
+      stringr::str_squish() %>% 
+      make.names() %>% 
+      stringr::str_replace_all( "\\.{2,}", ".") %>% 
+      stringr::str_remove( "\\.$") %>% 
+      stringr::str_replace_all( "\\.", "_")
+  ) %>% 
+  dplyr::select(-map_unit_d) %>% 
+  # clean this thing up to get division
+  dplyr::filter(tolower(map_unit_s)!="water") %>% 
+  dplyr::mutate(
+    fia_ecodivision = 
+      map_unit_s %>% 
+      stringr::str_squish() %>% 
+      # get just the number block and any letters at the beginning
+      stringr::str_extract("^[^0-9]*\\d+") %>%
+      # replace the last digit with a 0
+      stringr::str_replace("\\d$", "0")
+  ) %>% 
+  dplyr::filter(!is.na(fia_ecodivision)) %>% 
+  # union the geometries
+  sf::st_make_valid() %>% 
+  dplyr::filter(sf::st_is_valid(.)) %>% 
+  dplyr::group_by(fia_ecodivision) %>%
+  dplyr::summarise(.groups = "drop") %>% 
+  dplyr::mutate(
+    fia_ecodivision_desc = dplyr::case_when(
+      fia_ecodivision == "210"  ~ "Warm Continental Division"
+      , fia_ecodivision == "220"  ~ "Hot Continental Division"
+      , fia_ecodivision == "230"  ~ "Subtropical Division"
+      , fia_ecodivision == "240"  ~ "Marine Division"
+      , fia_ecodivision == "250"  ~ "Prairie Division"
+      , fia_ecodivision == "260"  ~ "Mediterranean Division"
+      , fia_ecodivision == "310"  ~ "Tropical/Subtropical Steppe Division"
+      , fia_ecodivision == "320"  ~ "Tropical/Subtropical Desert Division"
+      , fia_ecodivision == "330"  ~ "Temperate Steppe Division"
+      , fia_ecodivision == "340"  ~ "Temperate Desert Division"
+      , fia_ecodivision == "410"  ~ "Savanna Division"
+      , fia_ecodivision == "M210" ~ "Warm Continental Mountains"
+      , fia_ecodivision == "M220" ~ "Hot Continental Mountains"
+      , fia_ecodivision == "M230" ~ "Subtropical Mountains"
+      , fia_ecodivision == "M240" ~ "Marine Mountains"
+      , fia_ecodivision == "M260" ~ "Mediterranean Mountains"
+      , fia_ecodivision == "M310" ~ "Tropical/Subtropical Steppe Mountains"
+      , fia_ecodivision == "M330" ~ "Temperate Steppe Mountains"
+      , fia_ecodivision == "M340" ~ "Temperate Desert Mountains"
+      , TRUE ~ as.character(NA)
+    )
+  )
+
+# fia_ecodivisions_sf %>% dplyr::glimpse()
+
+# map it
+fia_ecodivisions_sf %>% 
+  mapview::mapview(
+    zcol = "fia_ecodivision"
+    , layer.name = "ecodivision"
+    , col.regions = viridis::turbo(n = nrow(fia_ecodivisions_sf)) %>% sample()
+  )
+```
+
+pretty good match with Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) Fig. 1 (p. 3). we can spatially match the trees with this ecodivision spatial data now that we dug up the data from the research data archive and cleaned it up.
+
+```{r}
+# inherits(ref_trees_list$CSFS_SWE,"sf")
+# ref_trees_list
+ref_trees_list <- 
+  ref_trees_list %>% 
+  purrr::compact() %>% 
+  purrr::imap(function(df,nm){
+    # if it's not spatial, make it spatial with the plot data
+    if( !inherits(df,"sf") && inherits(ref_plots_list[[nm]],"sf") ){
+      # get spatial from plot
+      ps <- ref_plots_list[[nm]] %>% 
+        dplyr::select(plot_id) %>% 
+        dplyr::ungroup() %>% 
+        sf::st_centroid() %>% 
+        dplyr::mutate(
+          tree_x = sf::st_coordinates(.)[,1] #lon
+          , tree_y = sf::st_coordinates(.)[,2] #lat  
+        ) %>% 
+        sf::st_drop_geometry() %>%
+        dplyr::group_by(plot_id) %>% 
+        dplyr::slice(1) %>% 
+        dplyr::ungroup()
+      # add it to trees
+      df <- df %>% 
+        dplyr::select( -dplyr::any_of(c(
+          "hey_xxxxxxxxxx"
+          , "tree_x"
+          , "tree_y"
+        ))) %>% 
+        dplyr::left_join(ps, by = "plot_id") %>% 
+        sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(ref_plots_list[[nm]]), remove = F)
+    }else if(!inherits(df,"sf")){
+      # can't even spatial it
+      return(df)
+    }
+      
+    # join it
+    df %>% 
+      # get rid of columns we'll create
+      dplyr::select( -dplyr::any_of(c(
+        "hey_xxxxxxxxxx"
+        , "fia_ecodivision"
+        , "fia_ecodivision_desc"
+      ))) %>% 
+      sf::st_join(
+        fia_ecodivisions_sf %>% sf::st_transform(sf::st_crs(df))
+        , left = T
+        , largest = T
+      )
+  })
+# inherits(ref_trees_list$CSFS_SWE,"sf")
+
+# inherits(pred_trees_list$CSFS_SWE,"sf")
+# pred_trees_list
+pred_trees_list <- 
+  pred_trees_list %>% 
+  purrr::compact() %>% 
+  purrr::imap(function(df,nm){
+    # if it's not spatial, make it spatial with the plot data
+    if( !inherits(df,"sf") && inherits(ref_plots_list[[nm]],"sf") ){
+      # get spatial from plot
+      ps <- ref_plots_list[[nm]] %>% 
+        dplyr::select(plot_id) %>% 
+        dplyr::ungroup() %>% 
+        sf::st_centroid() %>% 
+        dplyr::mutate(
+          tree_x = sf::st_coordinates(.)[,1] #lon
+          , tree_y = sf::st_coordinates(.)[,2] #lat  
+        ) %>% 
+        sf::st_drop_geometry() %>%
+        dplyr::group_by(plot_id) %>% 
+        dplyr::slice(1) %>% 
+        dplyr::ungroup()
+      # add it to trees
+      df <- df %>% 
+        dplyr::select( -dplyr::any_of(c(
+          "hey_xxxxxxxxxx"
+          , "tree_x"
+          , "tree_y"
+        ))) %>% 
+        dplyr::left_join(ps, by = "plot_id") %>% 
+        sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(ref_plots_list[[nm]]), remove = F)
+    }else if(!inherits(df,"sf")){
+      # can't even spatial it
+      return(df)
+    }
+      
+    # join it AS POINTS
+    xdf <- 
+      df %>% 
+      # get rid of columns we'll create
+      dplyr::select(treeID,tree_x,tree_y) %>%
+      sf::st_drop_geometry() %>% 
+      sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(df), remove = T) %>% 
+      sf::st_join(
+        fia_ecodivisions_sf %>% sf::st_transform(sf::st_crs(df))
+        , left = T
+        , largest = T
+      ) %>% 
+      sf::st_drop_geometry()
+    
+    df %>% 
+      # get rid of columns we'll create
+      dplyr::select( -dplyr::any_of(c(
+        "hey_xxxxxxxxxx"
+        , "fia_ecodivision"
+        , "fia_ecodivision_desc"
+      ))) %>%
+      dplyr::left_join(xdf,by="treeID")
+  })
+# inherits(pred_trees_list$CSFS_SWE,"sf")
+# dplyr::glimpse(pred_trees_list[[1]])
+
+```
+
+the next thing we need to figure out is this `STDORGCD` data attribute which is described by Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) as:
+
+>stand origins for planted (stand origin code (STDORGCD) = 1) and natural (STDORGCD = 0) stands may be fitted separately (p. 3)
+
+does this data actually get used?????? let's check out the `spp_vol_ib_all` defined in the `nsvb.Rmd` from [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB)
+
+```{r}
+spp_vol_ib_all %>% 
+  dplyr::ungroup() %>% 
+  dplyr::count(STDORGCD)
+```
+
+it looks like the majority of volume equations don't even use this and are `NA`...we'll ignore for now
+
+```{r}
+# tree %>% dplyr::glimpse()
+# tree %>% dplyr::glimpse()
+## inputs
+c(
+  "EXAMPLE"
+  , "DIVISION" # If a species occurs in an ecodivision (DIVISION) not explicitly listed, the entry having no ecodivision noted is used
+  , "PROVINCE"
+  , "STDORGCD" # stand origins for planted (stand origin code (STDORGCD) = 1) and natural (STDORGCD = 0) stands
+  , "SPCD"
+  , "DIA"
+  ,  "HT"
+  , "ACTUALHT"
+  , "CR"
+  ,  "CULL"
+  , "DECAYCD"
+  , "STATUSCD"
+)
+## desired outputs
+V_tot_ib_Gross # Gross cubic-foot total-stem wood volume
+V_tot_bk_Gross # Gross cubic-foot total-stem bark volume
+V_mer_ib_Gross # Gross cubic-foot merchantable stem wood volume (inside bark)
+V_mer_bk_Gross # Merchantable stem bark volume
+V_saw_ib_Gross # Gross cubic-foot wood volume in the sawlog portion of a sawtimber tree
+V_saw_bk_Gross # cubic-foot bark volume in the sawlog portion of a sawtimber tree
+
+# tree gets this data attached
+spp_vol_ib_all %>% dplyr::glimpse()
+
+tree %>% 
+  dplyr::select(dplyr::any_of(c(
+    c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
+  ))) %>% 
+  dplyr::inner_join(spp_vol_ib_all, by = dplyr::join_by(DIVISION, STDORGCD, SPCD)) %>% 
+  dplyr::glimpse()
+  dplyr::rowwise() %>% 
+  dplyr::mutate(
+    V_tot_ib_Gross = get_nsvb(
+      MODEL = MODEL
+      , SPCD = SPCD
+      , DIA = DIA
+      , HT = HT
+      , a = a, a1 = a1, b = b
+      , b1 = b1, c = c, c1 = c1
+      , WDSG = NA
+    )
+    , 
+  ) %>% 
+  dplyr::select(
+    -c(a, a1, b, b1, c, c1, coef_level, MODEL)
+  ) 
+```
 
 
 
@@ -360,64 +725,6 @@ ref_trees_list[["usfs_manitouef_bigplot"]] %>% sf::st_drop_geometry() %>% dplyr:
 ref_trees_list[["usfs_manitouef_n1"]] %>% dplyr::glimpse()
 ```
 
-```{r}
-library(allodb)
-```
-
-we'll start by using the FIA species code lookup table to get genus and species for all of our data sets based on the `species_symbol` (e.g. "PIPO", "POTR5", "QURU")
-
-```{r}
-# ref_trees_list
-ref_trees_list <- 
-  ref_trees_list %>% 
-  purrr::map(
-    \(df)
-    df %>% 
-      # get rid of columns we'll create
-      dplyr::select( -dplyr::any_of(c(
-        "hey_xxxxxxxxxx"
-        , "genus"
-        , "species"
-        , "common_name"
-      ))) %>% 
-      dplyr::left_join(
-        fia_species_lookup %>% 
-          dplyr::select(
-            species_symbol
-            , genus
-            , species
-            , common_name
-          )
-        , by = "species_symbol"
-        , relationship = "many-to-one"
-      )
-  )
-# pred_trees_list
-pred_trees_list <- 
-  pred_trees_list %>% 
-  purrr::map(
-    \(df)
-    df %>% 
-      # get rid of columns we'll create
-      dplyr::select( -dplyr::any_of(c(
-        "hey_xxxxxxxxxx"
-        , "genus"
-        , "species"
-        , "common_name"
-      ))) %>% 
-      dplyr::left_join(
-        fia_species_lookup %>% 
-          dplyr::select(
-            species_symbol
-            , genus
-            , species
-            , common_name
-          )
-        , by = "species_symbol"
-        , relationship = "many-to-one"
-      )
-  )
-```
 
 
 let's take the `allodb::get_biomass()` function for a spin, demonstrating with the first study site: `r names(ref_trees_list)[1]`. 
