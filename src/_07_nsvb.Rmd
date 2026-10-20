@@ -1,0 +1,359 @@
+# `NSVB` for Biomass
+
+```{r, include=F, warning=F, message=F, eval = F}
+######################################################################################################################
+######################################################################################################################
+# https://doi.org/10.5281/zenodo.6637599
+# Tallo database to build ITD segmentation ws functions by genus/forest type based on height-crown diameter?
+######################################################################################################################
+######################################################################################################################
+# https://doi.org/10.5281/zenodo.6637599
+# we developed the Tallo database, a collection of 498,838 georeferenced and taxonomically 
+# standardized records of individual trees for which stem diameter, height and/or crown radius 
+# have been measured. These data were collected at 61,856 globally distributed sites, spanning 
+# all major forested and non-forested biomes. The majority of trees in the database are identified
+# to species (88%), and collectively Tallo includes data for 5163 species distributed 
+# across 1453 genera and 187 plant families.
+
+######################################################################################################################
+######################################################################################################################
+# https://gdam-api-v2-782971006568.us-west1.run.app/docs#/Index/index
+# fastfuels api to get species?
+######################################################################################################################
+######################################################################################################################
+###########################################################
+###########################################################
+# here's the example py from the docs
+###########################################################
+###########################################################
+# import pandas as pd
+# import requests
+
+# # 1. Prepare your input data
+# input_df = pd.DataFrame({
+#     "Lat": [48.1234, 48.1240],
+#     "Lon": [-114.5678, -114.5680],
+#     "HT": [25.5, 18.2],
+#     "DIA": [None, 8.5]  # Missing fields will be imputed
+# })
+
+# # 2. Format the payload using orient="split"
+# payload = {
+#     "trees": input_df.to_dict(orient="split")
+# }
+
+# # 3. Send the request
+# response = requests.post("https://<API_URL>/v1/predict/batch", json=payload)
+
+# # 4. Reconstruct the output directly back into a Pandas DataFrame
+# response_data = response.json()
+# predictions_df = pd.DataFrame(**response_data["predictions"])
+
+# print(predictions_df.head())
+
+###########################################################
+###########################################################
+# here's the start of formatting data to send to api
+###########################################################
+###########################################################
+validation_trees %>% 
+  sf::st_transform(crs = sf::st_crs(4326)) %>% 
+  dplyr::mutate(
+    tree_lon = sf::st_coordinates(.)[,1]
+    , tree_lat = sf::st_coordinates(.)[,2]
+    , fastfuels_api = paste0(
+      # https://gdam-api-v2-782971006568.us-west1.run.app/docs#/Index/index
+      # fastfuels api to get species?
+      # {
+      #   "Lat": 48.1234,
+      #   "Lon": -114.5678,
+      #   "HT": 25.5
+      # }
+      "{"
+        , "\"Lat\":" , scales::number(tree_lat, accuracy = 0.000001)
+        , ",\"Lon\":" , scales::number(tree_lon, accuracy = 0.000001)
+        , ",\"HT\":" , scales::number(field_tree_height_m, accuracy = 0.01)
+      , "}"
+      
+    )
+  ) %>% 
+  dplyr::slice_sample(n=44) %>% 
+  dplyr::slice_head(n=7) %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(fastfuels_api)
+
+# {"Lat":39.125813,"Lon":-105.115625,"HT":19.05}    # 39.125813,-105.115625
+# {"Lat":39.125659,"Lon":-105.113507,"HT":18.90}    # 39.125659,-105.113507
+# {"Lat":39.125840,"Lon":-105.112728,"HT":20.73}    # 39.125840,-105.112728
+# {"Lat":39.126451,"Lon":-105.115426,"HT":2.44}   # 39.126451,-105.115426
+# {"Lat":39.126394,"Lon":-105.115221,"HT":2.13}   # 39.126394,-105.115221
+# {"Lat":39.124983,"Lon":-105.115187,"HT":15.54}    # 39.124983,-105.115187
+# {"Lat":39.125319,"Lon":-105.115390,"HT":3.35}   # 39.125319,-105.115390
+
+
+# {"Lat":39.127170,"Lon":-105.115781,"HT":20.12}
+# {"Lat":39.127175,"Lon":-105.115772,"HT":10.06}
+# {"Lat":39.127174,"Lon":-105.115760,"HT":7.01}"
+# {"Lat":39.127124,"Lon":-105.115732,"HT":11.28}
+# {"Lat":39.127110,"Lon":-105.115742,"HT":23.47}
+# {"Lat":39.127099,"Lon":-105.115714,"HT":11.89}
+# {"Lat":39.127073,"Lon":-105.115716,"HT":20.12}
+```
+
+now that we have a species classification framework, We will test out a method for estimating volume based for the spatial tree list from `cloud2trees`:
+
+We're going to attempt to use the [US National Scale Volume Biomass (NSVB) models](https://doi.org/10.2737/WO-GTR-104) to predict tree volume, biomass, and carbon. We'll implement code and functionality made available by Matthew Russell at [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB).
+
+since the files and code at [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB) are not released as a package (and also include the requirement to set a working directory), we'll need to create a workflow to download the files and data, update the directories in the file that defines the functions, and then load the functions using `base::source()`. also, the `nsvb.R` file from that repository isn't entirely a collection of functions but a mix of function definitions and demonstrations, so we need to define the `tree` data used during some parts of that script
+
+```{r}
+
+
+# 1. Define the target directory and GitHub repository details
+nsvb_dir_temp <- "../data/nsvb_files"
+
+# if (!dir.exists(nsvb_dir_temp)) {
+  dir.create(nsvb_dir_temp, showWarnings = F, recursive = T)
+  
+  repo_temp <- "mbrussell/NSVB"
+  # ?usethis::create_from_github
+  
+  usethis::create_from_github(
+    repo_spec = repo_temp # "username/repositoryname"
+    , destdir = nsvb_dir_temp
+    , fork = F
+    , open = F
+    , rstudio = F
+  )
+  # Do you want to create anyway? .... For sure
+  
+  # utils::download.file(url = url_temp, destfile = zip_file_temp, mode = "wb", quiet = T)
+  
+
+  # nsvb.R has hardcoded paths... fix its internal working directory path
+  script_dir_temp <- file.path(nsvb_dir_temp, "NSVB", "westfall gtr", "WO-GTR-104-Supp1")
+  nsvb_f_temp  <- file.path(script_dir_temp, "nsvb.R")
+  # if(file.exists(nsvb_f_temp)){
+    lines_temp <- readLines(nsvb_f_temp, warn = FALSE)
+    # lines_temp %>% head(n=11)
+    
+    # relative path
+    rel_script_dir_temp <- normalizePath(script_dir_temp, winslash = "/", mustWork = T)
+    # rel_script_dir_temp
+    
+    # columns in some nebulous "tree" dataframe
+    tree_df_temp <- 
+      paste0(
+        "tree <- base::data.frame("
+        , "EXAMPLE = base::numeric(0), "
+        , "DIVISION = base::character(0), "
+        , "PROVINCE = base::character(0), "
+        , "STDORGCD = base::logical(0), "
+        , "SPCD = base::numeric(0), "
+        , "DIA = base::numeric(0), "
+        , "HT = base::numeric(0), "
+        , "ACTUALHT = base::numeric(0), "
+        , "CR = base::numeric(0), "
+        , "CULL = base::numeric(0), "
+        , "DECAYCD = base::numeric(0), "
+        , "STATUSCD = base::numeric(0), "
+        , "Westfall_vol = base::numeric(0), "
+        , "Westfall_bio = base::numeric(0), "
+        , "Westfall_c = base::numeric(0)"
+        , ")"
+      )
+    # tree_df_temp
+    
+    # add it
+    lines_temp <- c(tree_df_temp, lines_temp)
+    # lines_temp %>% head(n=11)
+    
+    # overwrite the hardcoded setwd() with our new local directory path
+    updt_lines_temp <-
+      stringr::str_replace(
+        lines_temp
+        , pattern     = "setwd.*" 
+        , replacement = sprintf('setwd("%s")', rel_script_dir_temp) # safely enclose path
+      )
+    writeLines(updt_lines_temp, nsvb_f_temp)
+  }else{
+    stop(paste0("oops, can't find `",nsvb_f_temp,"` "))
+  }
+
+  # source it to load the functions
+  source_script_wo_dir_change_fn <- function(file_path) {
+    old_dir <- getwd()
+    on.exit(setwd(old_dir)) # always restore initial working directory
+    source(file = file_path)
+  }
+  
+  source_script_wo_dir_change_fn(nsvb_f_temp)
+
+# }
+
+```
+
+
+
+
+```{r, include=F, eval=F}
+ref_trees_list <- list()
+ref_trees_list[["usfs_manitouef_n1"]] <- usfs_manitouef_n1_trees %>% dplyr::slice_sample(n = 222)
+ref_trees_list[["usfs_manitouef_bigplot"]] <- usfs_manitouef_bigplot_trees %>% 
+  dplyr::slice_sample(n = 333) %>% 
+  dplyr::mutate(
+    species_symbol = ifelse(species_symbol=="POTR","POTR5",species_symbol)
+    , species_symbol = ifelse(species_symbol=="PIFL","PIFL2",species_symbol)
+  )
+ref_trees_list[["usfs_manitouef_bigplot"]] %>% sf::st_drop_geometry() %>% dplyr::count(species_symbol)
+ref_trees_list[["usfs_manitouef_n1"]] %>% dplyr::glimpse()
+```
+
+```{r}
+library(allodb)
+```
+
+we'll start by using the FIA species code lookup table to get genus and species for all of our data sets based on the `species_symbol` (e.g. "PIPO", "POTR5", "QURU")
+
+```{r}
+# ref_trees_list
+ref_trees_list <- 
+  ref_trees_list %>% 
+  purrr::map(
+    \(df)
+    df %>% 
+      # get rid of columns we'll create
+      dplyr::select( -dplyr::any_of(c(
+        "hey_xxxxxxxxxx"
+        , "genus"
+        , "species"
+        , "common_name"
+      ))) %>% 
+      dplyr::left_join(
+        fia_species_lookup %>% 
+          dplyr::select(
+            species_symbol
+            , genus
+            , species
+            , common_name
+          )
+        , by = "species_symbol"
+        , relationship = "many-to-one"
+      )
+  )
+# pred_trees_list
+pred_trees_list <- 
+  pred_trees_list %>% 
+  purrr::map(
+    \(df)
+    df %>% 
+      # get rid of columns we'll create
+      dplyr::select( -dplyr::any_of(c(
+        "hey_xxxxxxxxxx"
+        , "genus"
+        , "species"
+        , "common_name"
+      ))) %>% 
+      dplyr::left_join(
+        fia_species_lookup %>% 
+          dplyr::select(
+            species_symbol
+            , genus
+            , species
+            , common_name
+          )
+        , by = "species_symbol"
+        , relationship = "many-to-one"
+      )
+  )
+```
+
+
+let's take the `allodb::get_biomass()` function for a spin, demonstrating with the first study site: `r names(ref_trees_list)[1]`. 
+
+required inputs for this function are: 
+
+* `dbh`	- a numeric vector containing tree diameter at breast height (dbh) measurements, in cm.
+* `genus` - a character vector (same length as dbh), containing the genus (e.g. "Quercus") of each tree.
+* `coords` - a numeric vector of length 2 with longitude and latitude (if all trees were measured in the same location) or a matrix with 2 numerical columns giving the coordinates of each tree.
+* `species` - a character vector (same length as dbh), containing the species (e.g. "rubra") of each tree. Default is NULL, when no species identification is available.
+
+The function returns "A numeric vector of the same length as dbh, containing AGB value (in kg) for every stem."
+
+this documentation is particularly interesting for noting that only `genus` is required and `species` is optional. based on the accuracy evaluation of the proposed classification method we just reviewed, we found that genus-level accuracy was generally higher, sometimes significantly higher, than species-level classification
+
+```{r}
+# ?allodb::get_biomass
+ref_trees_list <- 
+  ref_trees_list %>% 
+  purrr::map(function(df){
+    df$allodb_agb_kg <- allodb::get_biomass(
+        dbh = df$dbh_cm
+        , genus = df$genus
+        , species = df$species
+        , coords = 
+          df %>%
+            sf::st_transform(crs = sf::st_crs(4326)) %>%
+            sf::st_coordinates() %>% 
+            dplyr::as_tibble()
+      )
+    return(df)
+  })
+
+```
+
+what did we get back?
+
+```{r, results='asis'}
+# fia_species_lookup %>% dplyr::filter(stringr::str_starts(species_symbol,"PIFL"))
+ref_trees_list[[1]] %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(allodb_agb_kg) %>% 
+  summary() %>% 
+  knitr::kable(format = "markdown")
+# ref_trees_list[[1]] %>% 
+#   sf::st_drop_geometry() %>% 
+#   dplyr::mutate(missing_allodb_agb_kg = is.na(allodb_agb_kg)) %>% 
+#   dplyr::count(species_symbol,genus,species,missing_allodb_agb_kg)
+```
+
+let's plot estimated total aboveground biomass (kg) versus DBH
+
+```{r}
+ref_trees_list[[1]] %>% 
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = dbh_cm, y = allodb_agb_kg, color = genus)
+  ) +
+  ggplot2::geom_point(size=3, alpha=0.8) +
+  ggplot2::facet_wrap(facets = dplyr::vars(genus)) +
+  ggplot2::scale_color_viridis_d(option="turbo") +
+  ggplot2::scale_x_continuous(labels = scales::comma) +
+  ggplot2::scale_y_continuous(labels = scales::comma) +
+  ggplot2::labs(x = "DBH (cm)", y = "AGB (kg)") +
+  ggplot2::theme_light() +
+  ggplot2::theme(legend.position = "top")
+
+```
+
+```{r, include = F, eval = F}
+ref_trees_list[[1]] %>% 
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = dbh_cm, y = allodb_agb_kg, color = genus)
+  ) +
+  ggplot2::geom_point(size=3, alpha=0.8) +
+  ggplot2::facet_wrap(facets = dplyr::vars(species_symbol), ncol = 3) +
+  ggplot2::scale_color_viridis_d(option="turbo") +
+  ggplot2::scale_x_continuous(labels = scales::comma) +
+  ggplot2::scale_y_continuous(labels = scales::comma) +
+  ggplot2::labs(x = "DBH (cm)", y = "AGB (kg)") +
+  ggplot2::theme_light() +
+  ggplot2::theme(legend.position = "top")
+
+```
+
+neat.
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
