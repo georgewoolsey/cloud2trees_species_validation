@@ -640,7 +640,6 @@ pred_trees_list <-
   })
 # inherits(pred_trees_list$CSFS_SWE,"sf")
 # dplyr::glimpse(pred_trees_list[[1]])
-
 ```
 
 the next thing we need to figure out is this `STDORGCD` data attribute which is described by Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) as:
@@ -686,12 +685,15 @@ V_saw_bk_Gross # cubic-foot bark volume in the sawlog portion of a sawtimber tre
 # tree gets this data attached
 spp_vol_ib_all %>% dplyr::glimpse()
 
+nsvb_join_cols_temp <- c("DIVISION", "STDORGCD", "SPCD")
+
 tree %>% 
+  dplyr::ungroup() %>% 
   dplyr::select(dplyr::any_of(c(
     c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
   ))) %>% 
-  dplyr::inner_join(spp_vol_ib_all, by = dplyr::join_by(DIVISION, STDORGCD, SPCD)) %>% 
-  dplyr::glimpse()
+  # 1. Gross total stem wood volume, inside bark:
+  dplyr::left_join(spp_vol_ib_all, by = nsvb_join_cols_temp) %>% 
   dplyr::rowwise() %>% 
   dplyr::mutate(
     V_tot_ib_Gross = get_nsvb(
@@ -706,8 +708,46 @@ tree %>%
     , 
   ) %>% 
   dplyr::select(
-    -c(a, a1, b, b1, c, c1, coef_level, MODEL)
-  ) 
+    -base::setdiff(names(spp_vol_ib_all),nsvb_join_cols_temp) 
+  ) %>% 
+  # 2. Gross total stem bark volume
+  dplyr::left_join(spp_vol_bark_all, by = nsvb_join_cols_temp) %>% 
+  dplyr::rowwise() %>% 
+  dplyr::mutate(
+    V_tot_bk_Gross = get_nsvb(
+      MODEL = MODEL
+      , SPCD = SPCD
+      , DIA = DIA
+      , HT = HT
+      , a = a, a1 = a1, b = b
+      , b1 = b1, c = c, c1 = c1
+      , WDSG = NA
+    )
+    # 3. Gross total stem outside-bark volume
+    , V_tot_ob_Gross = V_tot_ib_Gross + V_tot_bk_Gross
+  ) %>% 
+  dplyr::select(
+    -base::setdiff(names(spp_vol_bark_all),nsvb_join_cols_temp) 
+  ) %>% 
+  # 4. Estimate height to merchantable top diameter (4.0-inch)
+  dplyr::left_join(spp_vol_ob_all, by = nsvb_join_cols_temp) %>% 
+  dplyr::rowwise() %>% 
+  dplyr::mutate(
+    hm = ifelse(
+      DIA >= 5
+      , get_hm(
+        top_dia = 4
+        , a = a, b = b, c = c
+        , alpha = alpha, beta = beta
+        , DIA = DIA, HT = HT
+      )
+      , NA
+    )
+  ) %>% 
+  dplyr::select(
+    -base::setdiff(names(spp_vol_ob_all),nsvb_join_cols_temp) 
+  ) %>% 
+  dplyr::glimpse()
 ```
 
 
