@@ -100,7 +100,9 @@ validation_trees %>%
 # {"Lat":39.127073,"Lon":-105.115716,"HT":20.12}
 ```
 
-now that we have a species classification framework, We will test out a method for estimating volume based for the spatial tree list from `cloud2trees`:
+## NSVB setup
+
+now that we have a species classification framework, We will test out a method for estimating volume based for the spatial tree list from `cloud2trees`
 
 We're going to attempt to use the [US National Scale Volume Biomass (NSVB) models](https://doi.org/10.2737/WO-GTR-104) to predict tree volume, biomass, and carbon. We'll implement code and functionality made available by Matthew Russell at [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB).
 
@@ -204,9 +206,6 @@ nsvb_dir_temp <- "../data/nsvb_files"
   }
   
   source_script_wo_dir_change_fn(nsvb_f_temp)
-
-# }
-
 ```
 
 download the files
@@ -321,23 +320,41 @@ if(file.exists(nsvb_f_temp)){
   stop(paste0("oops, can't find `",nsvb_f_temp,"` "))
 }
 
-# source it to load the functions
+# source it to load the functions and load the data
+# source it to load the functions and load the data
+# source it to load the functions and load the data
+
 source_script_wo_dir_change_fn <- function(file_path) {
   old_dir <- getwd()
   on.exit(setwd(old_dir)) # always restore initial working directory
   source(knitr::purl(file_path, quiet = T))
 }
 
+# if seting up an R package for NSVB which is highly dependent on external data (i.e. csv's)
+# we'll use `usethis::use_data(df, internal = T)`
+# usethis::use_data() makes it easy to save package data in the correct format
+# https://r-pkgs.org/data.html#sec-data-sysdata
+# doing this, make R store the data in your package’s internal data in R/sysdata.rda, so they are lazy-loaded on demand.
+
+# but for this, we'll actually load them into the working environment by sourcing the nsvb.Rmd file
 # nsvb_f_temp
 source_script_wo_dir_change_fn(nsvb_f_temp)
+# clean up from knitr::purl()
+if(file.exists(file.path(getwd(),"nsvb.R"))){
+  unlink(file.path(getwd(),"nsvb.R"))
+}
 
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
 ```
 
 running the `nsvb.Rmd` file creates 97 objects
 
 ```{r}
 # ls()
-
 ##### running the `nsvb.Rmd` file creates 97 objects btw
 # make a function to remove them
 clean_nsvb_objects_fn <- function() {
@@ -372,7 +389,30 @@ clean_nsvb_objects_fn <- function() {
 # ls()
 ```
 
+## Basic NSVB values
+
 while the `nsvb.Rmd` file contains function definitions, it is more of a procedural template script. let's try to figure out what we need to work with our own tree data
+
+to get the primary **Gross** volume metrics of:
+
+| Westfall abbr      | FIADB abbr | Definition      | Units |
+| ----------- | ----------- | ----------- | ----------- |
+| $h_{m}$	| - |	Merchantable height to a 4.0 inch top      | feet       |
+| $R_{1}$	| - |		Proportion of volume to 1 foot (i.e., stump)      | -       |
+| $R_{m}$	| -	 |	Proportion of volume to the merchantable height (i.e., 4.0 inches)      | -       |
+| $R_{s}$ |	-	| Proportion of volume to sawlog top (7.0 inches for softwoods; 9.0 inches for hardwoods)      | -       |
+| $Vtot_{ib}Gross$      | VOLTSGRS       | Gross cubic-foot total-stem wood volume      | cubic feet       |
+| $Vtot_{bk}Gross$	| VOLTSGRS_BARK	| Gross cubic-foot total-stem bark volume      | cubic feet       |
+| $Vmer_{ib}Gross$ | 	VOLCFGRS	 |	Gross cubic-foot merchantable stem wood volume (inside bark)      | cubic feet       |
+| $Vmer_{bk}Gross$ |	VOLCFGRS_BARK	 |	Merchantable stem bark volume      | cubic feet       |
+| $Vsaw_{ib}Gross$ |	VOLCSGRS	 |	Gross cubic-foot wood volume in the sawlog portion of a sawtimber tree      | cubic feet       |
+| $Vsaw_{bk}Gross$ |	VOLCSGRS_BARK	Gross |	 cubic-foot bark volume in the sawlog portion of a sawtimber tree      | cubic feet       |
+| $Vstump_{ib}Gross$ |	VOLCFGRS_STUMP |		Gross cubic-foot stump wood volume (inside bark)      | cubic feet       |
+| $Vstump_{bk}Gross$ |	VOLCFGRS_STUMP_BARK	 |	Gross cubic-foot stump bark volume      | cubic feet       |
+| $Vtop_{ib}Gross$ |	VOLCFGRS_TOP |		Gross cubic-foot stem-top wood volume, inside bark      | cubic feet       |
+| $Vtop_{bk}Gross$ |	VOLCFGRS_TOP_BARK |		Gross cubic-foot stem-top bark volume, outside bark      | cubic feet       |
+
+, we should only need basic tree information......After digging through the `nsvb.Rmd` code and Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) (process outlined below), we have determined that this basic information includes: location ("DIVISION"), species ("SPCD"), planting condition ("STDORGCD"), and, of course tree height in feet ("HT") and diameter in inches ("DIA"). Merchantable volume also requires actual height ("ACTUALHT") which is the measure of the standing height compared to the derived height ("HT") which is the standing height plus the missing top height for trees with broken tops. For all point cloud-based tree list data (i.e. from `cloud2trees`) we will have actual height and never derived height adjustment for trees with broken tops.
 
 the first thing we need to figure out is this `SPCD` data attribute which is described by Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) as:
 
@@ -529,6 +569,103 @@ fia_ecodivisions_sf %>%
 pretty good match with Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) Fig. 1 (p. 3). we can spatially match the trees with this ecodivision spatial data now that we dug up the data from the research data archive and cleaned it up.
 
 ```{r}
+# make a function to attach `fia_ecodivision` to spatial data
+
+# first, function to check and make it spatial points
+## same as cloud2trees:::check_spatial_points() but removes treeID requirement
+check_spatial_points <- function(
+  tree_list
+  , crs = NA
+){
+  ##################################
+  # convert to spatial points data
+  ##################################
+  if(inherits(tree_list, "sf")){
+    # if points, just use it
+    if( sf::st_is(tree_list, type = c("POINT", "MULTIPOINT")) %>% all() ){
+      tree_tops <- tree_list %>% dplyr::ungroup()
+    }else{ # if spatial but not points, drop geom and set to points
+      tree_tops <- tree_list %>%
+        dplyr::ungroup() %>% 
+        sf::st_centroid()
+    }
+  }else{ # not spatial data
+    # convert from data.frame to spatial points
+    if(!inherits(tree_list, "data.frame")){
+      stop("must pass a data.frame or sf object to the `tree_list` parameter")
+    }
+    if(is.na(crs) || is.na(readr::parse_number(as.character(crs)))){
+      stop("must provide the EPSG code in `crs` parameter for the projection of x,y data")
+    }
+    if(
+      !(stringr::str_equal(nms, "tree_x") %>% any())
+      || !(stringr::str_equal(nms, "tree_y") %>% any())
+    ){ # doesn't contain x,y
+      stop("must provide the columns `tree_x` and `tree_y`")
+    }
+    tree_tops <- tree_list %>%
+      dplyr::ungroup() %>% 
+      sf::st_as_sf(
+        coords = c("tree_x", "tree_y")
+        , crs = paste0( "EPSG:", readr::parse_number(as.character(crs)) )
+        , remove = F
+      )
+  }
+
+  return(tree_tops)
+}
+
+### take a spatial data, or df with tree_x and tree_y, and combine with fia ecodivision
+get_fia_ecodivision <- function(tree_list, fia_ecodivisions_sf, crs = NA) {
+  
+  # fia_ecodivisions_sf has to be spatial
+  if(
+    !inherits(fia_ecodivisions_sf, "sf") &&
+    !all( sf::st_is(fia_ecodivisions_sf, type = c("POLYGON", "MULTIPOLYGON")) )
+  ){
+    stop("`fia_ecodivisions_sf` must be spatial polygons `sf` class")
+  }
+  if(!any(stringr::str_equal(names(fia_ecodivisions_sf),"fia_ecodivision"))){
+    stop("`fia_ecodivisions_sf` must include `fia_ecodivision` column")
+  }
+  
+  # add a join id
+  if(!inherits(tree_list, "data.frame")){
+    stop("must pass a data.frame or sf object to the `tree_list` parameter")
+  }
+  tree_list <- tree_list %>% dplyr::ungroup() %>% dplyr::mutate(xxx_join_id)
+  
+  # check/make spatial points
+  tree_tops <- check_spatial_points(tree_list=tree_list, crs=crs) %>% dplyr::select(xxx_join_id)
+  
+  # do the spatial join
+  tree_tops <- 
+    tree_tops %>% 
+    sf::st_join(
+      fia_ecodivisions_sf %>% sf::st_transform(sf::st_crs(tree_tops))
+      , left = T
+      , largest = T
+    ) %>% 
+    sf::st_drop_geometry()
+  
+  # add to original data without the spatial
+  if(nrow(tree_tops)==0){return(tree_list %>% dplyr::select(-xxx_join_id))}
+  tree_list %>% 
+    # get rid of columns we'll create
+    dplyr::select( -dplyr::any_of(c(
+      "hey_xxxxxxxxxx"
+      , "fia_ecodivision"
+      , "fia_ecodivision_desc"
+    ))) %>% 
+    # join
+    dplyr::left_join(tree_tops, by = "xxx_join_id", relationship = "one-to-one") %>% 
+    dplyr::select(-xxx_join_id)
+  
+}
+
+
+#### apply it to  our prediction and reference data
+
 # inherits(ref_trees_list$CSFS_SWE,"sf")
 # ref_trees_list
 ref_trees_list <- 
@@ -565,18 +702,7 @@ ref_trees_list <-
     }
       
     # join it
-    df %>% 
-      # get rid of columns we'll create
-      dplyr::select( -dplyr::any_of(c(
-        "hey_xxxxxxxxxx"
-        , "fia_ecodivision"
-        , "fia_ecodivision_desc"
-      ))) %>% 
-      sf::st_join(
-        fia_ecodivisions_sf %>% sf::st_transform(sf::st_crs(df))
-        , left = T
-        , largest = T
-      )
+    df %>% get_fia_ecodivision(fia_ecodivisions_sf = fia_ecodivisions_sf)
   })
 # inherits(ref_trees_list$CSFS_SWE,"sf")
 
@@ -615,28 +741,7 @@ pred_trees_list <-
       return(df)
     }
       
-    # join it AS POINTS
-    xdf <- 
-      df %>% 
-      # get rid of columns we'll create
-      dplyr::select(treeID,tree_x,tree_y) %>%
-      sf::st_drop_geometry() %>% 
-      sf::st_as_sf(coords = c("tree_x", "tree_y"), crs = sf::st_crs(df), remove = T) %>% 
-      sf::st_join(
-        fia_ecodivisions_sf %>% sf::st_transform(sf::st_crs(df))
-        , left = T
-        , largest = T
-      ) %>% 
-      sf::st_drop_geometry()
-    
-    df %>% 
-      # get rid of columns we'll create
-      dplyr::select( -dplyr::any_of(c(
-        "hey_xxxxxxxxxx"
-        , "fia_ecodivision"
-        , "fia_ecodivision_desc"
-      ))) %>%
-      dplyr::left_join(xdf,by="treeID")
+    df %>% get_fia_ecodivision(fia_ecodivisions_sf = fia_ecodivisions_sf)
   })
 # inherits(pred_trees_list$CSFS_SWE,"sf")
 # dplyr::glimpse(pred_trees_list[[1]])
@@ -656,37 +761,353 @@ spp_vol_ib_all %>%
 
 it looks like the majority of volume equations don't even use this and are `NA`...we'll ignore for now
 
+let's make a function to use the data loaded into our current working session when we ran `nsvb.Rmd` to get those basic volume metrics with our tree list data (both reference and predicted)
+
+if we are going to sett up an R package for NSVB, or any other method, that is highly dependent on external data (i.e. csv's), we should use `usethis::use_data(..., internal = T)`. This `usethis::use_data()` function makes it easy to save package data in [the correct format](https://r-pkgs.org/data.html#sec-data-sysdata) by making R store the data in your package’s internal data in `R/sysdata.rda` so they are lazy-loaded on demand.
+
 ```{r}
-# tree %>% dplyr::glimpse()
-# tree %>% dplyr::glimpse()
-## inputs
-c(
-  "EXAMPLE"
-  , "DIVISION" # If a species occurs in an ecodivision (DIVISION) not explicitly listed, the entry having no ecodivision noted is used
-  , "PROVINCE"
-  , "STDORGCD" # stand origins for planted (stand origin code (STDORGCD) = 1) and natural (STDORGCD = 0) stands
-  , "SPCD"
-  , "DIA"
-  ,  "HT"
-  , "ACTUALHT"
-  , "CR"
-  ,  "CULL"
-  , "DECAYCD"
-  , "STATUSCD"
-)
-## desired outputs
-V_tot_ib_Gross # Gross cubic-foot total-stem wood volume
-V_tot_bk_Gross # Gross cubic-foot total-stem bark volume
-V_mer_ib_Gross # Gross cubic-foot merchantable stem wood volume (inside bark)
-V_mer_bk_Gross # Merchantable stem bark volume
-V_saw_ib_Gross # Gross cubic-foot wood volume in the sawlog portion of a sawtimber tree
-V_saw_bk_Gross # cubic-foot bark volume in the sawlog portion of a sawtimber tree
+# tree_list <- ref_trees_list[[1]] %>% dplyr::mutate(V_mer_ib_Gross="hey")
+# tree_list %>% dplyr::glimpse()
+### function to set DIA in inches depending on what's in the data
+cols_set_nsvb_dbh <- function(df) {
+  # diameter check
+  if(any(stringr::str_equal(names(df), "DIA"))){
+    df <- df %>% dplyr::mutate(DIA = as.numeric(DIA))
+  }else if(any(stringr::str_equal(names(df), "dbh_in"))){
+    df <- df %>% dplyr::mutate(DIA = as.numeric(dbh_in))
+  }else if(any(stringr::str_equal(names(df), "dbh_cm"))){
+    df <- df %>% dplyr::mutate(DIA = as.numeric(dbh_cm)/2.54)
+  }else{
+    stop(paste0(
+      "the data does not contain the columns `DIA`, `dbh_cm`, or `dbh_in`"
+      , "\n .... at least one of these columns must be present and have data"
+    ))
+  }
+  
+  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "DIA", all_numeric = T)
+  
+  return(df)
+}
+### function to set HT in feet depending on what's in the data
+cols_set_nsvb_height <- function(df) {
+  # height check
+  if(any(stringr::str_equal(names(df), "HT"))){
+    df <- df %>% dplyr::mutate(HT = as.numeric(HT))
+  }else if(any(stringr::str_equal(names(df), "tree_height_ft"))){
+    df <- df %>% dplyr::mutate(HT = as.numeric(tree_height_ft))
+  }else if(any(stringr::str_equal(names(df), "tree_height_m"))){
+    df <- df %>% dplyr::mutate(HT = as.numeric(tree_height_m)*3.281)
+  }else{
+    stop(paste0(
+      "the data does not contain the columns `HT`, `tree_height_m`, or `tree_height_ft`"
+      , "\n .... at least one of these columns must be present and have data"
+    ))
+  }
+  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "HT", all_numeric = T)
+  
+  # actual height check
+  if(any(stringr::str_equal(names(df), "ACTUALHT"))){
+    df <- df %>% dplyr::mutate(ACTUALHT = as.numeric(ACTUALHT))
+  }else if(any(stringr::str_equal(names(df), "HT"))){
+    df <- df %>% dplyr::mutate(ACTUALHT = HT)
+    message("...setting ACTUALHT to HT")
+  }else{
+    stop(paste0(
+      "the data does not contain the columns `ACTUALHT`"
+      , "\n .... at least one of these columns must be present and have data"
+    ))
+  }
+  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "ACTUALHT", all_numeric = T)
+  
+  return(df)
+}
+
+# function to get all nsvb gross stuff
+trees_volume_nsvb_gross <- function(
+  tree_list
+){
+  # add check for fia_ecodivisions_sf like checks for treemap data
+  fia_ecodivisions_sf <- NULL
+
+  # save name for later
+  orig_names_temp <- names(tree_list)
+  
+  # set up HT, ACTUALHT, and DIA
+  # will also check and throw error if missing
+  tree_list <- tree_list %>% 
+    cols_set_nsvb_dbh() %>% 
+    cols_set_nsvb_height()
+
+  # SPCD check
+  if(any(stringr::str_equal(names(tree_list), "SPCD"))){
+    tree_list <- tree_list %>% dplyr::mutate(SPCD = as.numeric(SPCD))
+  }else if(any(stringr::str_equal(names(tree_list), "spcd"))){
+    tree_list <- tree_list %>% dplyr::mutate(SPCD = as.numeric(spcd))
+  }else{
+    stop(paste0(
+      "the data does not contain the columns `SPCD` or `spcd`"
+      , "\n .... at least one of these columns must be present and have data"
+    ))
+  }
+  cloud2trees:::check_df_cols_all_missing(df = tree_list, col_names = "SPCD", all_numeric = T)
+  
+  # DIVISION check
+  if(any(stringr::str_equal(names(tree_list), "DIVISION"))){
+    tree_list <- tree_list %>% dplyr::mutate(DIVISION = as.character(DIVISION))
+  }else if(any(stringr::str_equal(names(tree_list), "fia_ecodivision"))){
+    tree_list <- tree_list %>% dplyr::mutate(DIVISION = as.character(fia_ecodivision))
+  }else if(
+    inherits(tree_list,"sf") &&
+    inherits(fia_ecodivisions_sf,"sf")
+    # sum(names(tree_list) %in% c("tree_x","tree_y"))==2
+  ) {
+    tree_list <- tree_list %>% get_fia_ecodivision(fia_ecodivisions_sf = fia_ecodivisions_sf)
+  }else{
+    stop(paste0(
+      "the data does not contain the columns `DIVISION` or `fia_ecodivision`"
+      , "\n .... at least one of these columns must be present and have data"
+    ))
+  }
+  cloud2trees:::check_df_cols_all_missing(df = tree_list, col_names = "DIVISION", all_numeric = F)
+  
+  # STDORGCD check
+  if(any(stringr::str_equal(names(tree_list), "STDORGCD"))){
+    tree_list <- tree_list %>% dplyr::mutate(STDORGCD = as.numeric(STDORGCD))
+  }else if(T){ ### !!!! this just sets it to NA
+    tree_list <- tree_list %>% dplyr::mutate(STDORGCD = as.numeric(NA))
+  }else{
+    stop(paste0(
+      "the data does not contain the columns `STDORGCD`"
+      , "\n .... at least one of these columns must be present and have data"
+    ))
+  }
+  
+  # we need a clean data set that doesn't include any variables named in any of the data used by the nsvb.Rmd data sets or functions
+  # we'll start with the absolute minimum data, go through the nsvb process, drop any cols in our original data created in the process
+  # then join on the new data
+  # add a join id for use in combining in case any nsvb process drops rows
+  tree_list <- tree_list %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(xxx_join_id = dplyr::row_number())
+    
+  tree_list_w_nsvb <- 
+    tree_list %>%
+    sf::st_drop_geometry() %>% 
+    dplyr::select(xxx_join_id, HT, ACTUALHT, DIA, SPCD, DIVISION, STDORGCD)
+  # save the names so we know what was added
+  hey_names_temp <- names(tree_list_w_nsvb)
+
+  ######################################################################################################
+  # this method is defined in nsvb.Rmd
+  # from https://github.com/mbrussell/NSVB
+  # copied with slight adjustments
+  ######################################################################################################
+  nsvb_join_cols_temp <- c("DIVISION", "STDORGCD", "SPCD")
+  tree_list_w_nsvb <- 
+    tree_list_w_nsvb %>% 
+    dplyr::ungroup() %>% 
+    # 1. Gross total stem wood volume, inside bark:
+    dplyr::left_join(spp_vol_ib_all, by = nsvb_join_cols_temp) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(
+      V_tot_ib_Gross = get_nsvb(
+        MODEL = MODEL
+        , SPCD = SPCD
+        , DIA = DIA
+        , HT = HT
+        , a = a, a1 = a1, b = b
+        , b1 = b1, c = c, c1 = c1
+        , WDSG = NA
+      )
+      , 
+    ) %>% 
+    dplyr::select(
+      -base::setdiff(names(spp_vol_ib_all),nsvb_join_cols_temp) 
+    ) %>% 
+    # 2. Gross total stem bark volume
+    dplyr::left_join(spp_vol_bark_all, by = nsvb_join_cols_temp) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(
+      V_tot_bk_Gross = get_nsvb(
+        MODEL = MODEL
+        , SPCD = SPCD
+        , DIA = DIA
+        , HT = HT
+        , a = a, a1 = a1, b = b
+        , b1 = b1, c = c, c1 = c1
+        , WDSG = NA
+      )
+      # 3. Gross total stem outside-bark volume
+      , V_tot_ob_Gross = V_tot_ib_Gross + V_tot_bk_Gross
+    ) %>% 
+    dplyr::select(
+      -base::setdiff(names(spp_vol_bark_all),nsvb_join_cols_temp) 
+    ) %>% 
+    # 4. Estimate height to merchantable top diameter (4.0-inch)
+    dplyr::left_join(spp_vol_ob_all, by = nsvb_join_cols_temp) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(
+      hm = ifelse(
+        DIA >= 5 #### !!!!!!!!!!!!!!!!! convert cm to inches
+        , get_hm(
+          top_dia = 4
+          , a = a, b = b, c = c
+          , alpha = alpha, beta = beta
+          , DIA = DIA, HT = HT
+        )
+        , NA
+      )
+    ) %>% 
+    dplyr::select(
+      -base::setdiff(names(spp_vol_ob_all),nsvb_join_cols_temp) 
+    ) %>% 
+    # 5. Estimate merchantable wood volume – volume ratios to stump & merchantable top
+    dplyr::left_join(spp_vol_ratio_all, by = nsvb_join_cols_temp) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(
+      R_1 = get_V_ratio(h1 = 1, HT = HT, alpha = alpha, beta = beta)
+      , R_m = ifelse(
+        DIA >= 5  #### !!!!!!!!!!!!!!!!! convert cm to inches
+        , get_V_ratio(
+          h1 = hm, HT = HT
+          , alpha = alpha, beta = beta
+        )
+        , NA
+      )
+      , R_m_2 = get_V_ratio(
+        h1 = ACTUALHT, HT = HT
+        , alpha = alpha, beta = beta
+      )
+      , V_mer_ib_Gross = (R_m * V_tot_ib_Gross ) - (R_1 * V_tot_ib_Gross)
+      , V_mer_ob_Gross = (R_m * V_tot_ob_Gross ) - (R_1 * V_tot_ob_Gross)
+      , V_mer_bk_Gross = V_mer_ob_Gross - V_mer_ib_Gross
+    ) %>% 
+    dplyr::select(
+      -base::setdiff(names(spp_vol_ratio_all),nsvb_join_cols_temp) 
+    ) %>% 
+    # Volume in the sawlog portion of the stem
+    dplyr::left_join(spp_vol_ob_all, by = nsvb_join_cols_temp) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(
+      hm_saw = ifelse(
+        SPCD < 300 & DIA >= 9.0  #### !!!!!!!!!!!!!!!!! convert cm to inches
+        , get_hm(
+          top_dia = 7  #### !!!!!!!!!!!!!!!!! convert cm to inches
+          , a = a, b = b, c = c
+          , alpha = alpha, beta = beta
+          , DIA = DIA, HT = HT
+        )
+        , ifelse(
+          SPCD >= 300 & DIA >= 11.0  #### !!!!!!!!!!!!!!!!! convert cm to inches
+          , get_hm(
+            top_dia = 9  #### !!!!!!!!!!!!!!!!! convert cm to inches
+            , a = a, b = b, c = c
+            , alpha = alpha, beta = beta
+            , DIA = DIA, HT = HT
+          )
+          , NA
+        )
+      )
+    ) %>% 
+    dplyr::select(
+      -base::setdiff(names(spp_vol_ob_all),nsvb_join_cols_temp) 
+    ) %>% 
+    # Sawlog volumes ratios - stump and merchantable height
+    dplyr::left_join(spp_vol_ratio_all, by = nsvb_join_cols_temp) %>% 
+    dplyr::rowwise() %>% 
+    dplyr::mutate(
+      R_s = get_V_ratio(
+        h1 = hm_saw
+        , HT = HT
+        , alpha = alpha
+        , beta = beta
+      )
+    ) %>% 
+    dplyr::select(
+      -base::setdiff(names(spp_vol_ratio_all),nsvb_join_cols_temp) 
+    ) %>% 
+    # More tree-level calcs here
+    #### GW add.... i'm going to break this into columns that require CULL and those that don't
+    dplyr::mutate(
+      V_saw_ib_Gross = (R_s * V_tot_ib_Gross) - (R_1 * V_tot_ib_Gross)
+      , V_saw_ob_Gross = (R_s * V_tot_ob_Gross) - (R_1 * V_tot_ob_Gross)
+      , V_saw_bk_Gross = V_saw_ob_Gross - V_saw_ib_Gross
+      , V_stump_ob_Gross = (R_1 * V_tot_ob_Gross)
+      , V_stump_ib_Gross = (R_1 * V_tot_ib_Gross)
+      , V_stump_bk_Gross = V_stump_ob_Gross - V_stump_ib_Gross
+      , V_top_ob_Gross = V_tot_ob_Gross - V_mer_ob_Gross - V_stump_ob_Gross
+      , V_top_ib_Gross = V_tot_ib_Gross - V_mer_ib_Gross - V_stump_ib_Gross
+      , V_top_bk_Gross = V_top_ob_Gross - V_top_ib_Gross
+    )
+    # #### GW add.... these aren't defined in Westfall or https://github.com/mbrussell/NSVB
+    # dplyr::select(
+    #   -c(
+    #     R_m_2, hm_saw
+    #   )
+    # )
+
+  ######################################################################################################
+  # add nsvb volume to original data
+  ######################################################################################################
+  new_names_temp <- base::setdiff(names(tree_list_w_nsvb),hey_names_temp)
+  
+  tree_list <-
+    tree_list %>% 
+    # get rid of columns we'll create
+    dplyr::select( -dplyr::any_of(c(
+      "hey_xxxxxxxxxx"
+      , new_names_temp
+    ))) %>% 
+    # add nsvb data
+    dplyr::left_join(
+      tree_list_w_nsvb %>% dplyr::select(dplyr::all_of(c(
+        "xxx_join_id"
+        , new_names_temp
+      )))
+      , by = "xxx_join_id"
+      , relationship = "one-to-one"
+    ) %>% 
+    # clean up cols we may have created
+    dplyr::select(-xxx_join_id) %>% 
+    dplyr::select(dplyr::all_of(c(
+      base::setdiff(orig_names_temp,new_names_temp)
+      , new_names_temp
+    )))
+  
+  # return
+  return(tree_list)
+}
+```
+
+
+```{r}
+# # tree %>% dplyr::glimpse()
+# # tree %>% dplyr::glimpse()
+# ## inputs
+# c(
+#   "EXAMPLE"
+#   , "DIVISION" # If a species occurs in an ecodivision (DIVISION) not explicitly listed, the entry having no ecodivision noted is used
+#   , "PROVINCE"
+#   , "STDORGCD" # stand origins for planted (stand origin code (STDORGCD) = 1) and natural (STDORGCD = 0) stands
+#   , "SPCD"
+#   , "DIA"
+#   ,  "HT"
+#   , "ACTUALHT"
+#   , "CR"
+#   ,  "CULL"
+#   , "DECAYCD"
+#   , "STATUSCD"
+# )
+# ## desired outputs
+# # V_tot_ib_Gross # Gross cubic-foot total-stem wood volume
+# # V_tot_bk_Gross # Gross cubic-foot total-stem bark volume
+# # V_mer_ib_Gross # Gross cubic-foot merchantable stem wood volume (inside bark)
+# # V_mer_bk_Gross # Merchantable stem bark volume
+# # V_saw_ib_Gross # Gross cubic-foot wood volume in the sawlog portion of a sawtimber tree
+# # V_saw_bk_Gross # cubic-foot bark volume in the sawlog portion of a sawtimber tree
 
 # tree gets this data attached
-spp_vol_ib_all %>% dplyr::glimpse()
-
 nsvb_join_cols_temp <- c("DIVISION", "STDORGCD", "SPCD")
-
 tree %>% 
   dplyr::ungroup() %>% 
   dplyr::select(dplyr::any_of(c(
@@ -734,7 +1155,7 @@ tree %>%
   dplyr::rowwise() %>% 
   dplyr::mutate(
     hm = ifelse(
-      DIA >= 5
+      DIA >= 5 #### !!!!!!!!!!!!!!!!! convert cm to inches
       , get_hm(
         top_dia = 4
         , a = a, b = b, c = c
@@ -747,7 +1168,158 @@ tree %>%
   dplyr::select(
     -base::setdiff(names(spp_vol_ob_all),nsvb_join_cols_temp) 
   ) %>% 
+  # 5. Estimate merchantable wood volume – volume ratios to stump & merchantable top
+  dplyr::left_join(spp_vol_ratio_all, by = nsvb_join_cols_temp) %>% 
+  dplyr::rowwise() %>% 
+  dplyr::mutate(
+    R_1 = get_V_ratio(h1 = 1, HT = HT, alpha = alpha, beta = beta)
+    , R_m = ifelse(
+      DIA >= 5  #### !!!!!!!!!!!!!!!!! convert cm to inches
+      , get_V_ratio(
+        h1 = hm, HT = HT
+        , alpha = alpha, beta = beta
+      )
+      , NA
+    )
+    , R_m_2 = get_V_ratio(
+      h1 = ACTUALHT, HT = HT
+      , alpha = alpha, beta = beta
+    )
+    , V_mer_ib_Gross = (R_m * V_tot_ib_Gross ) - (R_1 * V_tot_ib_Gross)
+    , V_mer_ob_Gross = (R_m * V_tot_ob_Gross ) - (R_1 * V_tot_ob_Gross)
+    , V_mer_bk_Gross = V_mer_ob_Gross - V_mer_ib_Gross
+  ) %>% 
+  dplyr::select(
+    -base::setdiff(names(spp_vol_ratio_all),nsvb_join_cols_temp) 
+  ) %>% 
+  # Volume in the sawlog portion of the stem
+  dplyr::left_join(spp_vol_ob_all, by = nsvb_join_cols_temp) %>% 
+  dplyr::rowwise() %>% 
+  dplyr::mutate(
+    hm_saw = ifelse(
+      SPCD < 300 & DIA >= 9.0  #### !!!!!!!!!!!!!!!!! convert cm to inches
+      , get_hm(
+        top_dia = 7  #### !!!!!!!!!!!!!!!!! convert cm to inches
+        , a = a, b = b, c = c
+        , alpha = alpha, beta = beta
+        , DIA = DIA, HT = HT
+      )
+      , ifelse(
+        SPCD >= 300 & DIA >= 11.0  #### !!!!!!!!!!!!!!!!! convert cm to inches
+        , get_hm(
+          top_dia = 9  #### !!!!!!!!!!!!!!!!! convert cm to inches
+          , a = a, b = b, c = c
+          , alpha = alpha, beta = beta
+          , DIA = DIA, HT = HT
+        )
+        , NA
+      )
+    )
+  ) %>% 
+  dplyr::select(
+    -base::setdiff(names(spp_vol_ob_all),nsvb_join_cols_temp) 
+  ) %>% 
+  # Sawlog volumes ratios - stump and merchantable height
+  dplyr::left_join(spp_vol_ratio_all, by = nsvb_join_cols_temp) %>% 
+  dplyr::rowwise() %>% 
+  dplyr::mutate(
+    R_s = get_V_ratio(
+      h1 = hm_saw
+      , HT = HT
+      , alpha = alpha
+      , beta = beta
+    )
+  ) %>% 
+  dplyr::select(
+    -base::setdiff(names(spp_vol_ratio_all),nsvb_join_cols_temp) 
+  ) %>% 
+  # More tree-level calcs here
+  #### GW add.... i'm going to break this into columns that require CULL and those that don't
+  dplyr::mutate(
+    V_saw_ib_Gross = (R_s * V_tot_ib_Gross) - (R_1 * V_tot_ib_Gross)
+    , V_saw_ob_Gross = (R_s * V_tot_ob_Gross) - (R_1 * V_tot_ob_Gross)
+    , V_saw_bk_Gross = V_saw_ob_Gross - V_saw_ib_Gross
+    , V_stump_ob_Gross = (R_1 * V_tot_ob_Gross)
+    , V_stump_ib_Gross = (R_1 * V_tot_ib_Gross)
+    , V_stump_bk_Gross = V_stump_ob_Gross - V_stump_ib_Gross
+    , V_top_ob_Gross = V_tot_ob_Gross - V_mer_ob_Gross - V_stump_ob_Gross
+    , V_top_ib_Gross = V_tot_ib_Gross - V_mer_ib_Gross - V_stump_ib_Gross
+    , V_top_bk_Gross = V_top_ob_Gross - V_top_ib_Gross
+  ) %>% 
+  dplyr::mutate(
+    CULL = ifelse(is.na(CULL), 0, CULL)
+    , V_top_bk_Sound = 0
+    # broken tops
+    , V_mer_ib_Sound = ((R_m_2 * V_tot_ib_Gross) - (R_1 * V_tot_ib_Gross)) * 
+        (1 - CULL/100)
+    , V_mer_ib_Sound2 = ((R_m_2 * V_tot_ib_Gross) - (R_1 * V_tot_ib_Gross)) # * (1 - 0/100)
+    , V_mer_bk_Sound = ((R_m_2 * V_tot_bk_Gross) - (R_1 * V_tot_bk_Gross))
+    , V_mer_ob_Sound = V_mer_ib_Sound + V_mer_bk_Sound
+    , V_mer_ob_Sound2 = V_mer_ib_Sound2 + V_mer_bk_Sound
+    , V_stump_ib_Sound = V_stump_ib_Gross * (1 - CULL/100)
+    , V_stump_ob_Sound = V_stump_ib_Sound + V_stump_bk_Gross
+  ) %>% 
+  #### GW add.... i'm going to break this into columns that require STATUSCD and those that don't
+  #### GW add.... i'm going to break this into columns that require ACTUALHT and those that don't
+  dplyr::mutate(
+    STATUSCD = dplyr::coalesce(as.numeric(STATUSCD), 1) #### GW add....
+    # Live trees
+    , V_tot_ib_Sound = ifelse(
+      STATUSCD == 1
+      , V_tot_ib_Gross * (1 - CULL/100)
+      , V_mer_ib_Sound + V_stump_ib_Sound
+    )
+    , V_mer_ib_Sound2 = ((R_m_2 * V_tot_ib_Gross) - (R_1 * V_tot_ib_Gross)) #* (1 - 0/100)
+    , V_stump_ib_Sound2 = V_stump_ib_Gross * (1 - 0/100)
+    , V_stump_ob_Sound2 = V_stump_ib_Sound2 + V_stump_bk_Gross
+    , V_tot_ib_Sound2 = V_mer_ib_Sound2 + V_stump_ib_Sound2
+    , V_tot_bk_Sound =  V_tot_bk_Gross
+    , V_tot_ob_Sound = V_tot_ib_Sound + V_tot_bk_Sound
+    , V_tot_bk_Sound2 =  V_tot_ob_Sound - V_tot_ib_Sound2,
+    , V_tot_ob_Sound2 = V_mer_ob_Sound2 + V_stump_ob_Sound2
+    , V_tot_ob_Sound = ifelse(
+      ACTUALHT == HT
+      , V_tot_ib_Sound + V_tot_bk_Sound
+      , V_mer_ob_Sound + V_stump_ob_Sound
+    )
+    , V_tot_bk_Sound = ifelse(
+      ACTUALHT == HT
+      , V_tot_bk_Gross
+      , V_tot_ob_Sound - V_tot_ib_Sound
+    )
+    ,
+    # Snags
+    , V_top_ob_Sound = V_tot_ob_Sound - V_mer_ob_Sound - V_stump_ob_Sound
+    , V_top_ib_Sound = V_tot_ib_Sound - V_mer_ib_Sound - V_stump_ib_Sound
+    , V_top_bk = V_top_ob_Sound - V_top_ib_Sound
+    # Missing
+    , V_miss_ob_Gross = ifelse(
+      V_tot_ob_Gross * (1 - R_m_2) >= 0
+      , V_tot_ob_Gross * (1 - R_m_2)
+      , V_tot_ob_Gross * (1 - 0)
+    )
+    , V_miss_ib_Gross = V_tot_ib_Gross * (1 - R_m_2)
+    , V_miss_ib_Gross2 = ifelse(is.na(V_miss_ib_Gross), 0, V_miss_ib_Gross)
+    , V_miss_bk_Gross = V_miss_ob_Gross - V_miss_ib_Gross2
+    , V_top_ib_Sound2 = 
+      (V_tot_ib_Gross - V_mer_ib_Gross - V_stump_ib_Gross - V_miss_ib_Gross2) * 
+      (1-CULL/100)
+    , V_top_ob_Sound2 = V_top_ib_Sound2 + V_tot_bk_Gross * (1 - R_m) - V_miss_bk_Gross
+    , V_top_bk_Sound2 = V_top_ob_Sound2 - V_top_ib_Sound2
+    , V_mer_ib_Sound3 = V_mer_ib_Gross * (1 - CULL/100)
+    , V_stump_ib_Sound3 = V_stump_ib_Gross * (1 - CULL/100)
+    , V_tot_ib_Sound3 = (V_mer_ib_Sound3 + V_stump_ib_Sound3 + V_top_ib_Sound2)
+    , V_tot_ob_Sound2 = (V_tot_ib_Sound3 + V_tot_bk_Gross - V_miss_bk_Gross)
+    , V_tot_bk_Sound2 = (V_tot_ob_Sound2 - V_tot_ib_Sound3)
+  ) %>% 
+  # Enter Wood density proportions and remaining bark and branch proportions 
+  # for standing dead trees (Westfall et al. 2023 Table 1)
+  #### GW add.... i'm going to break this into columns that require DECAYCD and those that don't
+  dplyr::mutate(DECAYCD = ifelse(is.na(DECAYCD), 0, DECAYCD)) %>% 
+  dplyr::left_join(wdsg, by = "SPCD") %>% 
+  dplyr::left_join(dead, by = c("SFTWD_HRDWD", "DECAYCD")) %>% 
   dplyr::glimpse()
+xxxxxx  
 ```
 
 
