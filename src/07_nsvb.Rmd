@@ -110,7 +110,7 @@ since the files and code at [https://github.com/mbrussell/NSVB](https://github.c
 
 The `nsvb.Rmd` script cannot be run immediately out of the box due to configuration dependencies including:
 
-* **Hardcoded Paths**: It explicitly contains setwd("my/directory").	It will error out immediately unless rewritten to match your local folders.
+* **Hardcoded Paths**: It explicitly contains `setwd("my/directory")`.	It will error out immediately unless rewritten to match your local folders.
 * **Undefined Data Paths**:	It attempts to load several data tables (e.g., REF_SPECIES.csv, Table S1a_volib_coefs_spcd.csv).	If these files aren't in the working directory, it will throw a file not found error.
 * **Dependant Workspace Objects**: It performs operations like `dplyr::inner_join(tree, spp_vol_ib_all)` without declaring what `tree` is.	It assumes a dataframe named `tree` with predefined columns already exists in the active workspace environment.
 
@@ -389,7 +389,7 @@ clean_nsvb_objects_fn <- function() {
 # ls()
 ```
 
-## Basic NSVB values
+## NSVB Gross Values
 
 while the `nsvb.Rmd` file contains function definitions, it is more of a procedural template script. let's try to figure out what we need to work with our own tree data
 
@@ -901,6 +901,56 @@ trees_volume_nsvb_gross <- function(
   hey_names_temp <- names(tree_list_w_nsvb)
 
   ######################################################################################################
+  # GW add: there are records by DIVISION and SPCD that do not have full representation across all
+  # possible values of STDORGCD : for planted (stand origin code (STDORGCD) = 1) and natural (STDORGCD = 0)
+  # we need STDORGCD = NA,0,1 rows for all possible DIVISION + SPCD combinations
+  # to do this, we'll just pick one record from the `spp_vol_ib_all` table (and other tables) prioritizing:
+  # 1) NA (not origin specific); 2) natural (STDORGCD = 0); 3) planted (STDORGCD = 1)
+  # ....
+  # the tables have all possible combinations of DIVISION, SPCD (see spp_vol_division_na definition)
+  # ... so, we just need to join by DIVISION, SPCD and pick just one set of coeffs for incomplete STDORGCD
+  ######################################################################################################
+  spp_vol_ib_all_div_spcd_gw <- 
+    spp_vol_ib_all %>% 
+    dplyr::mutate(
+      STDORGCD = ifelse(is.na(STDORGCD), -1, STDORGCD)
+    ) %>% 
+    dplyr::group_by(DIVISION,SPCD) %>% 
+    dplyr::slice_min(n=1, order_by = STDORGCD, with_ties = F) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(-STDORGCD)
+    
+  spp_vol_bark_all_div_spcd_gw <- 
+    spp_vol_bark_all %>% 
+    dplyr::mutate(
+      STDORGCD = ifelse(is.na(STDORGCD), -1, STDORGCD)
+    ) %>% 
+    dplyr::group_by(DIVISION,SPCD) %>% 
+    dplyr::slice_min(n=1, order_by = STDORGCD, with_ties = F) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(-STDORGCD)
+  
+  spp_vol_ob_all_div_spcd_gw <- 
+    spp_vol_ob_all %>% 
+    dplyr::mutate(
+      STDORGCD = ifelse(is.na(STDORGCD), -1, STDORGCD)
+    ) %>% 
+    dplyr::group_by(DIVISION,SPCD) %>% 
+    dplyr::slice_min(n=1, order_by = STDORGCD, with_ties = F) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(-STDORGCD)
+    
+  spp_vol_ratio_all_div_spcd_gw <- 
+    spp_vol_ratio_all %>% 
+    dplyr::mutate(
+      STDORGCD = ifelse(is.na(STDORGCD), -1, STDORGCD)
+    ) %>% 
+    dplyr::group_by(DIVISION,SPCD) %>% 
+    dplyr::slice_min(n=1, order_by = STDORGCD, with_ties = F) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(-STDORGCD)
+  
+  ######################################################################################################
   # this method is defined in nsvb.Rmd
   # from https://github.com/mbrussell/NSVB
   # copied with slight adjustments
@@ -911,6 +961,9 @@ trees_volume_nsvb_gross <- function(
     dplyr::ungroup() %>% 
     # 1. Gross total stem wood volume, inside bark:
     dplyr::left_join(spp_vol_ib_all, by = nsvb_join_cols_temp) %>% 
+    ### !!!!!!!!!!!!!!!!! GW add ###
+    dplyr::rows_patch(spp_vol_ib_all_div_spcd_gw, by = c("DIVISION","SPCD"), unmatched = "ignore") %>% 
+    ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
       V_tot_ib_Gross = get_nsvb(
@@ -927,8 +980,12 @@ trees_volume_nsvb_gross <- function(
     dplyr::select(
       -base::setdiff(names(spp_vol_ib_all),nsvb_join_cols_temp) 
     ) %>% 
+    dplyr::ungroup() %>% 
     # 2. Gross total stem bark volume
     dplyr::left_join(spp_vol_bark_all, by = nsvb_join_cols_temp) %>% 
+    ### !!!!!!!!!!!!!!!!! GW add ###
+    dplyr::rows_patch(spp_vol_bark_all_div_spcd_gw, by = c("DIVISION","SPCD"), unmatched = "ignore") %>% 
+    ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
       V_tot_bk_Gross = get_nsvb(
@@ -946,12 +1003,16 @@ trees_volume_nsvb_gross <- function(
     dplyr::select(
       -base::setdiff(names(spp_vol_bark_all),nsvb_join_cols_temp) 
     ) %>% 
+    dplyr::ungroup() %>% 
     # 4. Estimate height to merchantable top diameter (4.0-inch)
     dplyr::left_join(spp_vol_ob_all, by = nsvb_join_cols_temp) %>% 
+    ### !!!!!!!!!!!!!!!!! GW add ###
+    dplyr::rows_patch(spp_vol_ob_all_div_spcd_gw, by = c("DIVISION","SPCD"), unmatched = "ignore") %>% 
+    ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
       hm = ifelse(
-        DIA >= 5 #### !!!!!!!!!!!!!!!!! convert cm to inches
+        DIA >= 5
         , get_hm(
           top_dia = 4
           , a = a, b = b, c = c
@@ -964,13 +1025,17 @@ trees_volume_nsvb_gross <- function(
     dplyr::select(
       -base::setdiff(names(spp_vol_ob_all),nsvb_join_cols_temp) 
     ) %>% 
+    dplyr::ungroup() %>% 
     # 5. Estimate merchantable wood volume – volume ratios to stump & merchantable top
     dplyr::left_join(spp_vol_ratio_all, by = nsvb_join_cols_temp) %>% 
+    ### !!!!!!!!!!!!!!!!! GW add ###
+    dplyr::rows_patch(spp_vol_ratio_all_div_spcd_gw, by = c("DIVISION","SPCD"), unmatched = "ignore") %>% 
+    ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
       R_1 = get_V_ratio(h1 = 1, HT = HT, alpha = alpha, beta = beta)
       , R_m = ifelse(
-        DIA >= 5  #### !!!!!!!!!!!!!!!!! convert cm to inches
+        DIA >= 5
         , get_V_ratio(
           h1 = hm, HT = HT
           , alpha = alpha, beta = beta
@@ -988,22 +1053,26 @@ trees_volume_nsvb_gross <- function(
     dplyr::select(
       -base::setdiff(names(spp_vol_ratio_all),nsvb_join_cols_temp) 
     ) %>% 
+    dplyr::ungroup() %>% 
     # Volume in the sawlog portion of the stem
     dplyr::left_join(spp_vol_ob_all, by = nsvb_join_cols_temp) %>% 
+    ### !!!!!!!!!!!!!!!!! GW add ###
+    dplyr::rows_patch(spp_vol_ob_all_div_spcd_gw, by = c("DIVISION","SPCD"), unmatched = "ignore") %>% 
+    ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
       hm_saw = ifelse(
-        SPCD < 300 & DIA >= 9.0  #### !!!!!!!!!!!!!!!!! convert cm to inches
+        SPCD < 300 & DIA >= 9.0
         , get_hm(
-          top_dia = 7  #### !!!!!!!!!!!!!!!!! convert cm to inches
+          top_dia = 7
           , a = a, b = b, c = c
           , alpha = alpha, beta = beta
           , DIA = DIA, HT = HT
         )
         , ifelse(
-          SPCD >= 300 & DIA >= 11.0  #### !!!!!!!!!!!!!!!!! convert cm to inches
+          SPCD >= 300 & DIA >= 11.0
           , get_hm(
-            top_dia = 9  #### !!!!!!!!!!!!!!!!! convert cm to inches
+            top_dia = 9
             , a = a, b = b, c = c
             , alpha = alpha, beta = beta
             , DIA = DIA, HT = HT
@@ -1015,8 +1084,12 @@ trees_volume_nsvb_gross <- function(
     dplyr::select(
       -base::setdiff(names(spp_vol_ob_all),nsvb_join_cols_temp) 
     ) %>% 
+    dplyr::ungroup() %>% 
     # Sawlog volumes ratios - stump and merchantable height
     dplyr::left_join(spp_vol_ratio_all, by = nsvb_join_cols_temp) %>% 
+    ### !!!!!!!!!!!!!!!!! GW add ###
+    dplyr::rows_patch(spp_vol_ratio_all_div_spcd_gw, by = c("DIVISION","SPCD"), unmatched = "ignore") %>% 
+    ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
       R_s = get_V_ratio(
@@ -1029,6 +1102,7 @@ trees_volume_nsvb_gross <- function(
     dplyr::select(
       -base::setdiff(names(spp_vol_ratio_all),nsvb_join_cols_temp) 
     ) %>% 
+    dplyr::ungroup() %>% 
     # More tree-level calcs here
     #### GW add.... i'm going to break this into columns that require CULL and those that don't
     dplyr::mutate(
@@ -1081,12 +1155,17 @@ trees_volume_nsvb_gross <- function(
   return(tree_list)
 }
 
-# # testtest
-# ref_trees_list[[1]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
+# # # testtest
+# # ref_trees_list[[1]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
 # pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
-# pred_trees_list[[2]] %>% dplyr::slice(51) %>% View() ### error?????
-# pred_trees_list[[3]] %>% dplyr::slice(567) %>% View() ### error?????
-# # pred_trees_list[[1]] %>% dplyr::mutate(DIA=(dbh_cm/2.54),is_big=DIA>=9.0) %>% sf::st_drop_geometry() %>% dplyr::select(DIA,is_big) %>% summary()
+# pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::filter(is.na(hm)) %>% dplyr::glimpse()
+# pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::mutate(huh=is.na(hm)) %>% ggplot(aes(x=dbh_cm,y=tree_height_m,color=huh)) + geom_point()
+# pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::slice(566:568) %>% dplyr::glimpse()
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
 ```
 
 let's take that `trees_volume_nsvb_gross()` function which relies on data loaded via `nsvb.Rmd` (which we can put in a package’s internal data in `R/sysdata.rda` with `usethis::use_data(..., internal = T)`) to take our own, custom tree list and automatically apply the gross volume calculations
