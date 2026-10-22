@@ -951,6 +951,21 @@ trees_volume_nsvb_gross <- function(
     dplyr::select(-STDORGCD)
   
   ######################################################################################################
+  # GW add: there are records for SPCD that do not have any data because they are not "timber"
+  # e.g. QUGA (Quercus gambelii), spcd: 814
+  # for those records, the nsvb.Rmd functions (e.g., get_nsvb()) will throw an error
+  # we don't want this
+  # our options are to 
+  #   1) use the nsvb.Rmd tables to work with only species that are represented in the data (e.g. spp_vol_ib_all)
+        # then join back on to full tree_list data with NA for all nsvb cols
+  #   2) work with the full data and simply catch the error and NA the value if a function errors
+  # ...
+  # ... let's do 2
+  ######################################################################################################
+  safe_get_nsvb <- purrr::possibly(get_nsvb, otherwise = NA)
+  safe_get_hm <- purrr::possibly(get_hm, otherwise = NA)
+  safe_get_V_ratio <- purrr::possibly(get_V_ratio, otherwise = NA)
+  ######################################################################################################
   # this method is defined in nsvb.Rmd
   # from https://github.com/mbrussell/NSVB
   # copied with slight adjustments
@@ -966,7 +981,7 @@ trees_volume_nsvb_gross <- function(
     ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
-      V_tot_ib_Gross = get_nsvb(
+      V_tot_ib_Gross = safe_get_nsvb(
         MODEL = MODEL
         , SPCD = SPCD
         , DIA = DIA
@@ -988,7 +1003,7 @@ trees_volume_nsvb_gross <- function(
     ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
-      V_tot_bk_Gross = get_nsvb(
+      V_tot_bk_Gross = safe_get_nsvb(
         MODEL = MODEL
         , SPCD = SPCD
         , DIA = DIA
@@ -1013,7 +1028,7 @@ trees_volume_nsvb_gross <- function(
     dplyr::mutate(
       hm = ifelse(
         DIA >= 5
-        , get_hm(
+        , safe_get_hm(
           top_dia = 4
           , a = a, b = b, c = c
           , alpha = alpha, beta = beta
@@ -1033,16 +1048,16 @@ trees_volume_nsvb_gross <- function(
     ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
-      R_1 = get_V_ratio(h1 = 1, HT = HT, alpha = alpha, beta = beta)
+      R_1 = safe_get_V_ratio(h1 = 1, HT = HT, alpha = alpha, beta = beta)
       , R_m = ifelse(
         DIA >= 5
-        , get_V_ratio(
+        , safe_get_V_ratio(
           h1 = hm, HT = HT
           , alpha = alpha, beta = beta
         )
         , NA
       )
-      , R_m_2 = get_V_ratio(
+      , R_m_2 = safe_get_V_ratio(
         h1 = ACTUALHT, HT = HT
         , alpha = alpha, beta = beta
       )
@@ -1063,7 +1078,7 @@ trees_volume_nsvb_gross <- function(
     dplyr::mutate(
       hm_saw = ifelse(
         SPCD < 300 & DIA >= 9.0
-        , get_hm(
+        , safe_get_hm(
           top_dia = 7
           , a = a, b = b, c = c
           , alpha = alpha, beta = beta
@@ -1071,7 +1086,7 @@ trees_volume_nsvb_gross <- function(
         )
         , ifelse(
           SPCD >= 300 & DIA >= 11.0
-          , get_hm(
+          , safe_get_hm(
             top_dia = 9
             , a = a, b = b, c = c
             , alpha = alpha, beta = beta
@@ -1092,7 +1107,7 @@ trees_volume_nsvb_gross <- function(
     ### !!!!!!!!!!!!!!!!! GW add end ###
     dplyr::rowwise() %>% 
     dplyr::mutate(
-      R_s = get_V_ratio(
+      R_s = safe_get_V_ratio(
         h1 = hm_saw
         , HT = HT
         , alpha = alpha
@@ -1156,8 +1171,9 @@ trees_volume_nsvb_gross <- function(
 }
 
 # # # testtest
-# # ref_trees_list[[1]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
-# pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
+# ref_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
+# pred_trees_list[[2]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
+# pred_trees_list[[2]] %>% trees_volume_nsvb_gross() %>% dplyr::filter(stringr::str_starts(species_symbol,"QU")) %>% dplyr::glimpse()
 # pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::filter(is.na(hm)) %>% dplyr::glimpse()
 # pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::mutate(huh=is.na(hm)) %>% ggplot(aes(x=dbh_cm,y=tree_height_m,color=huh)) + geom_point()
 # pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::slice(566:568) %>% dplyr::glimpse()
@@ -1214,21 +1230,35 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-let's plot the relationship between tree DBH and NSVB-predicted gross cubic-foot total-stem wood volume (`V_tot_ib_Gross`) for a single site
+let's plot the relationship between tree height and NSVB-predicted gross cubic-foot total-stem wood volume (`V_tot_ib_Gross`) for a single site using the predicted data (because with the predicted data we'll always have DBH and height, while some reference data is missing height)
+
+...if no volume was predicted by the NSVB method, we'll replace the `NA` values with a "0"
 
 ```{r}
-pred_trees_list[["CSFS_SWE"]] %>%
+pred_trees_list[["WFSI_EglinAFB"]] %>%
+  dplyr::mutate(V_tot_ib_Gross=dplyr::coalesce(V_tot_ib_Gross,0)) %>% 
   ggplot2::ggplot(
-    mapping = ggplot2::aes(x = dbh_cm, y = V_tot_ib_Gross, color = genus)
+    mapping = ggplot2::aes(x = tree_height_m, y = V_tot_ib_Gross, color = species_symbol)
   ) +
-  ggplot2::geom_point(size=3, alpha=0.8) +
-  ggplot2::facet_wrap(facets = dplyr::vars(genus)) +
+  ggplot2::geom_point(size=3, alpha=0.75) +
+  ggplot2::facet_wrap(facets = dplyr::vars(genus), ncol = 2) +
   ggplot2::scale_color_viridis_d(option="turbo") +
   ggplot2::scale_x_continuous(labels = scales::comma) +
   ggplot2::scale_y_continuous(labels = scales::comma) +
-  ggplot2::labs(x = "DBH (cm)", y = "gross cubic-foot total-stem wood volume") +
+  ggplot2::labs(
+    x = "height (m)", y = "gross cubic-foot total-stem wood volume"
+    , color = "species"
+    , subtitle = "WFSI_EglinAFB" # names(pred_trees_list)[2]
+  ) +
   ggplot2::theme_light() +
-  ggplot2::theme(legend.position = "top")
+  ggplot2::theme(
+    legend.position = "top"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+  ) + 
+  ggplot2::guides(
+    color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
+    , fill = "none"
+  )
 
 ```
 
