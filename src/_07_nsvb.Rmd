@@ -633,7 +633,7 @@ get_fia_ecodivision <- function(tree_list, fia_ecodivisions_sf, crs = NA) {
   if(!inherits(tree_list, "data.frame")){
     stop("must pass a data.frame or sf object to the `tree_list` parameter")
   }
-  tree_list <- tree_list %>% dplyr::ungroup() %>% dplyr::mutate(xxx_join_id)
+  tree_list <- tree_list %>% dplyr::ungroup() %>% dplyr::mutate(xxx_join_id = dplyr::row_number())
   
   # check/make spatial points
   tree_tops <- check_spatial_points(tree_list=tree_list, crs=crs) %>% dplyr::select(xxx_join_id)
@@ -754,6 +754,7 @@ the next thing we need to figure out is this `STDORGCD` data attribute which is 
 does this data actually get used?????? let's check out the `spp_vol_ib_all` defined in the `nsvb.Rmd` from [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB)
 
 ```{r}
+# spp_vol_ib_all %>% dplyr::glimpse()
 spp_vol_ib_all %>% 
   dplyr::ungroup() %>% 
   dplyr::count(STDORGCD)
@@ -763,7 +764,9 @@ it looks like the majority of volume equations don't even use this and are `NA`.
 
 let's make a function to use the data loaded into our current working session when we ran `nsvb.Rmd` to get those basic volume metrics with our tree list data (both reference and predicted)
 
-if we are going to sett up an R package for NSVB, or any other method, that is highly dependent on external data (i.e. csv's), we should use `usethis::use_data(..., internal = T)`. This `usethis::use_data()` function makes it easy to save package data in [the correct format](https://r-pkgs.org/data.html#sec-data-sysdata) by making R store the data in your package’s internal data in `R/sysdata.rda` so they are lazy-loaded on demand.
+if we are going to set up an R package for NSVB, or any other method, that is highly dependent on external data (i.e. csv's), we should use `usethis::use_data(..., internal = T)`. This `usethis::use_data()` function makes it easy to save package data in [the correct format](https://r-pkgs.org/data.html#sec-data-sysdata) by making R store the data in your package’s internal data in `R/sysdata.rda` so they are lazy-loaded on demand.
+
+this first function will focus on the **Gross** NSVB volume metrics which only require the following from the tree list: `HT`, `ACTUALHT`, `DIA`, `SPCD`, `DIVISION`, `STDORGCD`
 
 ```{r}
 # tree_list <- ref_trees_list[[1]] %>% dplyr::mutate(V_mer_ib_Gross="hey")
@@ -1077,11 +1080,82 @@ trees_volume_nsvb_gross <- function(
   # return
   return(tree_list)
 }
+
+# # testtest
+# ref_trees_list[[1]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
+# pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
+# pred_trees_list[[2]] %>% dplyr::slice(51) %>% View() ### error?????
+# pred_trees_list[[3]] %>% dplyr::slice(567) %>% View() ### error?????
+# # pred_trees_list[[1]] %>% dplyr::mutate(DIA=(dbh_cm/2.54),is_big=DIA>=9.0) %>% sf::st_drop_geometry() %>% dplyr::select(DIA,is_big) %>% summary()
+```
+
+let's take that `trees_volume_nsvb_gross()` function which relies on data loaded via `nsvb.Rmd` (which we can put in a package’s internal data in `R/sysdata.rda` with `usethis::use_data(..., internal = T)`) to take our own, custom tree list and automatically apply the gross volume calculations
+
+note, that some of the reference data does not have tree height measurement information, so we will not be able to calculate volume for these trees since the NSVB equations rely on tree height
+
+```{r}
+# for printing
+nm_temp <- names(pred_trees_list[[1]])
+# do it
+ref_trees_list <- ref_trees_list %>% 
+  purrr::map(function(df){
+    safe_trees_volume_nsvb_gross <- purrr::safely(trees_volume_nsvb_gross)
+    ans <- safe_trees_volume_nsvb_gross(df)
+    if(is.null(ans$error)){
+      return(ans$result)
+    }else{
+      return(df)
+    }
+  })
+pred_trees_list <- pred_trees_list %>% 
+  purrr::map(function(df){
+    safe_trees_volume_nsvb_gross <- purrr::safely(trees_volume_nsvb_gross)
+    ans <- safe_trees_volume_nsvb_gross(df)
+    if(is.null(ans$error)){
+      return(ans$result)
+    }else{
+      return(df)
+    }
+  })
+## check it for one data
+pred_trees_list[[1]] %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(dplyr::all_of(c(
+    "treeID"
+    , "species_symbol"
+    , "tree_height_m"
+    , "dbh_cm"
+    , base::setdiff(names(pred_trees_list[[1]]), nm_temp)
+  ))) %>% 
+  dplyr::glimpse()
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+let's plot the relationship between tree DBH and NSVB-predicted gross cubic-foot total-stem wood volume (`V_tot_ib_Gross`) for a single site
+
+```{r}
+pred_trees_list[["CSFS_SWE"]] %>%
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = dbh_cm, y = V_tot_ib_Gross, color = genus)
+  ) +
+  ggplot2::geom_point(size=3, alpha=0.8) +
+  ggplot2::facet_wrap(facets = dplyr::vars(genus)) +
+  ggplot2::scale_color_viridis_d(option="turbo") +
+  ggplot2::scale_x_continuous(labels = scales::comma) +
+  ggplot2::scale_y_continuous(labels = scales::comma) +
+  ggplot2::labs(x = "DBH (cm)", y = "gross cubic-foot total-stem wood volume") +
+  ggplot2::theme_light() +
+  ggplot2::theme(legend.position = "top")
+
 ```
 
 
-```{r}
-# # tree %>% dplyr::glimpse()
+```{r, include=F, eval=F}
+tree %>% dplyr::glimpse()
 # # tree %>% dplyr::glimpse()
 # ## inputs
 # c(
@@ -1321,107 +1395,6 @@ tree %>%
   dplyr::glimpse()
 xxxxxx  
 ```
-
-
-
-```{r, include=F, eval=F}
-ref_trees_list <- list()
-ref_trees_list[["usfs_manitouef_n1"]] <- usfs_manitouef_n1_trees %>% dplyr::slice_sample(n = 222)
-ref_trees_list[["usfs_manitouef_bigplot"]] <- usfs_manitouef_bigplot_trees %>% 
-  dplyr::slice_sample(n = 333) %>% 
-  dplyr::mutate(
-    species_symbol = ifelse(species_symbol=="POTR","POTR5",species_symbol)
-    , species_symbol = ifelse(species_symbol=="PIFL","PIFL2",species_symbol)
-  )
-ref_trees_list[["usfs_manitouef_bigplot"]] %>% sf::st_drop_geometry() %>% dplyr::count(species_symbol)
-ref_trees_list[["usfs_manitouef_n1"]] %>% dplyr::glimpse()
-```
-
-
-
-let's take the `allodb::get_biomass()` function for a spin, demonstrating with the first study site: `r names(ref_trees_list)[1]`. 
-
-required inputs for this function are: 
-
-* `dbh`	- a numeric vector containing tree diameter at breast height (dbh) measurements, in cm.
-* `genus` - a character vector (same length as dbh), containing the genus (e.g. "Quercus") of each tree.
-* `coords` - a numeric vector of length 2 with longitude and latitude (if all trees were measured in the same location) or a matrix with 2 numerical columns giving the coordinates of each tree.
-* `species` - a character vector (same length as dbh), containing the species (e.g. "rubra") of each tree. Default is NULL, when no species identification is available.
-
-The function returns "A numeric vector of the same length as dbh, containing AGB value (in kg) for every stem."
-
-this documentation is particularly interesting for noting that only `genus` is required and `species` is optional. based on the accuracy evaluation of the proposed classification method we just reviewed, we found that genus-level accuracy was generally higher, sometimes significantly higher, than species-level classification
-
-```{r}
-# ?allodb::get_biomass
-ref_trees_list <- 
-  ref_trees_list %>% 
-  purrr::map(function(df){
-    df$allodb_agb_kg <- allodb::get_biomass(
-        dbh = df$dbh_cm
-        , genus = df$genus
-        , species = df$species
-        , coords = 
-          df %>%
-            sf::st_transform(crs = sf::st_crs(4326)) %>%
-            sf::st_coordinates() %>% 
-            dplyr::as_tibble()
-      )
-    return(df)
-  })
-
-```
-
-what did we get back?
-
-```{r, results='asis'}
-# fia_species_lookup %>% dplyr::filter(stringr::str_starts(species_symbol,"PIFL"))
-ref_trees_list[[1]] %>% 
-  sf::st_drop_geometry() %>% 
-  dplyr::select(allodb_agb_kg) %>% 
-  summary() %>% 
-  knitr::kable(format = "markdown")
-# ref_trees_list[[1]] %>% 
-#   sf::st_drop_geometry() %>% 
-#   dplyr::mutate(missing_allodb_agb_kg = is.na(allodb_agb_kg)) %>% 
-#   dplyr::count(species_symbol,genus,species,missing_allodb_agb_kg)
-```
-
-let's plot estimated total aboveground biomass (kg) versus DBH
-
-```{r}
-ref_trees_list[[1]] %>% 
-  ggplot2::ggplot(
-    mapping = ggplot2::aes(x = dbh_cm, y = allodb_agb_kg, color = genus)
-  ) +
-  ggplot2::geom_point(size=3, alpha=0.8) +
-  ggplot2::facet_wrap(facets = dplyr::vars(genus)) +
-  ggplot2::scale_color_viridis_d(option="turbo") +
-  ggplot2::scale_x_continuous(labels = scales::comma) +
-  ggplot2::scale_y_continuous(labels = scales::comma) +
-  ggplot2::labs(x = "DBH (cm)", y = "AGB (kg)") +
-  ggplot2::theme_light() +
-  ggplot2::theme(legend.position = "top")
-
-```
-
-```{r, include = F, eval = F}
-ref_trees_list[[1]] %>% 
-  ggplot2::ggplot(
-    mapping = ggplot2::aes(x = dbh_cm, y = allodb_agb_kg, color = genus)
-  ) +
-  ggplot2::geom_point(size=3, alpha=0.8) +
-  ggplot2::facet_wrap(facets = dplyr::vars(species_symbol), ncol = 3) +
-  ggplot2::scale_color_viridis_d(option="turbo") +
-  ggplot2::scale_x_continuous(labels = scales::comma) +
-  ggplot2::scale_y_continuous(labels = scales::comma) +
-  ggplot2::labs(x = "DBH (cm)", y = "AGB (kg)") +
-  ggplot2::theme_light() +
-  ggplot2::theme(legend.position = "top")
-
-```
-
-neat.
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
