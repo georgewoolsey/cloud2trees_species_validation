@@ -662,8 +662,11 @@ get_fia_ecodivision <- function(tree_list, fia_ecodivisions_sf, crs = NA) {
     dplyr::select(-xxx_join_id)
   
 }
+```
 
+apply that function to get the FIA ecodivision to our reference data
 
+```{r}
 #### apply it to  our prediction and reference data
 
 # inherits(ref_trees_list$CSFS_SWE,"sf")
@@ -766,7 +769,7 @@ let's make a function to use the data loaded into our current working session wh
 
 if we are going to set up an R package for NSVB, or any other method, that is highly dependent on external data (i.e. csv's), we should use `usethis::use_data(..., internal = T)`. This `usethis::use_data()` function makes it easy to save package data in [the correct format](https://r-pkgs.org/data.html#sec-data-sysdata) by making R store the data in your package’s internal data in `R/sysdata.rda` so they are lazy-loaded on demand.
 
-this first function will focus on the **Gross** NSVB volume metrics which only require the following from the tree list: `HT`, `ACTUALHT`, `DIA`, `SPCD`, `DIVISION`, `STDORGCD`
+this first function will focus on the NSVB **Gross** volume metrics which only require the following from the tree list: `HT`, `ACTUALHT`, `DIA`, `SPCD`, `DIVISION`, `STDORGCD`
 
 ```{r}
 # tree_list <- ref_trees_list[[1]] %>% dplyr::mutate(V_mer_ib_Gross="hey")
@@ -824,36 +827,23 @@ cols_set_nsvb_height <- function(df) {
   
   return(df)
 }
-
-# function to get all nsvb gross stuff
-trees_volume_nsvb_gross <- function(
-  tree_list
-){
-  # add check for fia_ecodivisions_sf like checks for treemap data
-  fia_ecodivisions_sf <- NULL
-
-  # save name for later
-  orig_names_temp <- names(tree_list)
-  
-  # set up HT, ACTUALHT, and DIA
-  # will also check and throw error if missing
-  tree_list <- tree_list %>% 
-    cols_set_nsvb_dbh() %>% 
-    cols_set_nsvb_height()
-
+### function to set SPCD in feet depending on what's in the data
+cols_set_nsvb_spcd <- function(df) {
   # SPCD check
-  if(any(stringr::str_equal(names(tree_list), "SPCD"))){
-    tree_list <- tree_list %>% dplyr::mutate(SPCD = as.numeric(SPCD))
-  }else if(any(stringr::str_equal(names(tree_list), "spcd"))){
-    tree_list <- tree_list %>% dplyr::mutate(SPCD = as.numeric(spcd))
+  if(any(stringr::str_equal(names(df), "SPCD"))){
+    df <- df %>% dplyr::mutate(SPCD = as.numeric(SPCD))
+  }else if(any(stringr::str_equal(names(df), "spcd"))){
+    df <- df %>% dplyr::mutate(SPCD = as.numeric(spcd))
   }else{
     stop(paste0(
       "the data does not contain the columns `SPCD` or `spcd`"
       , "\n .... at least one of these columns must be present and have data"
     ))
   }
-  cloud2trees:::check_df_cols_all_missing(df = tree_list, col_names = "SPCD", all_numeric = T)
-  
+  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "SPCD", all_numeric = T)
+}
+### function to set DIVISION in feet depending on what's in the data
+cols_set_nsvb_division <- function(df) {
   # DIVISION check
   if(any(stringr::str_equal(names(tree_list), "DIVISION"))){
     tree_list <- tree_list %>% dplyr::mutate(DIVISION = as.character(DIVISION))
@@ -872,6 +862,25 @@ trees_volume_nsvb_gross <- function(
     ))
   }
   cloud2trees:::check_df_cols_all_missing(df = tree_list, col_names = "DIVISION", all_numeric = F)
+}
+xxxx
+
+# function to get all nsvb gross stuff
+trees_nsvb_volume_gross <- function(
+  tree_list
+){
+  # add check for fia_ecodivisions_sf like checks for treemap data
+  fia_ecodivisions_sf <- NULL
+
+  # save name for later
+  orig_names_temp <- names(tree_list)
+  
+  # set up HT, ACTUALHT, and DIA
+  # will also check and throw error if missing
+  tree_list <- tree_list %>% 
+    cols_set_nsvb_dbh() %>% 
+    cols_set_nsvb_height() %>% 
+    cols_set_nsvb_spcd()
   
   # STDORGCD check
   if(any(stringr::str_equal(names(tree_list), "STDORGCD"))){
@@ -1170,32 +1179,64 @@ trees_volume_nsvb_gross <- function(
   return(tree_list)
 }
 
+# and a function that returns all of the variable names created in the trees_nsvb_volume_gross() function
+get_col_names_trees_nsvb_volume_gross <- function() {
+  c(
+    "V_tot_ib_Gross","V_tot_bk_Gross","V_tot_ob_Gross","hm","R_1"
+    ,"R_m","R_m_2","V_mer_ib_Gross","V_mer_ob_Gross","V_mer_bk_Gross"
+    ,"hm_saw","R_s","V_saw_ib_Gross","V_saw_ob_Gross","V_saw_bk_Gross"
+    ,"V_stump_ob_Gross","V_stump_ib_Gross","V_stump_bk_Gross"
+    ,"V_top_ob_Gross","V_top_ib_Gross","V_top_bk_Gross"
+  )
+}
+
+# get_col_names_trees_nsvb_volume_gross()
+
 # # # testtest
-# ref_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
-# pred_trees_list[[2]] %>% trees_volume_nsvb_gross() %>% dplyr::glimpse()
-# pred_trees_list[[2]] %>% trees_volume_nsvb_gross() %>% dplyr::filter(stringr::str_starts(species_symbol,"QU")) %>% dplyr::glimpse()
-# pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::filter(is.na(hm)) %>% dplyr::glimpse()
-# pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::mutate(huh=is.na(hm)) %>% ggplot(aes(x=dbh_cm,y=tree_height_m,color=huh)) + geom_point()
-# pred_trees_list[[3]] %>% trees_volume_nsvb_gross() %>% dplyr::slice(566:568) %>% dplyr::glimpse()
+# ref_trees_list[[3]] %>% trees_nsvb_volume_gross() %>% dplyr::glimpse()
+# pred_trees_list[[2]] %>% trees_nsvb_volume_gross() %>% dplyr::glimpse()
+# pred_trees_list[[2]] %>% trees_nsvb_volume_gross() %>% dplyr::filter(stringr::str_starts(species_symbol,"QU")) %>% dplyr::glimpse()
+# pred_trees_list[[3]] %>% trees_nsvb_volume_gross() %>% dplyr::filter(is.na(hm)) %>% dplyr::glimpse()
+# pred_trees_list[[3]] %>% trees_nsvb_volume_gross() %>% dplyr::mutate(huh=is.na(hm)) %>% ggplot(aes(x=dbh_cm,y=tree_height_m,color=huh)) + geom_point()
+# pred_trees_list[[3]] %>% trees_nsvb_volume_gross() %>% dplyr::slice(566:568) %>% dplyr::glimpse()
 ```
+
+```{r, include=F, eval=F}
+orig_cols_temp <- c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
+tree_temp <- 
+  tree %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(dplyr::any_of(c(
+    orig_cols_temp
+  ))) %>% 
+  trees_nsvb_volume_gross()
+tree_temp %>% dplyr::glimpse()
+base::setdiff(names(tree_temp), orig_cols_temp)
+
+# stringr::str_replace_all(stringr::str_squish(
+# "V_tot_ib_Gross   V_tot_bk_Gross   V_tot_ob_Gross   hm               R_1              R_m              R_m_2            V_mer_ib_Gross  
+#  V_mer_ob_Gross   V_mer_bk_Gross   hm_saw           R_s              V_saw_ib_Gross   V_saw_ob_Gross   V_saw_bk_Gross   V_stump_ob_Gross
+#  V_stump_ib_Gross V_stump_bk_Gross V_top_ob_Gross   V_top_ib_Gross   V_top_bk_Gross"  
+# ), "\\s", ",")
+
+```
+
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-let's take that `trees_volume_nsvb_gross()` function which relies on data loaded via `nsvb.Rmd` (which we can put in a package’s internal data in `R/sysdata.rda` with `usethis::use_data(..., internal = T)`) to take our own, custom tree list and automatically apply the gross volume calculations
+let's take that `trees_nsvb_volume_gross()` function which relies on data loaded via `nsvb.Rmd` (which we can put in a package’s internal data in `R/sysdata.rda` with `usethis::use_data(..., internal = T)`) to take our own, custom tree list and automatically apply the gross volume calculations
 
 note, that some of the reference data does not have tree height measurement information, so we will not be able to calculate volume for these trees since the NSVB equations rely on tree height
 
 ```{r}
-# for printing
-nm_temp <- names(pred_trees_list[[1]])
 # do it
 ref_trees_list <- ref_trees_list %>% 
   purrr::map(function(df){
-    safe_trees_volume_nsvb_gross <- purrr::safely(trees_volume_nsvb_gross)
-    ans <- safe_trees_volume_nsvb_gross(df)
+    safe_trees_nsvb_volume_gross <- purrr::safely(trees_nsvb_volume_gross)
+    ans <- safe_trees_nsvb_volume_gross(df)
     if(is.null(ans$error)){
       return(ans$result)
     }else{
@@ -1204,8 +1245,8 @@ ref_trees_list <- ref_trees_list %>%
   })
 pred_trees_list <- pred_trees_list %>% 
   purrr::map(function(df){
-    safe_trees_volume_nsvb_gross <- purrr::safely(trees_volume_nsvb_gross)
-    ans <- safe_trees_volume_nsvb_gross(df)
+    safe_trees_nsvb_volume_gross <- purrr::safely(trees_nsvb_volume_gross)
+    ans <- safe_trees_nsvb_volume_gross(df)
     if(is.null(ans$error)){
       return(ans$result)
     }else{
@@ -1220,7 +1261,7 @@ pred_trees_list[[1]] %>%
     , "species_symbol"
     , "tree_height_m"
     , "dbh_cm"
-    , base::setdiff(names(pred_trees_list[[1]]), nm_temp)
+    , get_col_names_trees_nsvb_volume_gross()
   ))) %>% 
   dplyr::glimpse()
 ```
@@ -1261,6 +1302,87 @@ pred_trees_list[["WFSI_EglinAFB"]] %>%
   )
 
 ```
+
+that seems to be working pretty well, let's continue
+
+## NSVB Modified "Sound" Values
+
+let's try to figure out what we need to work with our own tree data
+
+to get the **Modified** "Sound" volume metrics of:
+
+| Westfall abbr      | FIADB abbr | Definition      | Units |
+| ----------- | ----------- | ----------- | ----------- |
+| $Vtot_{ib}Sound$ |	VOLTSSND |		Sound cubic-foot total-stem wood volume, inside bark      | cubic feet       |
+| $Vtot_{bk}Sound$ |	VOLTSSND_BARK	 |	Sound cubic-foot total-stem bark volume      | cubic feet       |
+| $Vstump_{ib}Sound$ |	VOLCFSND_STUMP |		Sound cubic-foot stump wood volume      | cubic feet       |
+| $Vstump_{bk}Sound$ |	VOLCFSND_STUMP_BARK |		Sound cubic-foot stump bark volume      | cubic feet       |
+| $Vmer_{ib}Sound$ |	VOLCFSND |		Sound cubic-foot stem wood volume      | cubic feet       |
+| $Vmer_{bk}Sound$ |	VOLCFSND_BARK |		Sound cubic-foot stem bark volume      | cubic feet       |
+| $Vtop_{ib}Sound$ |	VOLCFSND_TOP |		Sound cubic-foot stem-top wood volume      | cubic feet       |
+| $Vtop_{bk}$ |	VOLCFSND_TOP_BARK |		Sound cubic-foot stem-top bark volume      | cubic feet       |
+| $Vsaw_{ib}Sound$ |	VOLCSSND |		Sound cubic-foot wood volume in the sawlog portion of a sawtimber tree      | cubic feet       |
+| $Vsaw_{bk}Sound$ |	VOLCSSND_BARK |		Sound cubic-foot bark volume in the sawlog portion of a sawtimber tree      | cubic feet       |
+
+Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) outline modifications and reductions applied to volume (and subsequent biomass) estimates based on wood decay classification for standing dead trees and broken top trees:
+
+the first relevant for our present analysis section:
+
+>Notationally, values designated as "Sound" hereafter refer to values occurring after considering any deductions due to cull, broken top, or dead tree density reductions (p. 10)
+
+some more detail:
+
+>Modifications for standing dead trees to wood density and for bark and branch losses based on the observed level of decay as indicated by the FIA decay class code (DECAYCD) variable (Burrill et al. 2023) and hardwood or softwood species classification are incorporated into the NSVB framework by adopting the findings of Harmon et al. (2011) as shown in table 1. Note that these values account for differences between hardwood and softwood species, unlike the values presented in Domke et al. (2011). The values for wood density proportion for DECAYCD = 3 are also used to account for the fact that rotten wood cull still maintains a weight greater than zero even though rotten cull is entirely deducted to obtain sound cubic volume amounts. In this case, the observed cull is assumed to be entirely rotten wood, and the density of that wood is reduced accordingly. In addition, model 6 is used to implement a standardized approach to estimate volume and biomass reductions from missing stem tops. Belowground coarse root biomass is calculated using the approach described in Heath et al. (2009) but by using merchantable stem wood volume as calculated here and applying the wood density proportions from table 1 for standing dead trees. (p. 4-5)
+
+these modified volume and biomass estimates rely on the **Gross** predictions detailed above as well as the tree list inputs required to calculate those predictions (`HT`, `ACTUALHT`, `DIA`, `SPCD`, `DIVISION`, `STDORGCD`). however, they also rely on other variables with information about the tree status which include: 
+
+* `CULL` : is the percentage, on a scale from 0 to 100 (percentage points), of rotten/missing wood in the main stem below any missing top (p. 10).
+* `STATUSCD` : xxxxx from FIA.
+
+let's define a function to get these modified values
+
+```{r}
+xxxxxx
+trees_nsvb_volume_sound <- function(variables) {
+  # did this already go through trees_nsvb_volume_gross() ???
+  get_col_names_trees_nsvb_volume_gross()
+}
+
+```
+
+## NSVB Biomass Values
+
+let's try to figure out what we need to work with our own tree data
+
+to get the primary **Biomass** weight (in pounds) metrics of:
+
+| Westfall abbr      | FIADB abbr | Definition      | Units |
+| ----------- | ----------- | ----------- | ----------- |
+| $AGB_{Predicted}$ |	DRYBIO_AG |		Aboveground dry biomass of wood and bark      | pounds       |
+| $Wood_{Harmonized}$ |	DRYBIO_STEM |		Dry biomass of wood in the total stem      | pounds      |
+| $Bark_{Harmonized}$ |	DRYBIO_STEM_BARK |		Dry biomass of bark in the total stem | pounds      |
+| $Branch_{Harmonized}$ |	DRYBIO_BRANCH |		Dry biomass of branches | pounds      |
+| $Wfoliage$ |	DRYBIO_FOLIAGE |		Dry biomass of foliage| pounds      |
+| $Wstump_{ib}$ |	DRYBIO_STUMP |		Dry biomass of wood in the stump | pounds      |
+| $Wstump_{bk}$ |	DRYBIO_STUMP_BARK |		Dry biomass of bark in the stump| pounds      |
+| $Wmer_{ob}$ |	DRYBIO_BOLE |		Dry biomass of wood in the merchantable bole | pounds      |
+| $Wmer_{bk}$ |	DRYBIO_BOLE_BARK |		Dry biomass of bark in the merchantable bole | pounds      |
+| $Vsaw_{ib}Gross x WDSG_adj x 62.4$ |	DRYBIO_SAWLOG	| Dry biomass of wood in the sawlog portion of a sawtimber tree. | pounds      |
+| $Vsaw_{bk}Gross x WDSG_adj x 62.4$ |	DRYBIO_SAWLOG_BARK |	Dry biomass of bark in the sawlog portion of a sawtimber tree | pounds      |
+| $C$ |	CARBON_AG	 |	Aboveground carbon of wood and bark | pounds      |
+
+Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) outline modifications and reductions applied to volume (and subsequent biomass) estimates based on wood decay classification for standing dead trees and broken top trees:
+
+>Modifications for standing dead trees to wood density and for bark and branch losses based on the observed level of decay as indicated by the FIA decay class code (DECAYCD) variable (Burrill et al. 2023) and hardwood or softwood species classification are incorporated into the NSVB framework by adopting the findings of Harmon et al. (2011) as shown in table 1. Note that these values account for differences between hardwood and softwood species, unlike the values presented in Domke et al. (2011). The values for wood density proportion for DECAYCD = 3 are also used to account for the fact that rotten wood cull still maintains a weight greater than zero even though rotten cull is entirely deducted to obtain sound cubic volume amounts. In this case, the observed cull is assumed to be entirely rotten wood, and the density of that wood is reduced accordingly. In addition, model 6 is used to implement a standardized approach to estimate volume and biomass reductions from missing stem tops. Belowground coarse root biomass is calculated using the approach described in Heath et al. (2009) but by using merchantable stem wood volume as calculated here and applying the wood density proportions from table 1 for standing dead trees. (p. 4-5)
+
+these biomass estimates rely on the **Gross** volume predictions detailed above as well as the tree list inputs required to calculate those predictions (`HT`, `ACTUALHT`, `DIA`, `SPCD`, `DIVISION`, `STDORGCD`) and the **Modified** volume predictions detailed above
+
+however, they also rely on other variables with information about the tree status which include: 
+
+* `CULL` : is the percentage, on a scale from 0 to 100 (percentage points), of rotten/missing wood in the main stem below any missing top (p. 10).
+* `STATUSCD` : xxxxx from FIA.
+
+let's define a function to get these modified values
 
 
 ```{r, include=F, eval=F}
