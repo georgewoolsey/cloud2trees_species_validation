@@ -1314,7 +1314,7 @@ remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
 
-let's plot the relationship between tree height and NSVB-predicted gross cubic-foot total-stem wood volume (`V_tot_ib_Gross`) for a single site using the predicted data (because with the predicted data we'll always have DBH and height, while some reference data is missing height)
+let's plot the relationship between tree height and NSVB-estimated gross cubic-foot total-stem wood volume (`V_tot_ib_Gross`) for a single site using the predicted data (because with the predicted data we'll always have DBH and height, while some reference data is missing height)
 
 ...if no volume was predicted by the NSVB method, we'll replace the `NA` values with a "0"
 
@@ -1478,7 +1478,7 @@ cols_set_nsvb_statuscd <- function(df, default_val = 1L){
 #   sf::st_drop_geometry() %>% dplyr::count(STATUSCD)
 #   # dplyr::glimpse()
 
-trees_nsvb_volume_sound <- function(tree_list, default_cull = 0, default_statuscd = 1L) {
+trees_nsvb_volume_sound <- function(tree_list, default_cull = 0, default_statuscd = 1L, drop_irrelevant = F) {
   # did this already go through trees_nsvb_volume_gross() ???
   if(
     !all(
@@ -1612,6 +1612,17 @@ trees_nsvb_volume_sound <- function(tree_list, default_cull = 0, default_statusc
   ######################################################################################################
   new_names_temp <- base::setdiff(names(tree_list_w_nsvb),hey_names_temp)
   
+  # some of these calculations resulted in negative volume values...impossible????
+  # not sure if this messes up biomasss....
+  ### !!!!!!!!!!!!!!!!! GW add ###
+  tree_list_w_nsvb <- 
+    tree_list_w_nsvb %>% 
+      dplyr::mutate(dplyr::across(
+        .cols = dplyr::all_of(new_names_temp)
+        , .fns = ~pmax(.x,0)
+      ))
+  ### !!!!!!!!!!!!!!!!! GW add end ###
+  
   tree_list <-
     tree_list %>% 
     # get rid of columns we'll create
@@ -1635,14 +1646,193 @@ trees_nsvb_volume_sound <- function(tree_list, default_cull = 0, default_statusc
       , new_names_temp
     )))
 
+  if(dplyr::coalesce(drop_irrelevant[1],F)){
+    tree_list <- tree_list %>% 
+      # get rid of irrelevant columns created for biomass
+      dplyr::select( -dplyr::any_of(c(
+        "hey_xxxxxxxxxx"
+        , get_col_names_trees_nsvb_volume_sound_irrelevant()
+      )))
+  }
     
   return(tree_list)
 }
 
-# names(ref_trees_list)
-pred_trees_list[[2]] %>% nrow()
-pred_trees_list[[2]] %>% trees_nsvb_volume_sound() %>% dplyr::glimpse()
+# and a function that returns all of the variable names created in the trees_nsvb_volume_sound() function
+get_col_names_trees_nsvb_volume_sound <- function() {
+  c(
+    "V_top_bk_Sound","V_mer_ib_Sound","V_mer_ib_Sound2","V_mer_bk_Sound","V_mer_ob_Sound"
+    ,"V_mer_ob_Sound2","V_stump_ib_Sound","V_stump_ob_Sound","V_tot_ib_Sound","V_stump_ib_Sound2"
+    ,"V_stump_ob_Sound2","V_tot_ib_Sound2","V_tot_bk_Sound","V_tot_ob_Sound","V_tot_bk_Sound2"
+    ,"V_tot_ob_Sound2","V_top_ob_Sound","V_top_ib_Sound","V_top_bk","V_miss_ob_Gross","V_miss_ib_Gross"
+    ,"V_miss_ib_Gross2","V_miss_bk_Gross","V_top_ib_Sound2","V_top_ob_Sound2","V_top_bk_Sound2"
+    ,"V_mer_ib_Sound3","V_stump_ib_Sound3","V_tot_ib_Sound3"
+  )
+}
+# and a function that returns all of the TEMP variable names created in the trees_nsvb_volume_sound() function
+# THESE ARE COLUMNS THAT ARE USED IN BIOMASS CALCULATIONS BUT ARE IRRELEVANT IF THE USER ISN'T INTERESTED IN BIOMASS
+get_col_names_trees_nsvb_volume_sound_irrelevant <- function() {
+  c(
+    "V_mer_ib_Sound2","V_mer_ob_Sound2","V_stump_ib_Sound2"
+    ,"V_stump_ob_Sound2","V_tot_ib_Sound2","V_tot_bk_Sound2"
+    ,"V_tot_ob_Sound2","V_miss_ib_Gross2","V_top_ib_Sound2"
+    ,"V_top_ob_Sound2","V_top_bk_Sound2"
+    ,"V_mer_ib_Sound3","V_stump_ib_Sound3","V_tot_ib_Sound3"
+  )
+}
+
+# get_col_names_trees_nsvb_volume_sound_irrelevant()
+
+# # # # testtest
+# ref_trees_list[[2]] %>% trees_nsvb_volume_sound() %>% dplyr::glimpse()
+# ref_trees_list[[2]] %>% trees_nsvb_volume_sound(drop_irrelevant = T) %>% dplyr::glimpse()
+# pred_trees_list[[1]] %>% 
+#   trees_nsvb_volume_sound(drop_irrelevant = T) %>% 
+#   dplyr::select(dplyr::all_of(
+#     base::setdiff(
+#       get_col_names_trees_nsvb_volume_sound()
+#       ,get_col_names_trees_nsvb_volume_sound_irrelevant()
+#     )
+#   )) %>% 
+#   sf::st_drop_geometry() %>% 
+#   # # dplyr::mutate(dplyr::across(dplyr::where(is.numeric), ~round(.x,3))) %>%
+#   # dplyr::mutate(dplyr::across(dplyr::where(is.numeric), ~pmax(.x,0))) %>%
+#   # # dplyr::mutate(dplyr::across(dplyr::where(is.numeric), ~.x<0)) %>% 
+#   summary()
+
 ```
+
+```{r, include=F, eval=F}
+orig_cols_temp <- c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
+tree_temp <- 
+  tree %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(dplyr::any_of(c(
+    orig_cols_temp
+  ))) %>% 
+  trees_nsvb_volume_sound()
+tree_temp %>% dplyr::glimpse()
+base::setdiff(names(tree_temp) , c(get_col_names_trees_nsvb_volume_gross(),orig_cols_temp))
+
+stringr::str_replace_all(stringr::str_squish(
+ "V_top_bk_Sound    V_mer_ib_Sound    V_mer_ib_Sound2   V_mer_bk_Sound    V_mer_ob_Sound    V_mer_ob_Sound2   V_stump_ib_Sound  V_stump_ob_Sound  V_tot_ib_Sound   
+V_stump_ib_Sound2 V_stump_ob_Sound2 V_tot_ib_Sound2   V_tot_bk_Sound    V_tot_ob_Sound    V_tot_bk_Sound2   V_tot_ob_Sound2   V_top_ob_Sound    V_top_ib_Sound   
+V_top_bk          V_miss_ob_Gross   V_miss_ib_Gross   V_miss_ib_Gross2  V_miss_bk_Gross   V_top_ib_Sound2   V_top_ob_Sound2   V_top_bk_Sound2   V_mer_ib_Sound3  
+V_stump_ib_Sound3 V_tot_ib_Sound3"  
+), "\\s+", ",")
+
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+let's take that `trees_nsvb_volume_sound()` function which relies on data loaded via `nsvb.Rmd` (which we can put in a package’s internal data in `R/sysdata.rda` with `usethis::use_data(..., internal = T)`) to take our own, custom tree list and automatically apply the gross volume calculations
+
+note, that some of the reference data does not have tree height measurement information, so we will not be able to calculate volume for these trees since the NSVB equations rely on tree height
+
+```{r, results=F, message=F}
+# do it
+ref_trees_list <- ref_trees_list %>% 
+  purrr::map(function(df){
+    safe_trees_nsvb_volume_sound <- purrr::safely(trees_nsvb_volume_sound)
+    ans <- safe_trees_nsvb_volume_sound(df)
+    if(is.null(ans$error)){
+      return(ans$result)
+    }else{
+      return(df)
+    }
+  })
+pred_trees_list <- pred_trees_list %>% 
+  purrr::map(function(df){
+    safe_trees_nsvb_volume_sound <- purrr::safely(trees_nsvb_volume_sound)
+    ans <- safe_trees_nsvb_volume_sound(df)
+    if(is.null(ans$error)){
+      return(ans$result)
+    }else{
+      return(df)
+    }
+  })
+```
+
+check it for one data set
+
+```{r, results=F, message=F}
+## check it for one data
+pred_trees_list[[1]] %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(dplyr::all_of(c(
+    "treeID"
+    , "species_symbol"
+    , "tree_height_m"
+    , "dbh_cm"
+    , get_col_names_trees_nsvb_volume_sound()
+  ))) %>% 
+  dplyr::glimpse()
+```
+
+note all of the potentially irrelevant columns in there (ending with "*_Sound2") that are used for subsequent biomass calculations. if we don't care about biomass, we can have the `trees_nsvb_volume_sound()` function remove them for us by setting the argument `drop_irrelevant = T`
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+let's plot the relationship between tree height and NSVB-estimated sound cubic-foot total-stem wood volume, inside bark (`V_tot_ib_Sound`) for a single site using the predicted data (because with the predicted data we'll always have DBH and height, while some reference data is missing height)
+
+since the "sound" volume estimates are adjusted based on the `CULL` and `STATUSCD` values for each tree and we don't have this information for the predicted trees, we'll fake some dead trees in the predicted data by randomly setting ~96% trees as live (`STATUSCD = 1`) and the rest as dead (`STATUSCD = 2`) and we'll randomly set `cull` to a value above 0 for 7% of trees
+
+```{r, results=F, fig.show='asis'}
+pred_trees_list[["WFSI_EglinAFB"]] %>%
+  dplyr::mutate(
+    statuscd = sample(c(1,2), size = dplyr::n(), replace = T, prob = c(0.96,0.04))
+    , cull = c(
+      runif(n = floor(dplyr::n()*0.07))*100
+      , rep(0, times = ceiling(dplyr::n()*0.93))
+    ) %>%
+    sample()
+  ) %>% 
+  # dplyr::select(cull) %>% sf::st_drop_geometry() %>% summary()
+  trees_nsvb_volume_sound() %>% 
+  dplyr::mutate(
+    statuscd = factor(statuscd)
+    , iscull = cull>0
+    , V_tot_ib_Sound=dplyr::coalesce(V_tot_ib_Sound,0)
+  ) %>% 
+  dplyr::arrange(statuscd,iscull) %>% 
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(
+      x = tree_height_m
+      , y = V_tot_ib_Sound
+      , color = statuscd
+      , shape = iscull
+    )
+  ) +
+  ggplot2::geom_point(size=3, alpha=0.66) +
+  ggplot2::facet_wrap(facets = dplyr::vars(genus), ncol = 2) +
+  ggplot2::scale_color_manual(values=c("gray","indianred3")) +
+  ggplot2::scale_x_continuous(labels = scales::comma) +
+  ggplot2::scale_y_continuous(labels = scales::comma) +
+  ggplot2::labs(
+    x = "height (m)", y = "sound cubic-foot total-stem wood volume, inside bark"
+    , color = "STATUSCD"
+    , shape = "some CULL"
+    , subtitle = "WFSI_EglinAFB with FAKE cull and live/dead status" # names(pred_trees_list)[2]
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+  ) + 
+  ggplot2::guides(
+    color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
+    , fill = "none"
+  )
+
+```
+
+neat. that seems to be working well
 
 ## NSVB Biomass Values
 
