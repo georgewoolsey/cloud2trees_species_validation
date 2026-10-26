@@ -779,6 +779,8 @@ cols_set_nsvb_dbh <- function(df) {
   # diameter check
   if(any(stringr::str_equal(names(df), "DIA"))){
     df <- df %>% dplyr::mutate(DIA = as.numeric(DIA))
+  }else if(any(stringr::str_equal(names(df), "dia"))){
+    df <- df %>% dplyr::mutate(DIA = as.numeric(dia))
   }else if(any(stringr::str_equal(names(df), "dbh_in"))){
     df <- df %>% dplyr::mutate(DIA = as.numeric(dbh_in))
   }else if(any(stringr::str_equal(names(df), "dbh_cm"))){
@@ -799,6 +801,8 @@ cols_set_nsvb_height <- function(df) {
   # height check
   if(any(stringr::str_equal(names(df), "HT"))){
     df <- df %>% dplyr::mutate(HT = as.numeric(HT))
+  }else if(any(stringr::str_equal(names(df), "ht"))){
+    df <- df %>% dplyr::mutate(HT = as.numeric(ht))
   }else if(any(stringr::str_equal(names(df), "tree_height_ft"))){
     df <- df %>% dplyr::mutate(HT = as.numeric(tree_height_ft))
   }else if(any(stringr::str_equal(names(df), "tree_height_m"))){
@@ -814,6 +818,8 @@ cols_set_nsvb_height <- function(df) {
   # actual height check
   if(any(stringr::str_equal(names(df), "ACTUALHT"))){
     df <- df %>% dplyr::mutate(ACTUALHT = as.numeric(ACTUALHT))
+  }else if(any(stringr::str_equal(names(df), "actualht"))){
+    df <- df %>% dplyr::mutate(ACTUALHT = actualht)
   }else if(any(stringr::str_equal(names(df), "HT"))){
     df <- df %>% dplyr::mutate(ACTUALHT = HT)
     message("...setting ACTUALHT to HT")
@@ -827,7 +833,7 @@ cols_set_nsvb_height <- function(df) {
   
   return(df)
 }
-### function to set SPCD in feet depending on what's in the data
+### function to set SPCD depending on what's in the data
 cols_set_nsvb_spcd <- function(df) {
   # SPCD check
   if(any(stringr::str_equal(names(df), "SPCD"))){
@@ -841,33 +847,71 @@ cols_set_nsvb_spcd <- function(df) {
     ))
   }
   cloud2trees:::check_df_cols_all_missing(df = df, col_names = "SPCD", all_numeric = T)
+  
+  ### !!!!!!!!!!!!!!!! could check against possible values from lookup table
+  
+  return(df)
 }
-### function to set DIVISION in feet depending on what's in the data
-cols_set_nsvb_division <- function(df) {
+### function to set DIVISION depending on what's in the data
+cols_set_nsvb_division <- function(df, my_fia_ecodivisions_sf=NULL) {
   # DIVISION check
-  if(any(stringr::str_equal(names(tree_list), "DIVISION"))){
-    tree_list <- tree_list %>% dplyr::mutate(DIVISION = as.character(DIVISION))
-  }else if(any(stringr::str_equal(names(tree_list), "fia_ecodivision"))){
-    tree_list <- tree_list %>% dplyr::mutate(DIVISION = as.character(fia_ecodivision))
+  if(any(stringr::str_equal(names(df), "DIVISION"))){
+    df <- df %>% dplyr::mutate( DIVISION = stringr::str_remove_all(as.character(DIVISION),"\\s+") )
+  }else if(any(stringr::str_equal(names(df), "division"))){
+    df <- df %>% dplyr::mutate( DIVISION = stringr::str_remove_all(as.character(division),"\\s+") )
+  }else if(any(stringr::str_equal(names(df), "fia_ecodivision"))){
+    df <- df %>% dplyr::mutate( DIVISION = stringr::str_remove_all(as.character(fia_ecodivision),"\\s+") )
   }else if(
-    inherits(tree_list,"sf") &&
-    inherits(fia_ecodivisions_sf,"sf")
-    # sum(names(tree_list) %in% c("tree_x","tree_y"))==2
+    inherits(df,"sf") &&
+    inherits(my_fia_ecodivisions_sf,"sf")
+    # all(c("tree_x","tree_y") %in% names(df))
   ) {
-    tree_list <- tree_list %>% get_fia_ecodivision(fia_ecodivisions_sf = fia_ecodivisions_sf)
+    df <- df %>% get_fia_ecodivision(fia_ecodivisions_sf = my_fia_ecodivisions_sf)
   }else{
     stop(paste0(
       "the data does not contain the columns `DIVISION` or `fia_ecodivision`"
       , "\n .... at least one of these columns must be present and have data"
     ))
   }
-  cloud2trees:::check_df_cols_all_missing(df = tree_list, col_names = "DIVISION", all_numeric = F)
+  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "DIVISION", all_numeric = F)
+  
+  ### !!!!!!!!!!!!!!!! could check against possible values from lookup table
+  
+  return(df)
 }
-xxxx
+### function to set STDORGCD depending on what's in the data
+cols_set_nsvb_stdorgcd <- function(df, default_val = NA){
+  default_val <- dplyr::coalesce(as.integer(default_val), as.integer(NA))
+  # STDORGCD check
+  if(any(stringr::str_equal(names(df), "STDORGCD"))){
+    df <- df
+  }else if(any(stringr::str_equal(names(df), "stdorgcd"))){
+    df <- df %>% dplyr::mutate(STDORGCD = stdorgcd)
+  }else if(T){ ### !!!! this just sets it to a default
+    df <- df %>% dplyr::mutate(STDORGCD = default_val)
+  }else{
+    stop(paste0(
+      "the data does not contain the columns `STDORGCD`"
+      , "\n .... at least one of these columns must be present and have data"
+    ))
+  }
+  
+  # check valid values
+  if(any( dplyr::coalesce(df$STDORGCD,0)%%1 != 0 )){stop("STDORGCD must be integer without decimal values")}
+  if(!all( df$STDORGCD %in% c(1,0,NA) )){stop("STDORGCD must be integer value of 1, 0, or NA")}
+  
+  # do it as int
+  df <- df %>% dplyr::mutate(STDORGCD = dplyr::coalesce(as.integer(STDORGCD), default_val))
+  
+  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "STDORGCD", all_numeric = T)
+  
+  return(df)
+}
 
 # function to get all nsvb gross stuff
 trees_nsvb_volume_gross <- function(
   tree_list
+  , default_stdorgcd = NA
 ){
   # add check for fia_ecodivisions_sf like checks for treemap data
   fia_ecodivisions_sf <- NULL
@@ -880,20 +924,15 @@ trees_nsvb_volume_gross <- function(
   tree_list <- tree_list %>% 
     cols_set_nsvb_dbh() %>% 
     cols_set_nsvb_height() %>% 
-    cols_set_nsvb_spcd()
+    cols_set_nsvb_spcd() %>% 
+    cols_set_nsvb_division(my_fia_ecodivisions_sf = fia_ecodivisions_sf) %>% 
+    cols_set_nsvb_stdorgcd(default_val = default_stdorgcd)
   
-  # STDORGCD check
-  if(any(stringr::str_equal(names(tree_list), "STDORGCD"))){
-    tree_list <- tree_list %>% dplyr::mutate(STDORGCD = as.numeric(STDORGCD))
-  }else if(T){ ### !!!! this just sets it to NA
-    tree_list <- tree_list %>% dplyr::mutate(STDORGCD = as.numeric(NA))
-  }else{
-    stop(paste0(
-      "the data does not contain the columns `STDORGCD`"
-      , "\n .... at least one of these columns must be present and have data"
-    ))
+  if(
+    !all(c("HT", "ACTUALHT", "DIA", "SPCD", "DIVISION", "STDORGCD") %in% names(tree_list))
+  ){
+    stop("missing NSVB calculation columns in `tree_list`")
   }
-  
   # we need a clean data set that doesn't include any variables named in any of the data used by the nsvb.Rmd data sets or functions
   # we'll start with the absolute minimum data, go through the nsvb process, drop any cols in our original data created in the process
   # then join on the new data
@@ -901,7 +940,7 @@ trees_nsvb_volume_gross <- function(
   tree_list <- tree_list %>% 
     dplyr::ungroup() %>% 
     dplyr::mutate(xxx_join_id = dplyr::row_number())
-    
+  
   tree_list_w_nsvb <- 
     tree_list %>%
     sf::st_drop_geometry() %>% 
@@ -1193,7 +1232,7 @@ get_col_names_trees_nsvb_volume_gross <- function() {
 # get_col_names_trees_nsvb_volume_gross()
 
 # # # testtest
-# ref_trees_list[[3]] %>% trees_nsvb_volume_gross() %>% dplyr::glimpse()
+# ref_trees_list[[1]] %>% trees_nsvb_volume_gross() %>% dplyr::glimpse()
 # pred_trees_list[[2]] %>% trees_nsvb_volume_gross() %>% dplyr::glimpse()
 # pred_trees_list[[2]] %>% trees_nsvb_volume_gross() %>% dplyr::filter(stringr::str_starts(species_symbol,"QU")) %>% dplyr::glimpse()
 # pred_trees_list[[3]] %>% trees_nsvb_volume_gross() %>% dplyr::filter(is.na(hm)) %>% dplyr::glimpse()
@@ -1217,10 +1256,9 @@ base::setdiff(names(tree_temp), orig_cols_temp)
 # "V_tot_ib_Gross   V_tot_bk_Gross   V_tot_ob_Gross   hm               R_1              R_m              R_m_2            V_mer_ib_Gross  
 #  V_mer_ob_Gross   V_mer_bk_Gross   hm_saw           R_s              V_saw_ib_Gross   V_saw_ob_Gross   V_saw_bk_Gross   V_stump_ob_Gross
 #  V_stump_ib_Gross V_stump_bk_Gross V_top_ob_Gross   V_top_ib_Gross   V_top_bk_Gross"  
-# ), "\\s", ",")
+# ), "\\s+", ",")
 
 ```
-
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
@@ -1231,7 +1269,7 @@ let's take that `trees_nsvb_volume_gross()` function which relies on data loaded
 
 note, that some of the reference data does not have tree height measurement information, so we will not be able to calculate volume for these trees since the NSVB equations rely on tree height
 
-```{r}
+```{r, results=F, message=F}
 # do it
 ref_trees_list <- ref_trees_list %>% 
   purrr::map(function(df){
@@ -1253,6 +1291,11 @@ pred_trees_list <- pred_trees_list %>%
       return(df)
     }
   })
+```
+
+check it for one data set
+
+```{r, results=F, message=F}
 ## check it for one data
 pred_trees_list[[1]] %>% 
   sf::st_drop_geometry() %>% 
@@ -1303,7 +1346,9 @@ pred_trees_list[["WFSI_EglinAFB"]] %>%
 
 ```
 
-that seems to be working pretty well, let's continue
+that seems to be working pretty well, we'll evaluate accuracy of the volume predictions against the reference data later after we work through the entire NSVB pipeline. 
+
+let's continue
 
 ## NSVB Modified "Sound" Values
 
@@ -1337,17 +1382,266 @@ some more detail:
 these modified volume and biomass estimates rely on the **Gross** predictions detailed above as well as the tree list inputs required to calculate those predictions (`HT`, `ACTUALHT`, `DIA`, `SPCD`, `DIVISION`, `STDORGCD`). however, they also rely on other variables with information about the tree status which include: 
 
 * `CULL` : is the percentage, on a scale from 0 to 100 (percentage points), of rotten/missing wood in the main stem below any missing top (p. 10).
-* `STATUSCD` : xxxxx from FIA.
+* `STATUSCD` : Status code indicating whether the tree is live (`STATUSCD = 1`), dead (`STATUSCD = 2`), or cut (`STATUSCD = 3`) at the time of measurement
 
 let's define a function to get these modified values
 
 ```{r}
-xxxxxx
-trees_nsvb_volume_sound <- function(variables) {
-  # did this already go through trees_nsvb_volume_gross() ???
-  get_col_names_trees_nsvb_volume_gross()
+# tree_list <- pred_trees_list[[1]]
+# tree_list %>% dplyr::glimpse()
+
+### function to set CULL depending on what's in the data
+cols_set_nsvb_cull <- function(df, default_val = 0){
+  default_val <- dplyr::coalesce(as.numeric(default_val), 0)
+  # CULL check
+  if(any(stringr::str_equal(names(df), "CULL"))){
+    df <- df %>% dplyr::mutate(CULL = as.numeric(CULL))
+  }else if(any(stringr::str_equal(names(df), "cull"))){
+    df <- df %>% dplyr::mutate(CULL = as.numeric(cull))
+  }else if(T){ ### !!!! this just sets it to a default
+    df <- df %>% dplyr::mutate(CULL = default_val)
+  }else{
+    stop(paste0(
+      "the data does not contain the columns `CULL`"
+      , "\n .... at least one of these columns must be present and have data"
+    ))
+  }
+  
+  ## CULL should be on 0-100 scale...check and fix if a user put it in on 0-1 scale (as decimals..)
+  df <- 
+    df %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(
+      xxxx_not_na_zero = !is.na(CULL) & CULL != 0 # all values defined
+      , xxxx_has_dec = xxxx_not_na_zero & (CULL%%1 != 0) & (CULL<1) # defined values less than 1 that are decimals
+      # prop of vals with decimals
+      , xxxx_prop_dec = sum(xxxx_has_dec, na.rm = T) / sum(xxxx_not_na_zero, na.rm = T)
+      , xxxx_prop_dec = dplyr::coalesce(xxxx_prop_dec,0)
+      # if over half of defined values are less than one and have decimals, convert to 0-100 scale
+      , CULL = ifelse(
+        xxxx_prop_dec > 0.5
+        , CULL*100
+        , CULL
+      )
+      , CULL = dplyr::case_when(
+        CULL>100 ~ 100
+        , CULL<0 ~ 0
+        , T ~ CULL
+      )
+    ) %>% 
+    # drop all temp cols
+    dplyr::select(-c(xxxx_not_na_zero,xxxx_has_dec,xxxx_prop_dec))
+  
+  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "CULL", all_numeric = T)
+  
+  return(df)
 }
 
+# pred_trees_list[[1]] %>% 
+#   # dplyr::mutate(cull = runif(n=dplyr::n())) %>% cols_set_nsvb_cull() %>% 
+#   # cols_set_nsvb_cull(default_val = 0.22) %>%
+#   cols_set_nsvb_cull() %>%
+#   dplyr::glimpse()
+
+### function to set STATUSCD depending on what's in the data
+cols_set_nsvb_statuscd <- function(df, default_val = 1L){
+  default_val <- dplyr::coalesce(default_val, 1L)
+  # STATUSCD check
+  if(any(stringr::str_equal(names(df), "STATUSCD"))){
+    df <- df
+  }else if(any(stringr::str_equal(names(df), "statuscd"))){
+    df <- df %>% dplyr::mutate(STATUSCD = statuscd)
+  }else if(T){ ### !!!! this just sets it to a default
+    df <- df %>% dplyr::mutate(STATUSCD = default_val)
+  }else{
+    stop(paste0(
+      "the data does not contain the columns `STATUSCD` or `statuscd`"
+      , "\n .... at least one of these columns must be present and have data"
+    ))
+  }
+  
+  # check valid values
+  if(any( dplyr::coalesce(df$STATUSCD,0)%%1 != 0 )){stop("STATUSCD must be integer without decimal values")}
+  if(!all( df$STATUSCD %in% c(1,2,3,NA) )){stop("STATUSCD must be integer value of 1, 2, or 3")}
+  
+  # do it as int
+  df <- df %>% dplyr::mutate(STATUSCD = dplyr::coalesce(as.integer(STATUSCD), default_val))
+  
+  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "STATUSCD", all_numeric = T)
+  
+  return(df)
+}
+
+# pred_trees_list[[3]] %>%
+#   dplyr::mutate(statuscd = sample(c(1,2,3,NA),size=dplyr::n(), replace = T, prob = c(0.9,0.05,0.01,0.04)) ) %>% 
+#   cols_set_nsvb_statuscd(default_val = NA) %>%
+#   sf::st_drop_geometry() %>% dplyr::count(STATUSCD)
+#   # dplyr::glimpse()
+
+trees_nsvb_volume_sound <- function(tree_list, default_cull = 0, default_statuscd = 1L) {
+  # did this already go through trees_nsvb_volume_gross() ???
+  if(
+    !all(
+      get_col_names_trees_nsvb_volume_gross()
+      %in%
+      names(tree_list)
+    )
+  ){
+    # try to go through trees_nsvb_volume_gross() then
+    message("NSVB volume columns not found...attempting to estimate with trees_nsvb_volume_gross()")
+    tree_list <- trees_nsvb_volume_gross(tree_list = tree_list)
+  }
+  
+  # save name for later
+  orig_names_temp <- names(tree_list)
+
+  # check data
+  tree_list <- tree_list %>% 
+    cols_set_nsvb_cull(default_val = default_cull) %>% 
+    cols_set_nsvb_statuscd(default_val = default_statuscd) %>% 
+    cols_set_nsvb_height()
+  
+  if(
+    !all(
+      c("HT", "ACTUALHT", "STATUSCD", "CULL",get_col_names_trees_nsvb_volume_gross()) %in% 
+      names(tree_list)
+    )
+  ){
+    stop("missing NSVB calculation columns in `tree_list`")
+  }
+  # we need a clean data set that doesn't include any variables named in any of the data used by the nsvb.Rmd data sets or functions
+  # we'll start with the absolute minimum data, go through the nsvb process, drop any cols in our original data created in the process
+  # then join on the new data
+  # add a join id for use in combining in case any nsvb process drops rows
+  tree_list <- tree_list %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(xxx_join_id = dplyr::row_number())
+  
+  tree_list_w_nsvb <- 
+    tree_list %>%
+    sf::st_drop_geometry() %>% 
+    dplyr::select(dplyr::all_of(c(
+      c("xxx_join_id", "HT", "ACTUALHT", "STATUSCD", "CULL")
+      , get_col_names_trees_nsvb_volume_gross()
+    )))
+  # save the names so we know what was added
+  hey_names_temp <- names(tree_list_w_nsvb)
+  
+  ######################################################################################################
+  # this method is defined in nsvb.Rmd
+  # from https://github.com/mbrussell/NSVB
+  # copied with slight adjustments
+  ######################################################################################################
+  tree_list_w_nsvb <- 
+    tree_list_w_nsvb %>% 
+    dplyr::ungroup() %>% 
+    # More tree-level calcs here
+    dplyr::mutate(
+      V_top_bk_Sound = 0
+      
+      # broken tops
+      
+      , V_mer_ib_Sound = ((R_m_2 * V_tot_ib_Gross) - (R_1 * V_tot_ib_Gross)) * 
+        (1 - CULL/100)
+      , V_mer_ib_Sound2 = ((R_m_2 * V_tot_ib_Gross) - (R_1 * V_tot_ib_Gross)) * 
+        (1 - 0/100)
+      , V_mer_bk_Sound = ((R_m_2 * V_tot_bk_Gross) - (R_1 * V_tot_bk_Gross))
+      , V_mer_ob_Sound = V_mer_ib_Sound + V_mer_bk_Sound
+      , V_mer_ob_Sound2 = V_mer_ib_Sound2 + V_mer_bk_Sound
+      , V_stump_ib_Sound = V_stump_ib_Gross * (1 - CULL/100)
+      , V_stump_ob_Sound = V_stump_ib_Sound + V_stump_bk_Gross
+      
+      # Live trees
+      , V_tot_ib_Sound = ifelse(
+        STATUSCD == 1
+        , V_tot_ib_Gross * (1 - CULL/100)
+        , V_mer_ib_Sound + V_stump_ib_Sound
+      )
+      , V_mer_ib_Sound2 = ((R_m_2 * V_tot_ib_Gross) - (R_1 * V_tot_ib_Gross)) * 
+        (1 - 0/100)
+      , V_stump_ib_Sound2 = V_stump_ib_Gross * (1 - 0/100)
+      , V_stump_ob_Sound2 = V_stump_ib_Sound2 + V_stump_bk_Gross
+      , V_tot_ib_Sound2 = V_mer_ib_Sound2 + V_stump_ib_Sound2
+      , V_tot_bk_Sound =  V_tot_bk_Gross
+      , V_tot_ob_Sound = V_tot_ib_Sound + V_tot_bk_Sound
+      , V_tot_bk_Sound2 =  V_tot_ob_Sound - V_tot_ib_Sound2
+      , V_tot_ob_Sound2 = V_mer_ob_Sound2 + V_stump_ob_Sound2
+      
+      
+      
+      , V_tot_ob_Sound = ifelse(
+        ACTUALHT == HT
+        , V_tot_ib_Sound + V_tot_bk_Sound
+        , V_mer_ob_Sound + V_stump_ob_Sound
+      )
+      , V_tot_bk_Sound = ifelse(
+        ACTUALHT == HT
+        , V_tot_bk_Gross
+        , V_tot_ob_Sound - V_tot_ib_Sound
+      )
+      
+      # Snags
+      , V_top_ob_Sound = V_tot_ob_Sound - V_mer_ob_Sound - V_stump_ob_Sound
+      , V_top_ib_Sound = V_tot_ib_Sound - V_mer_ib_Sound - V_stump_ib_Sound
+      , V_top_bk = V_top_ob_Sound - V_top_ib_Sound
+      
+      # Missing
+      , V_miss_ob_Gross = ifelse(
+        V_tot_ob_Gross * (1 - R_m_2) >= 0
+        , V_tot_ob_Gross * (1 - R_m_2)
+        , V_tot_ob_Gross * (1 - 0)
+      )
+      , V_miss_ib_Gross = V_tot_ib_Gross * (1 - R_m_2)
+      , V_miss_ib_Gross2 = ifelse(is.na(V_miss_ib_Gross), 0, V_miss_ib_Gross)
+      , V_miss_bk_Gross = V_miss_ob_Gross - V_miss_ib_Gross2
+      , V_top_ib_Sound2 = (V_tot_ib_Gross - V_mer_ib_Gross - V_stump_ib_Gross - V_miss_ib_Gross2) *
+        (1-CULL/100)
+      , V_top_ob_Sound2 = V_top_ib_Sound2 + V_tot_bk_Gross * 
+        (1 - R_m) - V_miss_bk_Gross
+      , V_top_bk_Sound2 = V_top_ob_Sound2 - V_top_ib_Sound2
+      
+      , V_mer_ib_Sound3 = V_mer_ib_Gross * (1 - CULL/100)
+      , V_stump_ib_Sound3 = V_stump_ib_Gross * (1 - CULL/100)
+      , V_tot_ib_Sound3 = (V_mer_ib_Sound3 + V_stump_ib_Sound3 + V_top_ib_Sound2)
+      , V_tot_ob_Sound2 = (V_tot_ib_Sound3 + V_tot_bk_Gross - V_miss_bk_Gross)
+      , V_tot_bk_Sound2 = (V_tot_ob_Sound2 - V_tot_ib_Sound3)
+    )
+
+  ######################################################################################################
+  # add nsvb volume to original data
+  ######################################################################################################
+  new_names_temp <- base::setdiff(names(tree_list_w_nsvb),hey_names_temp)
+  
+  tree_list <-
+    tree_list %>% 
+    # get rid of columns we'll create
+    dplyr::select( -dplyr::any_of(c(
+      "hey_xxxxxxxxxx"
+      , new_names_temp
+    ))) %>% 
+    # add nsvb data
+    dplyr::left_join(
+      tree_list_w_nsvb %>% dplyr::select(dplyr::all_of(c(
+        "xxx_join_id"
+        , new_names_temp
+      )))
+      , by = "xxx_join_id"
+      , relationship = "one-to-one"
+    ) %>% 
+    # clean up cols we may have created
+    dplyr::select(-xxx_join_id) %>% 
+    dplyr::select(dplyr::all_of(c(
+      base::setdiff(orig_names_temp,new_names_temp)
+      , new_names_temp
+    )))
+
+    
+  return(tree_list)
+}
+
+# names(ref_trees_list)
+pred_trees_list[[2]] %>% nrow()
+pred_trees_list[[2]] %>% trees_nsvb_volume_sound() %>% dplyr::glimpse()
 ```
 
 ## NSVB Biomass Values
