@@ -926,11 +926,28 @@ trees_nsvb_volume_gross <- function(
     cols_set_nsvb_division(my_fia_ecodivisions_sf = fia_ecodivisions_sf) %>% 
     cols_set_nsvb_stdorgcd(default_val = default_stdorgcd)
   
+  req_cols_temp <- c("HT", "ACTUALHT", "DIA", "SPCD", "DIVISION", "STDORGCD")
+  
   if(
-    !all(c("HT", "ACTUALHT", "DIA", "SPCD", "DIVISION", "STDORGCD") %in% names(tree_list))
+    !all(
+      req_cols_temp %in% 
+      names(tree_list)
+    )
   ){
-    stop("missing NSVB calculation columns in `tree_list`")
+    stop(paste0(
+      "missing NSVB calculation columns in `tree_list`"
+      , "\n"
+      , "...missing: "
+      , paste0(
+        base::setdiff(
+          req_cols_temp # c("a","b","c")
+          , names(tree_list) # c("a","b")
+        )
+        , collapse = ", "
+      )
+    ))
   }
+  
   # we need a clean data set that doesn't include any variables named in any of the data used by the nsvb.Rmd data sets or functions
   # we'll start with the absolute minimum data, go through the nsvb process, drop any cols in our original data created in the process
   # then join on the new data
@@ -1506,14 +1523,28 @@ trees_nsvb_volume_sound <- function(
     cols_set_nsvb_statuscd(default_val = default_statuscd) %>% 
     cols_set_nsvb_height()
   
+  req_cols_temp <- c("HT", "ACTUALHT", "STATUSCD", "CULL",get_col_names_trees_nsvb_volume_gross())
+  
   if(
     !all(
-      c("HT", "ACTUALHT", "STATUSCD", "CULL",get_col_names_trees_nsvb_volume_gross()) %in% 
+      req_cols_temp %in% 
       names(tree_list)
     )
   ){
-    stop("missing NSVB calculation columns in `tree_list`")
+    stop(paste0(
+      "missing NSVB calculation columns in `tree_list`"
+      , "\n"
+      , "...missing: "
+      , paste0(
+        base::setdiff(
+          req_cols_temp # c("a","b","c")
+          , names(tree_list) # c("a","b")
+        )
+        , collapse = ", "
+      )
+    ))
   }
+  
   # we need a clean data set that doesn't include any variables named in any of the data used by the nsvb.Rmd data sets or functions
   # we'll start with the absolute minimum data, go through the nsvb process, drop any cols in our original data created in the process
   # then join on the new data
@@ -1624,7 +1655,7 @@ trees_nsvb_volume_sound <- function(
     tree_list_w_nsvb %>% 
       dplyr::mutate(dplyr::across(
         .cols = dplyr::all_of(new_names_temp)
-        , .fns = ~pmax(.x,0)
+        , .fns = ~ifelse(.x<0 & !is.na(.x),0,.x)
       ))
   ### !!!!!!!!!!!!!!!!! GW add end ###
   
@@ -1875,9 +1906,257 @@ however, they also rely on other variables with information about the tree statu
   - `4` = Few or no limb stubs remain; the top is broken; a variable amount of bark remains; sapwood is sloughing; heartwood has advanced decay at the base and is sloughing in the upper bole. 
   - `5` = No evidence of branches remains; the top is broken; <20 percent of the bark remains; sapwood is gone; heartwood is sloughing throughout.
   - `0` = Live tree (included in `nsvb.Rmd` from [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB))
-* `xxx` : xxxxx from FIA.
+* `CR` : Compacted crown ratio. From the [FIADB user guide](https://research.fs.usda.gov/understory/forest-inventory-and-analysis-database-user-guide-nfi): The percent of the tree bole supporting live, healthy foliage (the crown is ocularly compacted to fill in gaps) when compared to actual length (ACTUALHT). When 'PLOT.MANUAL' <1.0 the variable may have been a code, which was converted to the midpoint of the ranges represented by the codes, and is stored as a percentage.
+
+### Get CBH for Example Data
+
+Since NSVB biomass calculations rely on the `CR` attribute (compacted crown ratio) for trees, let's get CBH (crown base height) for one of our point cloud-based predicted tree list data sets. The `cloud2trees::trees_cbh()` function enables estimation of tree-level CBH based on point cloud density vertical profiles within individual tree crowns using the height normalized point cloud. We can calculate `CR` (or a proxy of `CR`) using the total tree height and crown
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+```{r, results=F}
+# get cloud2trees cbh predictions for one data
+this_data_site_nm <- project_data_df %>% 
+  dplyr::filter(tolower(data_site_nm)=="usfs_manitouef_n1") %>% 
+  dplyr::pull(data_site_nm)
+c2t_process_dir_temp <- project_data_df %>% 
+  dplyr::filter(data_site_nm==this_data_site_nm) %>% 
+  dplyr::pull(c2t_process_dir)
+nlas_dir_temp <- "c:/data/usfs/uas_lidar_n1/data/processed_N1_400AGL_20MPH_TFOFF/point_cloud_processing_delivery/norm_las"
+
+# fnm
+trees_cbh_fnm_temp <- file.path(c2t_process_dir_temp, "trees_cbh_ans.csv")
+
+##############################################################
+# cloud2trees::cloud2raster
+##############################################################
+# pred_trees_list[[this_data_site_nm]] %>% dplyr::glimpse()
+# pred_trees_list[[this_data_site_nm]] %>% sf::st_drop_geometry() %>% dplyr::count(treeID) %>% dplyr::filter(n>1)
+# ?cloud2trees::trees_cbh
+
+if(
+  !file.exists(trees_cbh_fnm_temp)
+){
+  trees_cbh_ans_temp <- 
+    cloud2trees::trees_cbh(
+      trees_poly = pred_trees_list[[this_data_site_nm]]
+      , norm_las = nlas_dir_temp
+      , tree_sample_prop = 0.22
+      , estimate_missing_cbh = T
+      , outfolder = c2t_process_dir_temp
+    )
+  # save the result
+  trees_cbh_ans_temp %>%
+    dplyr::select(plot_id,treeID,tree_cbh_m,is_training_cbh) %>%
+    sf::st_drop_geometry() %>%
+    readr::write_csv(file = trees_cbh_fnm_temp, append = F, progress = F)
+}else{
+  # read it
+  trees_cbh_ans_temp <- 
+    readr::read_csv(
+      trees_cbh_fnm_temp
+      , progress = F
+      , show_col_types = F
+    ) %>% 
+    dplyr::select(plot_id,treeID,tree_cbh_m,is_training_cbh) %>%
+    sf::st_drop_geometry() %>%
+    dplyr::mutate(dplyr::across(
+      .cols = c(plot_id,treeID)
+      , .fns = ~cloud2trees:::as_character_safe(.x)
+    ))
+}
+
+# join it with the original data
+pred_trees_list[[this_data_site_nm]] <- 
+  pred_trees_list[[this_data_site_nm]] %>% 
+  dplyr::left_join(trees_cbh_ans_temp, by = dplyr::join_by(plot_id,treeID))
+```
+
+let's check the estimated CBH values over the range of tree heights for this example
+
+```{r}
+# trees_cbh_ans_temp %>%
+pred_trees_list[[this_data_site_nm]] %>% 
+  dplyr::arrange(is_training_cbh) %>%
+  ggplot2::ggplot(mapping = ggplot2::aes(x = tree_height_m, y = tree_cbh_m, color=is_training_cbh)) + 
+  ggplot2::geom_point() +
+  ggplot2::labs(x = "tree ht. (m)", y = "tree CBH (m)") +
+  ggplot2::scale_y_continuous(breaks = scales::extended_breaks(n=12)) +
+  ggplot2::scale_x_continuous(breaks = scales::extended_breaks(n=14)) +
+  ggplot2::scale_color_viridis_d(alpha = 0.8, name = "is CBH\nfrom cloud?") +
+  ggplot2::theme_light()
+```
+
+let's check the CBH sample versus modeled trees in space
+
+```{r}
+pred_trees_list[[this_data_site_nm]] %>% 
+  sf::st_drop_geometry() %>% 
+  sf::st_as_sf(
+    coords = c("tree_x", "tree_y")
+    , crs = sf::st_crs(pred_trees_list[[this_data_site_nm]])
+    , remove = F
+  ) %>% 
+  dplyr::arrange(is_training_cbh) %>%
+  ggplot2::ggplot(mapping = ggplot2::aes(color=is_training_cbh)) + 
+  ggplot2::geom_sf() +
+  ggplot2::scale_color_viridis_d(alpha = 0.8, name = "is CBH\nfrom cloud?") +
+  ggplot2::theme_void() +
+  ggplot2::theme(
+    legend.position = "top", legend.direction = "horizontal"
+    , panel.border = ggplot2::element_rect(color = "black", fill = NA)
+  ) +
+  ggplot2::guides(
+    color = ggplot2::guide_legend(override.aes = list(lwd = 3, fill = NA))
+  )
+```
+
+looks like pretty good spatial distribution of the sample values
+
+let's check out the estimated CBH values in space
+
+```{r}
+pred_trees_list[[this_data_site_nm]] %>% 
+  dplyr::select(tree_cbh_m) %>% 
+  terra::vect() %>% 
+  terra::plot(
+    y = "tree_cbh_m"
+    , col = terra::map.pal("grass", n=50) %>% rev()
+    , type = "continuous"
+    , axes=F
+    , plg = list(
+      title = "CBH (m)"
+      , cex = 0.8
+      , title.cex = 0.9
+      , shrink = 0.6 
+    )
+  )
+```
+
+neat
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+### NSVB Biomass Function
 
 let's define a function to get these **Biomass** values
+
+```{r, include=F, eval=F}
+# test all combinations of DIVISION, SPCD
+bark_wt %>% dplyr::glimpse() # raw tables from westfall
+vol_ib %>% dplyr::glimpse() # raw tables from westfall
+
+division_spcd_temp <- 
+  # DIVISION
+  dplyr::bind_rows(
+    vol_ib %>% dplyr::ungroup() %>% dplyr::filter(!is.na(DIVISION)) %>% dplyr::distinct(DIVISION)
+    , vol_bark %>% dplyr::ungroup() %>% dplyr::filter(!is.na(DIVISION)) %>% dplyr::distinct(DIVISION)
+    , bark_wt %>% dplyr::ungroup() %>% dplyr::filter(!is.na(DIVISION)) %>% dplyr::distinct(DIVISION)
+    , branch_wt %>% dplyr::ungroup() %>% dplyr::filter(!is.na(DIVISION)) %>% dplyr::distinct(DIVISION)
+  ) %>% 
+  dplyr::distinct(DIVISION) %>%
+  # all combinations with SPCD
+  tidyr::crossing(
+    dplyr::bind_rows(
+      vol_ib %>% dplyr::ungroup() %>% dplyr::filter(!is.na(SPCD)) %>% dplyr::distinct(SPCD)
+      , vol_bark %>% dplyr::ungroup() %>% dplyr::filter(!is.na(SPCD)) %>% dplyr::distinct(SPCD)
+      , bark_wt %>% dplyr::ungroup() %>% dplyr::filter(!is.na(SPCD)) %>% dplyr::distinct(SPCD)
+      , branch_wt %>% dplyr::ungroup() %>% dplyr::filter(!is.na(SPCD)) %>% dplyr::distinct(SPCD)
+    ) %>% 
+    dplyr::distinct(SPCD)
+  )
+
+division_spcd_stdorgcd_temp <- 
+  division_spcd_temp %>% 
+  tidyr::crossing(
+    vol_ib %>% 
+      dplyr::ungroup() %>% 
+      dplyr::distinct(STDORGCD)
+  )
+# division_spcd_stdorgcd_temp
+  
+
+
+division_spcd2_temp <- 
+  # DIVISION
+  bark_wt %>% dplyr::ungroup() %>% dplyr::filter(!is.na(DIVISION)) %>% dplyr::distinct(DIVISION) %>% 
+  # all combinations with SPCD
+  tidyr::crossing(
+    bark_wt %>% dplyr::ungroup() %>% dplyr::filter(!is.na(SPCD)) %>% dplyr::distinct(SPCD)
+  )
+  
+division_spcd_stdorgcd2_temp <- 
+  # DIVISION
+  bark_wt %>% dplyr::ungroup() %>% dplyr::filter(!is.na(DIVISION)) %>% dplyr::distinct(DIVISION) %>% 
+  # all combinations with SPCD
+  tidyr::crossing(
+    bark_wt %>% dplyr::ungroup() %>% dplyr::filter(!is.na(SPCD)) %>% dplyr::distinct(SPCD)
+  ) %>% 
+  # all combinations with STDORGCD
+  tidyr::crossing(
+    bark_wt %>% dplyr::ungroup() %>% dplyr::distinct(STDORGCD)
+  )
+  
+## check against OVERALL
+## check against OVERALL
+## check against OVERALL
+division_spcd_temp %>% 
+  dplyr::anti_join(
+    spp_bark_wt_all %>% 
+      dplyr::ungroup() %>% 
+      dplyr::filter(!is.na(DIVISION),!is.na(SPCD)) %>% 
+      dplyr::distinct(DIVISION,SPCD)
+  )
+  # nrow()
+## check against SPECIFIC
+## check against SPECIFIC
+## check against SPECIFIC
+division_spcd2_temp %>% 
+  dplyr::anti_join(
+    spp_bark_wt_all %>% 
+      dplyr::ungroup() %>% 
+      dplyr::filter(!is.na(DIVISION),!is.na(SPCD)) %>% 
+      dplyr::distinct(DIVISION,SPCD)
+  ) %>% 
+  nrow()
+# .... OK SO IT ALREADY HAS ALL COMBINATIONS OF DIVISION,SPCD... BUT WHAT ABOUT DIVISION,SPCD,STDORGCD
+division_spcd_stdorgcd2_temp %>% 
+  dplyr::anti_join(
+    spp_bark_wt_all %>% 
+      dplyr::ungroup() %>% 
+      dplyr::distinct(DIVISION,SPCD,STDORGCD)
+  )
+  # nrow()
+
+division_spcd_stdorgcd2_temp %>% 
+  dplyr::anti_join(
+    spp_bark_wt_all %>% 
+      dplyr::ungroup() %>% 
+      dplyr::distinct(DIVISION,SPCD,STDORGCD)
+  ) %>% 
+  dplyr::left_join(
+    # spp_bark_wt_all_div_spcd_gw
+    spp_bark_wt_all %>% 
+      dplyr::mutate(
+        STDORGCD = ifelse(is.na(STDORGCD), -1, STDORGCD)
+      ) %>% 
+      dplyr::group_by(DIVISION,SPCD) %>% 
+      dplyr::slice_min(n=1, order_by = STDORGCD, with_ties = F) %>% 
+      dplyr::ungroup() %>% 
+      dplyr::select(-STDORGCD)
+    , by = dplyr::join_by(DIVISION,SPCD)
+  )
+
+
+# spp_branch_wt_all %>% dplyr::glimpse()
+
+```
 
 ```{r}
 # tree_list <- pred_trees_list[[1]]
@@ -1902,7 +2181,7 @@ cols_set_nsvb_decaycd <- function(df, default_val = 0L){
   
   # check valid values
   if(any( dplyr::coalesce(df$DECAYCD,0)%%1 != 0 )){stop("DECAYCD must be integer without decimal values")}
-  if(!all( df$DECAYCD %in% c(1,2,3,4,5,NA) )){stop("DECAYCD must be integer value of 1-5 or NA")}
+  if(!all( df$DECAYCD %in% c(0,1,2,3,4,5,NA) )){stop("DECAYCD must be integer value of 1-5 or NA")}
   
   # do it as int
   df <- df %>% dplyr::mutate(DECAYCD = dplyr::coalesce(as.integer(DECAYCD), default_val))
@@ -1912,75 +2191,59 @@ cols_set_nsvb_decaycd <- function(df, default_val = 0L){
   return(df)
 }
 
+# pred_trees_list[[2]] %>% cols_set_nsvb_decaycd() %>% dplyr::glimpse()
 
-
-### function to set CULL depending on what's in the data
-cols_set_nsvb_cull <- function(df, default_val = 0){
-  default_val <- dplyr::coalesce(as.numeric(default_val), 0)
-  # CULL check
-  if(any(stringr::str_equal(names(df), "CULL"))){
-    df <- df %>% dplyr::mutate(CULL = as.numeric(CULL))
-  }else if(any(stringr::str_equal(names(df), "cull"))){
-    df <- df %>% dplyr::mutate(CULL = as.numeric(cull))
+### function to set CR depending on what's in the data
+cols_set_nsvb_cr <- function(df){
+  # CR check
+  if(any(stringr::str_equal(names(df), "CR"))){
+    df <- df %>% dplyr::mutate(CR = as.numeric(CR))
+  }else if(any(stringr::str_equal(names(df), "cr"))){
+    df <- df %>% dplyr::mutate(CR = as.numeric(cr))
   }else if(T){ ### !!!! this just sets it to a default
-    df <- df %>% dplyr::mutate(CULL = default_val)
+    df <- df %>% dplyr::mutate(CR = default_val)
   }else{
     stop(paste0(
-      "the data does not contain the columns `CULL`"
+      "the data does not contain the columns `CR` or "
       , "\n .... at least one of these columns must be present and have data"
     ))
   }
   
-  ## CULL should be on 0-100 scale...check and fix if a user put it in on 0-1 scale (as decimals..)
+  ## CR should be on 0-100 scale...check and fix if a user put it in on 0-1 scale (as decimals..)
   df <- 
     df %>% 
     dplyr::ungroup() %>% 
     dplyr::mutate(
-      xxxx_not_na_zero = !is.na(CULL) & CULL != 0 # all values defined
-      , xxxx_has_dec = xxxx_not_na_zero & (CULL%%1 != 0) & (CULL<1) # defined values less than 1 that are decimals
+      xxxx_not_na_zero = !is.na(CR) & CR != 0 # all values defined
+      , xxxx_has_dec = xxxx_not_na_zero & (CR%%1 != 0) & (CR<1) # defined values less than 1 that are decimals
       # prop of vals with decimals
       , xxxx_prop_dec = sum(xxxx_has_dec, na.rm = T) / sum(xxxx_not_na_zero, na.rm = T)
       , xxxx_prop_dec = dplyr::coalesce(xxxx_prop_dec,0)
       # if over half of defined values are less than one and have decimals, convert to 0-100 scale
-      , CULL = ifelse(
+      , CR = ifelse(
         xxxx_prop_dec > 0.5
-        , CULL*100
-        , CULL
+        , CR*100
+        , CR
       )
-      , CULL = dplyr::case_when(
-        CULL>100 ~ 100
-        , CULL<0 ~ 0
-        , T ~ CULL
+      , CR = dplyr::case_when(
+        CR>100 ~ 100
+        , CR<0 ~ 0
+        , T ~ CR
       )
     ) %>% 
     # drop all temp cols
     dplyr::select(-c(xxxx_not_na_zero,xxxx_has_dec,xxxx_prop_dec))
   
-  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "CULL", all_numeric = T)
+  cloud2trees:::check_df_cols_all_missing(df = df, col_names = "CR", all_numeric = T)
   
   return(df)
 }
 
-# pred_trees_list[[1]] %>% 
-#   # dplyr::mutate(cull = runif(n=dplyr::n())) %>% cols_set_nsvb_cull() %>% 
-#   # cols_set_nsvb_cull(default_val = 0.22) %>%
-#   cols_set_nsvb_cull() %>%
-#   dplyr::glimpse()
-
-
-# pred_trees_list[[3]] %>%
-#   dplyr::mutate(statuscd = sample(c(1,2,3,NA),size=dplyr::n(), replace = T, prob = c(0.9,0.05,0.01,0.04)) ) %>% 
-#   cols_set_nsvb_statuscd(default_val = NA) %>%
-#   sf::st_drop_geometry() %>% dplyr::count(STATUSCD)
-#   # dplyr::glimpse()
-
-tree %>% 
-  dplyr::ungroup() %>% 
-  dplyr::select(dplyr::all_of(c(
-    c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
-  ))) %>% 
-dplyr::left_join(spp_bark_wt_all)
-
+#################################################################
+#################################################################
+# trees_nsvb_biomass
+#################################################################
+#################################################################
 trees_nsvb_biomass <- function(
     tree_list
     , default_decaycd = 0L
@@ -2021,6 +2284,7 @@ trees_nsvb_biomass <- function(
 
   # check data
   tree_list <- tree_list %>% 
+    cols_set_nsvb_division() %>% 
     cols_set_nsvb_dbh() %>% 
     cols_set_nsvb_height() %>% 
     cols_set_nsvb_spcd() %>% 
@@ -2029,19 +2293,33 @@ trees_nsvb_biomass <- function(
     cols_set_nsvb_cull() %>% 
     cols_set_nsvb_decaycd(default_val = default_decaycd)
   
+  req_cols_temp <- c(
+    "SPCD", "DECAYCD", "STATUSCD", "CULL"
+    , "DIA", "HT", "ACTUALHT"
+    # , "CR"
+    , "DIVISION", "STDORGCD"
+    , get_col_names_trees_nsvb_volume_gross()
+    , get_col_names_trees_nsvb_volume_sound()
+  )
+  
   if(
     !all(
-      c(
-        "SPCD", "DECAYCD", "STATUSCD", "CULL"
-        , "DIA", "HT"
-        , "DIVISION", "STDORGCD"
-        , get_col_names_trees_nsvb_volume_gross()
-        , get_col_names_trees_nsvb_volume_sound()
-      ) %in% 
+      req_cols_temp %in% 
       names(tree_list)
     )
   ){
-    stop("missing NSVB calculation columns in `tree_list`")
+    stop(paste0(
+      "missing NSVB calculation columns in `tree_list`"
+      , "\n"
+      , "...missing: "
+      , paste0(
+        base::setdiff(
+          req_cols_temp # c("a","b","c")
+          , names(tree_list) # c("a","b")
+        )
+        , collapse = ", "
+      )
+    ))
   }
   # we need a clean data set that doesn't include any variables named in any of the data used by the nsvb.Rmd data sets or functions
   # we'll start with the absolute minimum data, go through the nsvb process, drop any cols in our original data created in the process
@@ -2058,7 +2336,8 @@ trees_nsvb_biomass <- function(
       c(
         "xxx_join_id"
         , "SPCD", "DECAYCD", "STATUSCD", "CULL"
-        , "DIA", "HT"
+        , "DIA", "HT", "ACTUALHT"
+        # , "CR"
         , "DIVISION", "STDORGCD"
       )
       , get_col_names_trees_nsvb_volume_gross()
@@ -2066,6 +2345,53 @@ trees_nsvb_biomass <- function(
     )))
   # save the names so we know what was added
   hey_names_temp <- names(tree_list_w_nsvb)
+  
+  ######################################################################################################
+  # GW add: there are records by DIVISION and SPCD that do not have full representation across all
+  # possible values of STDORGCD : for planted (stand origin code (STDORGCD) = 1) and natural (STDORGCD = 0)
+  # we need STDORGCD = NA,0,1 rows for all possible DIVISION + SPCD combinations
+  # to do this, we'll just pick one record from the `spp_vol_ib_all` table (and other tables) prioritizing:
+  # 1) NA (not origin specific); 2) natural (STDORGCD = 0); 3) planted (STDORGCD = 1)
+  # ....
+  # the tables have all possible combinations of DIVISION, SPCD (see spp_vol_division_na definition)
+  # ... so, we just need to join by DIVISION, SPCD and pick just one set of coeffs for incomplete STDORGCD
+  ######################################################################################################
+  spp_bark_wt_all_div_spcd_gw <- 
+    spp_bark_wt_all %>% 
+    dplyr::mutate(
+      STDORGCD = ifelse(is.na(STDORGCD), -1, STDORGCD)
+    ) %>% 
+    dplyr::group_by(DIVISION,SPCD) %>% 
+    dplyr::slice_min(n=1, order_by = STDORGCD, with_ties = F) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(-STDORGCD)
+  
+  spp_branch_wt_all_div_spcd_gw <- 
+    spp_branch_wt_all %>% 
+    dplyr::mutate(
+      STDORGCD = ifelse(is.na(STDORGCD), -1, STDORGCD)
+    ) %>% 
+    dplyr::group_by(DIVISION,SPCD) %>% 
+    dplyr::slice_min(n=1, order_by = STDORGCD, with_ties = F) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(-STDORGCD)
+    
+  
+  ######################################################################################################
+  # GW add: there are records for SPCD that do not have any data because they are not "timber"
+  # e.g. QUGA (Quercus gambelii), spcd: 814
+  # for those records, the nsvb.Rmd functions (e.g., get_nsvb()) will throw an error
+  # we don't want this
+  # our options are to 
+  #   1) use the nsvb.Rmd tables to work with only species that are represented in the data (e.g. spp_vol_ib_all)
+        # then join back on to full tree_list data with NA for all nsvb cols
+  #   2) work with the full data and simply catch the error and NA the value if a function errors
+  # ...
+  # ... let's do 2
+  ######################################################################################################
+  safe_get_nsvb <- purrr::possibly(get_nsvb, otherwise = NA)
+  # safe_get_hm <- purrr::possibly(get_hm, otherwise = NA)
+  # safe_get_V_ratio <- purrr::possibly(get_V_ratio, otherwise = NA)
   
   ######################################################################################################
   # this method is defined in nsvb.Rmd
@@ -2095,41 +2421,67 @@ trees_nsvb_biomass <- function(
         )
       )
     ) %>% 
-    # dplyr::select(
-    #   -base::setdiff(names(wdsg),c("SPCD"))
-    # ) %>% 
-    # dplyr::select(
-    #   -base::setdiff(names(dead),c("DECAYCD"))
-    # ) %>% 
+    dplyr::select(
+      -base::setdiff(names(wdsg),c("SPCD"))
+      # -c("WDSG")
+    ) %>%
+    dplyr::select(
+      -base::setdiff(names(dead),c("SFTWD_HRDWD", "DECAYCD"))
+    ) %>%
     # Estimate total stem bark weight
     dplyr::left_join(spp_bark_wt_all, by = c("DIVISION", "STDORGCD", "SPCD")) %>% 
-    xxxxx # add backup join
-    dplyr::rowwise() %>% 
+    ### !!!!!!!!!!!!!!!!! GW add ###
+    dplyr::rows_patch(spp_bark_wt_all_div_spcd_gw, by = c("DIVISION","SPCD"), unmatched = "ignore") %>% 
+    ### !!!!!!!!!!!!!!!!! GW add end ###
+    dplyr::rowwise() %>%
     dplyr::mutate(
-      W_tot_bk = get_nsvb(
+      W_tot_bk = safe_get_nsvb(
         MODEL = MODEL, SPCD = SPCD
         , DIA = DIA, HT = HT
         , a = a, b = b, b1 = b1, c = c
         , WDSG = NA
       )
-    ) %>% 
+    ) %>%
     dplyr::select(
       -base::setdiff(names(spp_bark_wt_all),c("DIVISION", "STDORGCD", "SPCD"))
     ) %>%
+    # Estimate branch weight
+    dplyr::left_join(spp_branch_wt_all, by = c("DIVISION", "STDORGCD", "SPCD")) %>%
+    ### !!!!!!!!!!!!!!!!! GW add ###
+    dplyr::rows_patch(spp_branch_wt_all_div_spcd_gw, by = c("DIVISION","SPCD"), unmatched = "ignore") %>%
+    ### !!!!!!!!!!!!!!!!! GW add end ###
+    dplyr::rowwise() %>%
+    dplyr::mutate(
+      W_branch = safe_get_nsvb(
+        MODEL = MODEL, SPCD = SPCD
+        , DIA = DIA, HT = HT
+        , a = a, b = b, b1 = b1, c = c
+        , WDSG = WDSG
+      )
+      # , CR_H = (HT - ACTUALHT * (1 - CR/100))/HT ### GW: we don't need this just yet !!!!!!!
+      , W_tot_bk_red = ifelse(
+        ACTUALHT == HT & STATUSCD != 2
+        , W_tot_bk
+        , W_tot_bk * R_m_2 * DENS_PROP * BARK_PROP
+      )
+      , W_branch_red = W_branch
+    ) %>%
+    dplyr::select(
+      -base::setdiff(names(spp_branch_wt_all),c("DIVISION", "STDORGCD", "SPCD"))
+    )
 
   ######################################################################################################
   # add nsvb volume to original data
   ######################################################################################################
   new_names_temp <- base::setdiff(names(tree_list_w_nsvb),hey_names_temp)
   
-  # some of these calculations resulted in negative volume values...impossible????
-  # not sure if this messes up biomasss....
+  # some of these calculations resulted in negative biomass values...impossible????
   ### !!!!!!!!!!!!!!!!! GW add ###
   tree_list_w_nsvb <- 
     tree_list_w_nsvb %>% 
       dplyr::mutate(dplyr::across(
         .cols = dplyr::all_of(new_names_temp)
-        , .fns = ~pmax(.x,0)
+        , .fns = ~ifelse(.x<0 & !is.na(.x),0,.x)
       ))
   ### !!!!!!!!!!!!!!!!! GW add end ###
   
@@ -2194,7 +2546,13 @@ get_col_names_trees_nsvb_biomass_irrelevant <- function() {
 # get_col_names_trees_nsvb_biomass_irrelevant()
 
 # # # # testtest
-# ref_trees_list[[2]] %>% trees_nsvb_biomass() %>% dplyr::glimpse()
+pred_trees_list[[2]] %>% trees_nsvb_biomass() %>% dplyr::glimpse()
+# pred_trees_list[[2]] %>% trees_nsvb_biomass() %>% dplyr::slice(51) %>% View()
+
+# spp_bark_wt_all %>% dplyr::filter(SPCD == pred_trees_list[[2]]$spcd[51], DIVISION == pred_trees_list[[2]]$fia_ecodivision[51])
+# bark_wt %>% dplyr::filter(SPCD == pred_trees_list[[2]]$spcd[51], DIVISION == pred_trees_list[[2]]$fia_ecodivision[51])
+# bark_wt %>% dplyr::filter(SPCD == pred_trees_list[[2]]$spcd[51])
+
 # ref_trees_list[[2]] %>% trees_nsvb_biomass(drop_irrelevant = T) %>% dplyr::glimpse()
 # pred_trees_list[[1]] %>% 
 #   trees_nsvb_biomass(drop_irrelevant = T) %>% 
@@ -2240,6 +2598,24 @@ gc()
 
 ```{r, include=F, eval=F}
 tree %>% dplyr::glimpse()
+
+tree %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(dplyr::any_of(c(
+    c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
+  ))) %>% 
+    dplyr::left_join(wdsg, by = "SPCD", relationship = "many-to-one") %>% 
+    dplyr::left_join(dead, by = c("SFTWD_HRDWD", "DECAYCD"), relationship = "many-to-one") %>%
+    # dplyr::glimpse()
+    dplyr::select(
+      -base::setdiff(names(wdsg),c("SPCD"))
+      # -c("WDSG")
+    ) %>%
+    dplyr::select(
+      -base::setdiff(names(dead),c("DECAYCD","SFTWD_HRDWD"))
+    ) %>%
+    dplyr::glimpse()
+
 # # tree %>% dplyr::glimpse()
 # ## inputs
 # c(
@@ -2271,6 +2647,7 @@ tree %>%
   dplyr::select(dplyr::any_of(c(
     c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
   ))) %>% 
+  # dplyr::glimpse()
   # 1. Gross total stem wood volume, inside bark:
   dplyr::left_join(spp_vol_ib_all, by = nsvb_join_cols_temp) %>% 
   dplyr::rowwise() %>% 
