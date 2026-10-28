@@ -2190,22 +2190,75 @@ cols_set_nsvb_decaycd <- function(df, default_val = 0L){
   
   return(df)
 }
-
 # pred_trees_list[[2]] %>% cols_set_nsvb_decaycd() %>% dplyr::glimpse()
 
 ### function to set CR depending on what's in the data
 cols_set_nsvb_cr <- function(df){
+  cbh_nms_temp <- c("tree_cbh_m", "tree_cbh_ft", "cbh_m", "cbh_ft")
+  ht_nms_temp <- c("HT", "ht", "tree_height_ft", "tree_height_m")
+  
   # CR check
   if(any(stringr::str_equal(names(df), "CR"))){
     df <- df %>% dplyr::mutate(CR = as.numeric(CR))
   }else if(any(stringr::str_equal(names(df), "cr"))){
     df <- df %>% dplyr::mutate(CR = as.numeric(cr))
-  }else if(T){ ### !!!! this just sets it to a default
-    df <- df %>% dplyr::mutate(CR = default_val)
+  }else if(
+    any(
+      cbh_nms_temp %in% names(df)
+    ) &&
+    any(
+      ht_nms_temp %in% names(df)
+    )
+  ){ 
+    had_actualht_temp <- ifelse(
+      any(stringr::str_equal(names(df), "ACTUALHT"))
+      , T
+      , F
+    )
+    had_ht_temp <- ifelse(
+      any(stringr::str_equal(names(df), "HT"))
+      , T
+      , F
+    )
+    # get height first
+    df <- cols_set_nsvb_height(df) ## height will be named "ACTUALHT"
+    
+    # pick a cbh
+    # get the first matching name
+    col_idx_temp <- which(names(df) %in% cbh_nms_temp)[1]
+    which_cbh_nm_temp <- names(df)[col_idx_temp]
+    df$xxxx_cbh <- sf::st_drop_geometry(df)[,col_idx_temp]
+    
+    if(stringr::str_ends(which_cbh_nm_temp,"_m")){
+      df$xxxx_cbh <- as.numeric(df$xxxx_cbh)*3.281
+    }else{
+      df$xxxx_cbh <- as.numeric(df$xxxx_cbh)
+    }
+    
+    # make CR
+    df <- df %>% 
+      dplyr::mutate(
+        CR = dplyr::case_when(
+          xxxx_cbh > ACTUALHT ~ 0
+          , xxxx_cbh < 0 ~ 100
+          , T ~ (ACTUALHT-xxxx_cbh)/ACTUALHT*100
+        )
+      ) %>% 
+      dplyr::select(-xxxx_cbh)
+    
+    # clean up
+    if(!had_actualht_temp){
+      df <- df %>% dplyr::select(-ACTUALHT)
+    }
+    if(!had_ht_temp){
+      df <- df %>% dplyr::select(-HT)
+    }
+    
   }else{
     stop(paste0(
-      "the data does not contain the columns `CR` or "
-      , "\n .... at least one of these columns must be present and have data"
+      "the data does not contain the column `CR` OR "
+      , "  \n one of: ", paste0(cbh_nms_temp,collapse = ", ")
+      , "  \n AND one of: ", paste0(ht_nms_temp,collapse = ", ")
     ))
   }
   
@@ -2214,7 +2267,7 @@ cols_set_nsvb_cr <- function(df){
     df %>% 
     dplyr::ungroup() %>% 
     dplyr::mutate(
-      xxxx_not_na_zero = !is.na(CR) & CR != 0 # all values defined
+      xxxx_not_na_zero = !is.na(CR) # all values defined
       , xxxx_has_dec = xxxx_not_na_zero & (CR%%1 != 0) & (CR<1) # defined values less than 1 that are decimals
       # prop of vals with decimals
       , xxxx_prop_dec = sum(xxxx_has_dec, na.rm = T) / sum(xxxx_not_na_zero, na.rm = T)
@@ -2238,6 +2291,10 @@ cols_set_nsvb_cr <- function(df){
   
   return(df)
 }
+
+# pred_trees_list[[this_data_site_nm]] %>% cols_set_nsvb_cr() %>% dplyr::glimpse()
+# pred_trees_list[[this_data_site_nm]] %>% dplyr::select(-tree_cbh_m) %>% cols_set_nsvb_cr() %>% dplyr::glimpse()
+# pred_trees_list[[this_data_site_nm]] %>% cols_set_nsvb_cr() %>% sf::st_drop_geometry() %>% dplyr::pull(CR) %>% summary()
 
 #################################################################
 #################################################################
@@ -2291,12 +2348,13 @@ trees_nsvb_biomass <- function(
     cols_set_nsvb_stdorgcd(default_val = default_stdorgcd) %>% 
     cols_set_nsvb_statuscd(default_val = default_statuscd) %>% 
     cols_set_nsvb_cull() %>% 
-    cols_set_nsvb_decaycd(default_val = default_decaycd)
+    cols_set_nsvb_decaycd(default_val = default_decaycd) %>% 
+    cols_set_nsvb_cr()
   
   req_cols_temp <- c(
     "SPCD", "DECAYCD", "STATUSCD", "CULL"
     , "DIA", "HT", "ACTUALHT"
-    # , "CR"
+    , "CR"
     , "DIVISION", "STDORGCD"
     , get_col_names_trees_nsvb_volume_gross()
     , get_col_names_trees_nsvb_volume_sound()
@@ -2333,15 +2391,8 @@ trees_nsvb_biomass <- function(
     tree_list %>%
     sf::st_drop_geometry() %>% 
     dplyr::select(dplyr::all_of(c(
-      c(
-        "xxx_join_id"
-        , "SPCD", "DECAYCD", "STATUSCD", "CULL"
-        , "DIA", "HT", "ACTUALHT"
-        # , "CR"
-        , "DIVISION", "STDORGCD"
-      )
-      , get_col_names_trees_nsvb_volume_gross()
-      , get_col_names_trees_nsvb_volume_sound()
+      "xxx_join_id"
+      , req_cols_temp
     )))
   # save the names so we know what was added
   hey_names_temp <- names(tree_list_w_nsvb)
