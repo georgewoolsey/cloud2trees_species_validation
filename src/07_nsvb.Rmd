@@ -502,7 +502,7 @@ get_url_data_ans_temp <- cloud2trees:::get_url_data(
 let's load that data, clean it, and check it
 
 ```{r}
-fia_ecodivisions_sf <- 
+fia_ecoprovinces_sf <-
   sf::st_read("../data/Ecosys_EcomapSections_2007/S_USA.Ecosys_EcomapSections_2007.shp", quiet = T) %>%
   dplyr::rename_with(
     ~ tolower(.x) %>% 
@@ -518,18 +518,22 @@ fia_ecodivisions_sf <-
   dplyr::mutate(
     fia_ecodivision = 
       map_unit_s %>% 
-      stringr::str_squish() %>% 
+      stringr::str_remove_all("\\s+") %>% 
       # get just the number block and any letters at the beginning
       stringr::str_extract("^[^0-9]*\\d+") %>%
       # replace the last digit with a 0
       stringr::str_replace("\\d$", "0")
+    , fia_ecoprovince = 
+      map_unit_s %>% 
+      stringr::str_remove_all("\\s+") %>% 
+      # get just the number block and any letters at the beginning
+      stringr::str_extract("^[^0-9]*\\d+")
   ) %>% 
-  dplyr::filter(!is.na(fia_ecodivision)) %>% 
+  dplyr::filter(!is.na(fia_ecoprovince),!is.na(fia_ecodivision)) %>% 
+  # sf::st_drop_geometry() %>% dplyr::count(fia_ecodivision,fia_ecoprovince)
   # union the geometries
   sf::st_make_valid() %>% 
   dplyr::filter(sf::st_is_valid(.)) %>% 
-  dplyr::group_by(fia_ecodivision) %>%
-  dplyr::summarise(.groups = "drop") %>% 
   dplyr::mutate(
     fia_ecodivision_desc = dplyr::case_when(
       fia_ecodivision == "210"  ~ "Warm Continental Division"
@@ -553,7 +557,18 @@ fia_ecodivisions_sf <-
       , fia_ecodivision == "M340" ~ "Temperate Desert Mountains"
       , TRUE ~ as.character(NA)
     )
-  )
+  ) %>% 
+  dplyr::group_by(fia_ecoprovince,fia_ecodivision,fia_ecodivision_desc) %>%
+  dplyr::summarise(.groups = "drop") %>% 
+  dplyr::ungroup()
+  
+### fia_ecodivisions_sf
+fia_ecodivisions_sf <-
+  fia_ecoprovinces_sf %>% 
+  dplyr::group_by(fia_ecodivision,fia_ecodivision_desc) %>%
+  dplyr::summarise(.groups = "drop") %>% 
+  dplyr::ungroup()
+  
 
 # fia_ecodivisions_sf %>% dplyr::glimpse()
 
@@ -563,6 +578,13 @@ fia_ecodivisions_sf %>%
     zcol = "fia_ecodivision"
     , layer.name = "ecodivision"
     , col.regions = viridis::turbo(n = nrow(fia_ecodivisions_sf)) %>% sample()
+  ) +
+  mapview::mapview(
+    fia_ecoprovinces_sf
+    , layer.name = "ecoprovince"
+    , col.regions = "black"
+    , alpha.regions = 0
+    , hide = T
   )
 ```
 
@@ -1907,6 +1929,7 @@ however, they also rely on other variables with information about the tree statu
   - `5` = No evidence of branches remains; the top is broken; <20 percent of the bark remains; sapwood is gone; heartwood is sloughing throughout.
   - `0` = Live tree (included in `nsvb.Rmd` from [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB))
 * `CR` : Compacted crown ratio. From the [FIADB user guide](https://research.fs.usda.gov/understory/forest-inventory-and-analysis-database-user-guide-nfi): The percent of the tree bole supporting live, healthy foliage (the crown is ocularly compacted to fill in gaps) when compared to actual length (ACTUALHT). When 'PLOT.MANUAL' <1.0 the variable may have been a code, which was converted to the midpoint of the ranges represented by the codes, and is stored as a percentage.
+* `PROVINCE` : a sub-area of FIA ecodivision (`DIVISION`) whichWestfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) note: *Note that PROVINCE = M242 is a subarea within DIVISION = M240 (Cleland et al. 2007, Nowacki et al. 2003), and the more spatially explicit ecoprovince designation facilitates the use of table S11...* and *The latter adjustment requires consulting the crown ratio table (table S11) to assume the proportion of the stem having branch wood, which indicates the expected crown ratio calculated from live trees by hardwood vs. softwood species classification and PROVINCE...*
 
 ### Get CBH for Example Data
 
@@ -2519,7 +2542,19 @@ trees_nsvb_biomass <- function(
     ) %>%
     dplyr::select(
       -base::setdiff(names(spp_branch_wt_all),c("DIVISION", "STDORGCD", "SPCD"))
-    )
+    ) %>% 
+    # Crowns
+    
+    # This is one place where ecological province is used instead of ecological division
+    # Ecological division is mislabeled in Table S11_mean_crprop.csv. 
+    # It should be ecological province (see email to J. Westfall on 2/23/2024)
+    xxxxxx
+    left_join(tree, cr_prop2, by = c("PROVINCE", "SFTWD_HRDWD")) |> 
+    # Branches remaining
+    mutate(Branch_Rem = ifelse(STATUSCD == 2, (ACTUALHT - HT * (1 - (MEAN_CR/100)))/(HT * (MEAN_CR/100)), 
+    (ACTUALHT - HT * (1 - CR_H))/(HT * CR_H)),
+    W_branch_red = ifelse(ACTUALHT == HT, W_branch_red,
+    W_branch * DENS_PROP * BRANCH_PROP * Branch_Rem))
 
   ######################################################################################################
   # add nsvb volume to original data
