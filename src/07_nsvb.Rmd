@@ -2220,8 +2220,8 @@ dplyr::anti_join(
 
 base::setdiff(names(spp_branch_wt_all),c("DIVISION", "STDORGCD", "SPCD"))
 base::setdiff(names(wdsg),c("SPCD","SFTWD_HRDWD")) ## need SFTWD_HRDWD for later
-names(spp_agb_all)
-dplyr::glimpse(spp_agb_all)
+names(spp_foliage_all)
+dplyr::glimpse(spp_foliage_all)
 ```
 
 ```{r}
@@ -2556,6 +2556,16 @@ trees_nsvb_biomass <- function(
     dplyr::slice_min(n=1, order_by = STDORGCD, with_ties = F) %>% 
     dplyr::ungroup() %>% 
     dplyr::select(-STDORGCD)
+  
+  spp_foliage_all_div_spcd_gw <- 
+    spp_foliage_all %>% 
+    dplyr::mutate(
+      STDORGCD = ifelse(is.na(STDORGCD), -1, STDORGCD)
+    ) %>% 
+    dplyr::group_by(DIVISION,SPCD) %>% 
+    dplyr::slice_min(n=1, order_by = STDORGCD, with_ties = F) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(-STDORGCD)
     
   ######################################################################################################
   # GW add: there are records for SPCD that do not have any data because they are not "timber"
@@ -2698,6 +2708,76 @@ trees_nsvb_biomass <- function(
     ) %>% 
     dplyr::select(
       -base::setdiff(names(spp_agb_all),c("DIVISION", "STDORGCD", "SPCD"))
+    ) %>% 
+    # 11. estimate foliage biomass
+    dplyr::left_join(spp_foliage_all, by = c("DIVISION", "STDORGCD", "SPCD")) %>% 
+    ### !!!!!!!!!!!!!!!!! GW add ###
+    dplyr::rows_patch(spp_foliage_all_div_spcd_gw, by = c("DIVISION","SPCD"), unmatched = "ignore") %>% 
+    ### !!!!!!!!!!!!!!!!! GW add end ###
+    dplyr::rowwise() %>% 
+    dplyr::mutate(
+      W_foliage = ifelse(
+        STATUSCD == 1
+        , safe_get_nsvb(
+          MODEL = MODEL, SPCD = SPCD
+          , DIA = DIA, HT = HT
+          , a = a, a1 = a1, b = b
+          , b1 = b1, c = c, c1 = c1
+          , WDSG = NA
+        )
+        , 0
+      )
+      , W_foliage_red = W_foliage
+    ) %>% 
+    dplyr::select(
+      -base::setdiff(names(spp_foliage_all),c("DIVISION", "STDORGCD", "SPCD"))
+    ) %>% 
+    # Adjusted wood density
+    dplyr::mutate(
+      WDSG_Adj = ifelse(
+        ACTUALHT == HT
+        , Wood_harm/V_tot_ib_Gross/62.4
+        , Wood_harm/(V_tot_ib_Sound2)/62.4
+      )
+      , BKSG_Adj = ifelse(
+        ACTUALHT == HT
+        , Bark_harm/V_tot_bk_Gross/62.4
+        , Bark_harm/(V_tot_ob_Sound2 - V_tot_ib_Sound2)/62.4
+      )
+      , W_mer_ib = ifelse(
+        ACTUALHT == HT
+        , V_mer_ib_Gross * WDSG_Adj * 62.4
+        , (V_tot_ib_Sound2 - V_stump_ib_Sound2 - V_top_ib_Sound) * 
+          WDSG_Adj * 62.4
+      )
+      , W_mer_bk = ifelse(
+        ACTUALHT == HT
+        , V_mer_bk_Gross * BKSG_Adj * 62.4
+        , (V_tot_bk_Sound - V_stump_bk_Gross - V_top_bk_Sound) * 
+          BKSG_Adj * 62.4
+      )
+      , W_mer_ob = W_mer_ib + W_mer_bk
+      , W_stump_ib = V_stump_ib_Gross * WDSG_Adj * 62.4
+      , W_stump_bk = V_stump_bk_Gross * BKSG_Adj * 62.4
+      , W_stump_ob = W_stump_ib + W_stump_bk
+      , DRYBIO_TOP = AGB_pred_red - W_mer_ob - W_stump_ob
+    ) %>% 
+    # Carbon fractions
+    dplyr::left_join(spp_live, by = "SPCD", relationship = "many-to-one") %>% 
+    dplyr::left_join(spp_dead, by = c("SFTWD_HRDWD", "DECAYCD"), relationship = "many-to-one") %>% 
+    dplyr::mutate(
+      C = ifelse(
+        STATUSCD == 1
+        , AGB_pred_red * CF/100
+        , AGB_pred_red * `C fraction`/100
+      )
+    ) %>% 
+    
+    dplyr::select(
+      -base::setdiff(names(spp_live),c("SPCD"))
+    ) %>% 
+    dplyr::select(
+      -base::setdiff(names(spp_dead),c("SFTWD_HRDWD", "DECAYCD"))
     )
   
     # dplyr::select(
@@ -2782,8 +2862,8 @@ get_col_names_trees_nsvb_biomass_irrelevant <- function() {
 # get_col_names_trees_nsvb_biomass_irrelevant()
 
 # # # # testtest
-pred_trees_list[[2]] %>% trees_nsvb_biomass() %>% dplyr::glimpse()
-pred_trees_list[[2]] %>% dplyr::mutate(CR=as.numeric(NA)) %>% trees_nsvb_biomass() %>% dplyr::glimpse()
+# pred_trees_list[[2]] %>% trees_nsvb_biomass() %>% dplyr::glimpse()
+# pred_trees_list[[2]] %>% dplyr::mutate(CR=as.numeric(NA)) %>% trees_nsvb_biomass() %>% dplyr::glimpse()
 
 # spp_bark_wt_all %>% dplyr::filter(SPCD == pred_trees_list[[2]]$spcd[51], DIVISION == pred_trees_list[[2]]$fia_ecodivision[51])
 # bark_wt %>% dplyr::filter(SPCD == pred_trees_list[[2]]$spcd[51], DIVISION == pred_trees_list[[2]]$fia_ecodivision[51])
@@ -2841,13 +2921,31 @@ tree %>%
     # c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
     c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT",  "CULL", "DECAYCD", "STATUSCD")
   ))) %>% 
+  
   trees_nsvb_biomass() %>% dplyr::glimpse()
 ```
 
-A special case to note: `CR` can be set to `NA` for all trees without resulting in a calculation error (i.e. the `trees_nsvb_biomass()` process will still execute). However, for broken-top trees in which `ACTUALHT != HT` incomplete calculations will be returned if `CR` is set to `NA`. For these cases, the following will be `NA`: W_branch_red, AGB_comp_red, AGB_reduce, AGB_pred_red, AGB_diff, Wood_harm, Bark_harm, Branch_harm
+A few notes regarding `CR` (compacted crown ratio) and the NSVB biomass calculations presented in Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)):
+
+* `CR` can be set to `NA` for all trees without resulting in a calculation error. That is, the `trees_nsvb_biomass()` process will still execute based on NSVB handling of `CR`
+  + However, for broken-top trees in which `ACTUALHT != HT` incomplete calculations will be returned if `CR` is set to `NA`. For these cases, the following will be `NA`:
+    - `W_branch_red`, `AGB_comp_red`, `AGB_reduce`, `AGB_pred_red`, `AGB_diff`, `Wood_harm`, `Bark_harm`, `Branch_harm`, `WDSG_Adj`, `BKSG_Adj`, `W_mer_ib`, `W_mer_bk`, `W_mer_ob`, `W_stump_ib`, `W_stump_bk`, `W_stump_ob`, `DRYBIO_TOP`, `C`
+  + For trees without broken-tops in which `ACTUALHT == HT`, `CR` only influences the calculation of the following: 
+    - xxx, xxxx, xxxx
+
 
 ```{r, include=F, eval=F}
 tree %>% dplyr::glimpse()
+
+spp_live %>% dplyr::ungroup() %>% dplyr::count(SPCD) %>% dplyr::filter(n>1)
+spp_dead %>% dplyr::glimpse()
+spp_dead %>% dplyr::ungroup() %>% dplyr::count(SFTWD_HRDWD,DECAYCD) %>% dplyr::filter(n>1)
+
+tidyr::crossing(
+  dplyr::tibble(DECAYCD = 0:5)
+  , dplyr::tibble(SFTWD_HRDWD = c("S","H"))
+) %>% 
+dplyr::anti_join(spp_dead, by = dplyr::join_by(SFTWD_HRDWD,DECAYCD))
 
 tree %>% 
   dplyr::ungroup() %>% 
