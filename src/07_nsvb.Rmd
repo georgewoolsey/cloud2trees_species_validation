@@ -2928,10 +2928,16 @@ tree %>%
 A few notes regarding `CR` (compacted crown ratio) and the NSVB biomass calculations presented in Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)):
 
 * `CR` can be set to `NA` for all trees without resulting in a calculation error. That is, the `trees_nsvb_biomass()` process will still execute based on NSVB handling of `CR`
-  + However, for broken-top trees in which `ACTUALHT != HT` incomplete calculations will be returned if `CR` is set to `NA`. For these cases, the following will be `NA`:
+  + for dead (`STATUSCD == 2`), broken-top trees in which `ACTUALHT != HT`:
+    - *Mean crown ratios of live trees based on FIA data are provided in table S11 for making branch and foliage weight deductions for dead trees with broken tops. Example 3 in the Results section provides additional information on using table S11.* (p. 6)
+  + However, for live (`STATUSCD == 1`), broken-top trees in which `ACTUALHT != HT` incomplete calculations will be returned if `CR` is set to `NA`. For these cases, the following will be `NA`:
     - `W_branch_red`, `AGB_comp_red`, `AGB_reduce`, `AGB_pred_red`, `AGB_diff`, `Wood_harm`, `Bark_harm`, `Branch_harm`, `WDSG_Adj`, `BKSG_Adj`, `W_mer_ib`, `W_mer_bk`, `W_mer_ob`, `W_stump_ib`, `W_stump_bk`, `W_stump_ob`, `DRYBIO_TOP`, `C`
-  + For trees without broken-tops in which `ACTUALHT == HT`, `CR` only influences the calculation of the following: 
-    - xxx, xxxx, xxxx
+    - this is because a non-NA `CR` value is needed: *Consulting the branch weight coefficient table (table S7b), use model 5 with the appropriate coefficients and WDSG value to estimate total branch weight. Subsequently, also use table 1 to account for...branches remaining due to the broken top (BranchRem). The latter adjustment requires consulting the crown ratio table (table S11) to assume the proportion of the stem having branch wood, which indicates the expected crown ratio calculated from live trees by hardwood vs. softwood species classification and PROVINCE* (p. 19)
+    - Additionally: *Consulting the branch weight coefficient table (table S7a), use model 1 with the appropriate coefficients to estimate total branch weight. Additionally, account for the branches remaining due to the broken top (BranchRem). The latter adjustment requires use of the observed crown ratio (CR = 30 percent) based on AH to standardize the CR value to H (CRH) and then assess the proportion of the branch wood still intact* (p. 24)
+  + For trees without broken-tops in which `ACTUALHT == HT`, `CR` does not influence the calculation of any metrics. 
+    - for both live trees (`STATUSCD == 1`) and dead trees (`STATUSCD == 2`): *Total branch weight can then be estimated using the appropriate model form and coefficients. Consulting the branch weight coefficient table (table S7a), use model 1 with the appropriate coefficients* (p. 10-11)
+    - Table S7a includes coefficients for predicting total branch biomass based on FIA species code (`SPCD`) and ecodivision
+    - *Within-ecodivision biomass models for total aboveground, stem wood, stem bark, branch, and foliage biomass were developed for any species groups with at least 50 trees...For species with fewer than five trees, model 5, which incorporates published species-level wood specific gravity (WDSG) values (Miles and Smith 2009), was estimated for total aboveground and branch biomass by Jenkins group* (p. 3-4)
 
 
 ```{r, include=F, eval=F}
