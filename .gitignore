@@ -41,4 +41,5 @@ vignettes/*.pdf
 
 data/*
 src/_bookdown_files/
+src/cloud2trees_species_validation_files/
 src/gee_js/
