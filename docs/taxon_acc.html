@@ -323,7 +323,20 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="12" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html"><i class="fa fa-check"></i><b>12</b> <code>NSVB</code> for Biomass</a>
 <ul>
 <li class="chapter" data-level="12.1" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#nsvb-setup"><i class="fa fa-check"></i><b>12.1</b> NSVB setup</a></li>
-<li class="chapter" data-level="12.2" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#basic-nsvb-values"><i class="fa fa-check"></i><b>12.2</b> Basic NSVB values</a></li>
+<li class="chapter" data-level="12.2" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#nsvb-gross-values"><i class="fa fa-check"></i><b>12.2</b> NSVB Gross Values</a>
+<ul>
+<li class="chapter" data-level="12.2.1" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#data-preparation"><i class="fa fa-check"></i><b>12.2.1</b> Data Preparation</a></li>
+<li class="chapter" data-level="12.2.2" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#nsvb-gross-volume-function"><i class="fa fa-check"></i><b>12.2.2</b> NSVB Gross Volume Function</a></li>
+</ul></li>
+<li class="chapter" data-level="12.3" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#nsvb-modified-sound-values"><i class="fa fa-check"></i><b>12.3</b> NSVB Modified “Sound” Values</a>
+<ul>
+<li class="chapter" data-level="12.3.1" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#nsvb-sound-volume-function"><i class="fa fa-check"></i><b>12.3.1</b> NSVB Sound Volume Function</a></li>
+</ul></li>
+<li class="chapter" data-level="12.4" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#nsvb-biomass-values"><i class="fa fa-check"></i><b>12.4</b> NSVB Biomass Values</a>
+<ul>
+<li class="chapter" data-level="12.4.1" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#example-cbh-data"><i class="fa fa-check"></i><b>12.4.1</b> Example CBH Data</a></li>
+<li class="chapter" data-level="12.4.2" data-path="nsvb-for-biomass.html"><a href="nsvb-for-biomass.html#nsvb-biomass-function"><i class="fa fa-check"></i><b>12.4.2</b> NSVB Biomass Function</a></li>
+</ul></li>
 </ul></li>
 </ul>
 
@@ -469,8 +482,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb441-20"><a href="taxon_acc.html#cb441-20" tabindex="-1"></a>    , <span class="at">layer.name=</span><span class="st">&quot;site&quot;</span></span>
 <span id="cb441-21"><a href="taxon_acc.html#cb441-21" tabindex="-1"></a>    , <span class="at">popup=</span>T</span>
 <span id="cb441-22"><a href="taxon_acc.html#cb441-22" tabindex="-1"></a>  )</span></code></pre></div>
-<div class="leaflet html-widget html-fill-item" id="htmlwidget-d260e237aab35170f2c9" style="width:1008px;height:672px;"></div>
-<script type="application/json" data-for="htmlwidget-d260e237aab35170f2c9">{"x":{"options":{"minZoom":1,"maxZoom":52,"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}},"preferCanvas":false,"bounceAtZoomLimits":false,"maxBounds":[[[-90,-370]],[[90,370]]]},"calls":[{"method":"addProviderTiles","args":["OpenStreetMap","OpenStreetMap","OpenStreetMap",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["Esri.WorldImagery","Esri.WorldImagery","Esri.WorldImagery",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"createMapPane","args":["point",440]},{"method":"addCircleMarkers","args":[[37.86268975352228,40.59486963030412,39.00984467480214,39.1259365108863,44.85681139701286,39.35396343876022,30.53834921051964,32.03047915001357],[-108.6260042830934,-105.9892002292876,-105.0044671906483,-105.1139045236449,-68.6251278127596,-105.3837198121822,-86.72959384036638,-81.78060292690175],6,null,"site",{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}},"pane":"point","stroke":true,"color":"#333333","weight":1,"opacity":[0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9],"fill":true,"fillColor":["#4B0055","#3C3777","#006290","#008A98","#00AC8E","#25C771","#A6DA42","#FDE333"],"fillOpacity":[0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6]},null,null,["<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>1&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>BLM_TRFO&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>2&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>CSFS_SWE&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>3&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>USFS_ManitouEF_BigPlot&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>4&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>USFS_ManitouEF_N1&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>5&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>USFS_PenobscotEF&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>6&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>USFS_UteCreek&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>7&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>WFSI_EglinAFB&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>8&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>WFSI_FtStewart&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>"],{"maxWidth":800,"minWidth":50,"autoPan":true,"keepInView":false,"closeButton":true,"closeOnClick":true,"className":""},["BLM_TRFO","CSFS_SWE","USFS_ManitouEF_BigPlot","USFS_ManitouEF_N1","USFS_PenobscotEF","USFS_UteCreek","WFSI_EglinAFB","WFSI_FtStewart"],{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addScaleBar","args":[{"maxWidth":100,"metric":true,"imperial":true,"updateWhenIdle":true,"position":"bottomleft"}]},{"method":"addLayersControl","args":[["OpenStreetMap","Esri.WorldImagery"],"site",{"collapsed":true,"autoZIndex":true,"position":"topleft"}]},{"method":"addLegend","args":[{"colors":["#4B0055","#3C3777","#006290","#008A98","#00AC8E","#25C771","#A6DA42","#FDE333"],"labels":["BLM_TRFO","CSFS_SWE","USFS_ManitouEF_BigPlot","USFS_ManitouEF_N1","USFS_PenobscotEF","USFS_UteCreek","WFSI_EglinAFB","WFSI_FtStewart"],"na_color":null,"na_label":"NA","opacity":1,"position":"topright","type":"factor","title":"site","extra":null,"layerId":null,"className":"info legend","group":"site"}]}],"limits":{"lat":[30.53834921051964,44.85681139701286],"lng":[-108.6260042830934,-68.6251278127596]},"fitBounds":[30.53834921051964,-108.6260042830934,44.85681139701286,-68.6251278127596,[]]},"evals":[],"jsHooks":{"render":[{"code":"function(el, x, data) {\n  return (\n      function(el, x, data) {\n      // get the leaflet map\n      var map = this; //HTMLWidgets.find('#' + el.id);\n      // we need a new div element because we have to handle\n      // the mouseover output separately\n      // debugger;\n      function addElement () {\n      // generate new div Element\n      var newDiv = $(document.createElement('div'));\n      // append at end of leaflet htmlwidget container\n      $(el).append(newDiv);\n      //provide ID and style\n      newDiv.addClass('lnlt');\n      newDiv.css({\"position\":\"relative\",\"bottomleft\":\"0px\",\"background-color\":\"rgba(255, 255, 255, 0.7)\",\"box-shadow\":\"0 0 2px #bbb\",\"background-clip\":\"padding-box\",\"margin\":\"0\",\"padding-left\":\"5px\",\"padding-right\":\"5px\",\"color\":\"#333\",\"font-size\":\"9px\",\"font-family\":\"\\\"Helvetica Neue\\\", Arial, Helvetica, sans-serif\",\"text-align\":\"left\",\"z-index\":\"700\"});\n      return newDiv;\n      }\n\n\n      // check for already existing lnlt class to not duplicate\n      var lnlt = $(el).find('.lnlt');\n\n      if(!lnlt.length) {\n      lnlt = addElement();\n\n      // grab the special div we generated in the beginning\n      // and put the mousmove output there\n\n      map.on('mousemove', function (e) {\n      if (e.originalEvent.ctrlKey) {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                           ' lon: ' + (e.latlng.lng).toFixed(5) +\n                           ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                           ' | zoom: ' + map.getZoom() +\n                           ' | x: ' + L.CRS.EPSG3857.project(e.latlng).x.toFixed(0) +\n                           ' | y: ' + L.CRS.EPSG3857.project(e.latlng).y.toFixed(0) +\n                           ' | epsg: 3857 ' +\n                           ' | proj4: +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs ');\n      } else {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                      ' lon: ' + (e.latlng.lng).toFixed(5) +\n                      ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                      ' | zoom: ' + map.getZoom() + ' ');\n      }\n      });\n\n      // remove the lnlt div when mouse leaves map\n      map.on('mouseout', function (e) {\n      var strip = document.querySelector('.lnlt');\n      if( strip !==null) strip.remove();\n      });\n\n      };\n\n      //$(el).keypress(67, function(e) {\n      map.on('preclick', function(e) {\n      if (e.originalEvent.ctrlKey) {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                      ' lon: ' + (e.latlng.lng).toFixed(5) +\n                      ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                      ' | zoom: ' + map.getZoom() + ' ');\n      var txt = document.querySelector('.lnlt').textContent;\n      console.log(txt);\n      //txt.innerText.focus();\n      //txt.select();\n      setClipboardText('\"' + txt + '\"');\n      }\n      });\n\n      }\n      ).call(this.getMap(), el, x, data);\n}","data":null},{"code":"function(el, x, data) {\n  return (function(el,x,data){\n           var map = this;\n\n           map.on('keypress', function(e) {\n               console.log(e.originalEvent.code);\n               var key = e.originalEvent.code;\n               if (key === 'KeyE') {\n                   var bb = this.getBounds();\n                   var txt = JSON.stringify(bb);\n                   console.log(txt);\n\n                   setClipboardText('\\'' + txt + '\\'');\n               }\n           })\n        }).call(this.getMap(), el, x, data);\n}","data":null}]}}</script>
+<div class="leaflet html-widget html-fill-item" id="htmlwidget-dec69b6c3c80ae1296f8" style="width:1008px;height:672px;"></div>
+<script type="application/json" data-for="htmlwidget-dec69b6c3c80ae1296f8">{"x":{"options":{"minZoom":1,"maxZoom":52,"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}},"preferCanvas":false,"bounceAtZoomLimits":false,"maxBounds":[[[-90,-370]],[[90,370]]]},"calls":[{"method":"addProviderTiles","args":["OpenStreetMap","OpenStreetMap","OpenStreetMap",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"addProviderTiles","args":["Esri.WorldImagery","Esri.WorldImagery","Esri.WorldImagery",{"errorTileUrl":"","noWrap":false,"detectRetina":false,"pane":"tilePane"}]},{"method":"createMapPane","args":["point",440]},{"method":"addCircleMarkers","args":[[37.86268975352228,40.59486963030412,39.00984467480214,39.1259365108863,44.85681139701286,39.35396343876022,30.53834921051964,32.03047915001357],[-108.6260042830934,-105.9892002292876,-105.0044671906483,-105.1139045236449,-68.6251278127596,-105.3837198121822,-86.72959384036638,-81.78060292690175],6,null,"site",{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}},"pane":"point","stroke":true,"color":"#333333","weight":1,"opacity":[0.9,0.9,0.9,0.9,0.9,0.9,0.9,0.9],"fill":true,"fillColor":["#4B0055","#3C3777","#006290","#008A98","#00AC8E","#25C771","#A6DA42","#FDE333"],"fillOpacity":[0.6,0.6,0.6,0.6,0.6,0.6,0.6,0.6]},null,null,["<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>1&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>BLM_TRFO&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>2&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>CSFS_SWE&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>3&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>USFS_ManitouEF_BigPlot&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>4&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>USFS_ManitouEF_N1&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>5&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>USFS_PenobscotEF&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>6&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>USFS_UteCreek&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>7&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>WFSI_EglinAFB&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>","<div class='scrollableContainer'><table class=mapview-popup id='popup'><tr class='coord'><td><\/td><th><b>Feature ID&emsp;<\/b><\/th><td>8&emsp;<\/td><\/tr><tr><td>1<\/td><th>data_site_nm&emsp;<\/th><td>WFSI_FtStewart&emsp;<\/td><\/tr><tr><td>2<\/td><th>geometry&emsp;<\/th><td>sfc_POINT&emsp;<\/td><\/tr><\/table><\/div>"],{"maxWidth":800,"minWidth":50,"autoPan":true,"keepInView":false,"closeButton":true,"closeOnClick":true,"className":""},["BLM_TRFO","CSFS_SWE","USFS_ManitouEF_BigPlot","USFS_ManitouEF_N1","USFS_PenobscotEF","USFS_UteCreek","WFSI_EglinAFB","WFSI_FtStewart"],{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]},{"method":"addScaleBar","args":[{"maxWidth":100,"metric":true,"imperial":true,"updateWhenIdle":true,"position":"bottomleft"}]},{"method":"addLayersControl","args":[["OpenStreetMap","Esri.WorldImagery"],"site",{"collapsed":true,"autoZIndex":true,"position":"topleft"}]},{"method":"addLegend","args":[{"colors":["#4B0055","#3C3777","#006290","#008A98","#00AC8E","#25C771","#A6DA42","#FDE333"],"labels":["BLM_TRFO","CSFS_SWE","USFS_ManitouEF_BigPlot","USFS_ManitouEF_N1","USFS_PenobscotEF","USFS_UteCreek","WFSI_EglinAFB","WFSI_FtStewart"],"na_color":null,"na_label":"NA","opacity":1,"position":"topright","type":"factor","title":"site","extra":null,"layerId":null,"className":"info legend","group":"site"}]}],"limits":{"lat":[30.53834921051964,44.85681139701286],"lng":[-108.6260042830934,-68.6251278127596]},"fitBounds":[30.53834921051964,-108.6260042830934,44.85681139701286,-68.6251278127596,[]]},"evals":[],"jsHooks":{"render":[{"code":"function(el, x, data) {\n  return (\n      function(el, x, data) {\n      // get the leaflet map\n      var map = this; //HTMLWidgets.find('#' + el.id);\n      // we need a new div element because we have to handle\n      // the mouseover output separately\n      // debugger;\n      function addElement () {\n      // generate new div Element\n      var newDiv = $(document.createElement('div'));\n      // append at end of leaflet htmlwidget container\n      $(el).append(newDiv);\n      //provide ID and style\n      newDiv.addClass('lnlt');\n      newDiv.css({\"position\":\"relative\",\"bottomleft\":\"0px\",\"background-color\":\"rgba(255, 255, 255, 0.7)\",\"box-shadow\":\"0 0 2px #bbb\",\"background-clip\":\"padding-box\",\"margin\":\"0\",\"padding-left\":\"5px\",\"padding-right\":\"5px\",\"color\":\"#333\",\"font-size\":\"9px\",\"font-family\":\"\\\"Helvetica Neue\\\", Arial, Helvetica, sans-serif\",\"text-align\":\"left\",\"z-index\":\"700\"});\n      return newDiv;\n      }\n\n\n      // check for already existing lnlt class to not duplicate\n      var lnlt = $(el).find('.lnlt');\n\n      if(!lnlt.length) {\n      lnlt = addElement();\n\n      // grab the special div we generated in the beginning\n      // and put the mousmove output there\n\n      map.on('mousemove', function (e) {\n      if (e.originalEvent.ctrlKey) {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                           ' lon: ' + (e.latlng.lng).toFixed(5) +\n                           ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                           ' | zoom: ' + map.getZoom() +\n                           ' | x: ' + L.CRS.EPSG3857.project(e.latlng).x.toFixed(0) +\n                           ' | y: ' + L.CRS.EPSG3857.project(e.latlng).y.toFixed(0) +\n                           ' | epsg: 3857 ' +\n                           ' | proj4: +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs ');\n      } else {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                      ' lon: ' + (e.latlng.lng).toFixed(5) +\n                      ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                      ' | zoom: ' + map.getZoom() + ' ');\n      }\n      });\n\n      // remove the lnlt div when mouse leaves map\n      map.on('mouseout', function (e) {\n      var strip = document.querySelector('.lnlt');\n      if( strip !==null) strip.remove();\n      });\n\n      };\n\n      //$(el).keypress(67, function(e) {\n      map.on('preclick', function(e) {\n      if (e.originalEvent.ctrlKey) {\n      if (document.querySelector('.lnlt') === null) lnlt = addElement();\n      lnlt.text(\n                      ' lon: ' + (e.latlng.lng).toFixed(5) +\n                      ' | lat: ' + (e.latlng.lat).toFixed(5) +\n                      ' | zoom: ' + map.getZoom() + ' ');\n      var txt = document.querySelector('.lnlt').textContent;\n      console.log(txt);\n      //txt.innerText.focus();\n      //txt.select();\n      setClipboardText('\"' + txt + '\"');\n      }\n      });\n\n      }\n      ).call(this.getMap(), el, x, data);\n}","data":null},{"code":"function(el, x, data) {\n  return (function(el,x,data){\n           var map = this;\n\n           map.on('keypress', function(e) {\n               console.log(e.originalEvent.code);\n               var key = e.originalEvent.code;\n               if (key === 'KeyE') {\n                   var bb = this.getBounds();\n                   var txt = JSON.stringify(bb);\n                   console.log(txt);\n\n                   setClipboardText('\\'' + txt + '\\'');\n               }\n           })\n        }).call(this.getMap(), el, x, data);\n}","data":null}]}}</script>
 <div id="summary-table" class="section level2 hasAnchor" number="11.1">
 <h2><span class="header-section-number">11.1</span> Summary Table<a href="taxon_acc.html#summary-table" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>a summary table of all of the classification accuracy metrics at the site- and tree-level. note, the tree level accuracy metric is “NA” for sites that did not have tree location data and were evaluated using plot-based field data only.</p>
@@ -579,16 +592,16 @@ Genus
 BLM_TRFO<br>(pinyon-juniper)
 </td>
 <td style="text-align:left;">
-54.2%
+54.1%
 </td>
 <td style="text-align:left;">
-45.8%
+45.9%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-35.6%
+35.7%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-39.0%
+39.3%
 </td>
 </tr>
 <tr>
@@ -596,13 +609,13 @@ BLM_TRFO<br>(pinyon-juniper)
 CSFS_SWE<br>(lodgepole pine)
 </td>
 <td style="text-align:left;">
-86.3%
+85.9%
 </td>
 <td style="text-align:left;">
-13.7%
+14.1%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-10.1%
+11.4%
 </td>
 <td style="text-align:left;border-right:1px solid;">
 NA
@@ -613,16 +626,16 @@ NA
 USFS_ManitouEF_BigPlot<br>(western mixed conifer)
 </td>
 <td style="text-align:left;">
-60.3%
+59.8%
 </td>
 <td style="text-align:left;">
-39.7%
+40.2%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-14.6%
+14.5%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-27.7%
+26.8%
 </td>
 </tr>
 <tr>
@@ -630,16 +643,16 @@ USFS_ManitouEF_BigPlot<br>(western mixed conifer)
 USFS_ManitouEF_N1<br>(ponderosa pine)
 </td>
 <td style="text-align:left;">
-76.0%
+75.0%
 </td>
 <td style="text-align:left;">
-24.0%
+25.0%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-12.6%
+13.1%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-75.3%
+73.9%
 </td>
 </tr>
 <tr>
@@ -647,16 +660,16 @@ USFS_ManitouEF_N1<br>(ponderosa pine)
 USFS_PenobscotEF<br>(northern mixed conifer)
 </td>
 <td style="text-align:left;">
-75.6%
+74.7%
 </td>
 <td style="text-align:left;">
-24.4%
+25.3%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-5.6%
+5.9%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-20.7%
+21.3%
 </td>
 </tr>
 <tr>
@@ -664,16 +677,16 @@ USFS_PenobscotEF<br>(northern mixed conifer)
 USFS_UteCreek<br>(dry-mesic mixed conifer)
 </td>
 <td style="text-align:left;">
-94.7%
+94.0%
 </td>
 <td style="text-align:left;">
-5.3%
+6.0%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-3.2%
+3.6%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-88.1%
+86.7%
 </td>
 </tr>
 <tr>
@@ -681,16 +694,16 @@ USFS_UteCreek<br>(dry-mesic mixed conifer)
 WFSI_EglinAFB<br>(longleaf pine)
 </td>
 <td style="text-align:left;">
-78.2%
+78.1%
 </td>
 <td style="text-align:left;">
-21.8%
+21.9%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-17.7%
+17.9%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-65.1%
+64.9%
 </td>
 </tr>
 <tr>
@@ -704,7 +717,7 @@ WFSI_FtStewart<br>(southern yellow pine)
 10.6%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-3.3%
+3.4%
 </td>
 <td style="text-align:left;border-right:1px solid;">
 NA
@@ -718,16 +731,16 @@ Species
 BLM_TRFO<br>(pinyon-juniper)
 </td>
 <td style="text-align:left;">
-54.2%
+54.1%
 </td>
 <td style="text-align:left;">
-45.8%
+45.9%
 </td>
 <td style="text-align:left;border-right:1px solid;">
 30.8%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-39.0%
+39.3%
 </td>
 </tr>
 <tr>
@@ -735,13 +748,13 @@ BLM_TRFO<br>(pinyon-juniper)
 CSFS_SWE<br>(lodgepole pine)
 </td>
 <td style="text-align:left;">
-86.3%
+85.9%
 </td>
 <td style="text-align:left;">
-13.7%
+14.1%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-10.1%
+11.4%
 </td>
 <td style="text-align:left;border-right:1px solid;">
 NA
@@ -752,16 +765,16 @@ NA
 USFS_ManitouEF_BigPlot<br>(western mixed conifer)
 </td>
 <td style="text-align:left;">
-49.0%
+49.6%
 </td>
 <td style="text-align:left;">
-51.0%
+50.4%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-11.2%
+11.0%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-24.1%
+23.6%
 </td>
 </tr>
 <tr>
@@ -769,16 +782,16 @@ USFS_ManitouEF_BigPlot<br>(western mixed conifer)
 USFS_ManitouEF_N1<br>(ponderosa pine)
 </td>
 <td style="text-align:left;">
-76.0%
+75.0%
 </td>
 <td style="text-align:left;">
-24.0%
+25.0%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-11.7%
+12.2%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-75.3%
+73.9%
 </td>
 </tr>
 <tr>
@@ -786,16 +799,16 @@ USFS_ManitouEF_N1<br>(ponderosa pine)
 USFS_PenobscotEF<br>(northern mixed conifer)
 </td>
 <td style="text-align:left;">
-75.4%
+74.6%
 </td>
 <td style="text-align:left;">
-24.6%
+25.4%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-4.2%
+4.3%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-20.3%
+20.8%
 </td>
 </tr>
 <tr>
@@ -803,16 +816,16 @@ USFS_PenobscotEF<br>(northern mixed conifer)
 USFS_UteCreek<br>(dry-mesic mixed conifer)
 </td>
 <td style="text-align:left;">
-75.1%
+73.4%
 </td>
 <td style="text-align:left;">
-24.9%
+26.6%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-13.6%
+14.5%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-63.8%
+63.3%
 </td>
 </tr>
 <tr>
@@ -820,16 +833,16 @@ USFS_UteCreek<br>(dry-mesic mixed conifer)
 WFSI_EglinAFB<br>(longleaf pine)
 </td>
 <td style="text-align:left;">
-67.0%
+66.3%
 </td>
 <td style="text-align:left;">
-33.0%
+33.7%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-11.8%
+12.0%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-61.3%
+60.7%
 </td>
 </tr>
 <tr>
@@ -837,13 +850,13 @@ WFSI_EglinAFB<br>(longleaf pine)
 WFSI_FtStewart<br>(southern yellow pine)
 </td>
 <td style="text-align:left;">
-67.3%
+67.9%
 </td>
 <td style="text-align:left;">
-32.7%
+32.1%
 </td>
 <td style="text-align:left;border-right:1px solid;">
-6.0%
+6.1%
 </td>
 <td style="text-align:left;border-right:1px solid;">
 NA
@@ -983,8 +996,8 @@ NA
 <span id="cb444-118"><a href="taxon_acc.html#cb444-118" tabindex="-1"></a>    , <span class="at">fill =</span> <span class="st">&quot;none&quot;</span></span>
 <span id="cb444-119"><a href="taxon_acc.html#cb444-119" tabindex="-1"></a>  )</span></code></pre></div>
 <p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-455-1.png" alt="" width="1008" /></p>
-<p>Genus-level Bray-Curtis Similarity (site level) ranged from 54.2% (dissimilarity of 45.8%) at BLM_TRFO (pinyon-juniper) to 94.7% (dissimilarity of 5.3%) at USFS_UteCreek (dry-mesic mixed conifer) with a median overall accuracy across all sites analyzed of 77.1% (dissimilarity of 22.9%).</p>
-<p>Genus-level overall accuracy (tree level) ranged from 20.7% at USFS_PenobscotEF (northern mixed conifer) to 88.1% at USFS_UteCreek (dry-mesic mixed conifer) with a median overall accuracy across all sites analyzed of 52.1%.</p>
+<p>Genus-level Bray-Curtis Similarity (site level) ranged from 54.1% (dissimilarity of 45.9%) at BLM_TRFO (pinyon-juniper) to 94.0% (dissimilarity of 6.0%) at USFS_UteCreek (dry-mesic mixed conifer) with a median overall accuracy across all sites analyzed of 76.5% (dissimilarity of 23.5%).</p>
+<p>Genus-level overall accuracy (tree level) ranged from 21.3% at USFS_PenobscotEF (northern mixed conifer) to 86.7% at USFS_UteCreek (dry-mesic mixed conifer) with a median overall accuracy across all sites analyzed of 52.1%.</p>
 <p>Let’s compare the compositional profiles of genera in the predicted and reference data at the site-level. This is the data used to calculate the Bray-Curtis similarity/dissimilarity and proportional RMSE accuracy metrics.</p>
 <div class="sourceCode" id="cb445"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb445-1"><a href="taxon_acc.html#cb445-1" tabindex="-1"></a>comp_df_temp <span class="ot">&lt;-</span> </span>
 <span id="cb445-2"><a href="taxon_acc.html#cb445-2" tabindex="-1"></a>  ref_trees_list <span class="sc">%&gt;%</span> </span>
@@ -1263,8 +1276,8 @@ NA
 <span id="cb447-63"><a href="taxon_acc.html#cb447-63" tabindex="-1"></a>    , <span class="at">fill =</span> <span class="st">&quot;none&quot;</span></span>
 <span id="cb447-64"><a href="taxon_acc.html#cb447-64" tabindex="-1"></a>  )</span></code></pre></div>
 <p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-459-1.png" alt="" width="1008" /></p>
-<p>Species-level Bray-Curtis Similarity (site level) ranged from 49.0% (dissimilarity of 51.0%) at USFS_ManitouEF_BigPlot (western mixed conifer) to 86.3% (dissimilarity of 13.7%) at CSFS_SWE (lodgepole pine) with a median overall accuracy across all sites analyzed of 71.2% (dissimilarity of 28.8%).</p>
-<p>Species-level overall accuracy (tree level) ranged from 20.3% at USFS_PenobscotEF (northern mixed conifer) to 75.3% at USFS_ManitouEF_N1 (ponderosa pine) with a median overall accuracy across all sites analyzed of 50.2%.</p>
+<p>Species-level Bray-Curtis Similarity (site level) ranged from 49.6% (dissimilarity of 50.4%) at USFS_ManitouEF_BigPlot (western mixed conifer) to 85.9% (dissimilarity of 14.1%) at CSFS_SWE (lodgepole pine) with a median overall accuracy across all sites analyzed of 70.7% (dissimilarity of 29.3%).</p>
+<p>Species-level overall accuracy (tree level) ranged from 20.8% at USFS_PenobscotEF (northern mixed conifer) to 73.9% at USFS_ManitouEF_N1 (ponderosa pine) with a median overall accuracy across all sites analyzed of 50.0%.</p>
 <p>Let’s compare the compositional profiles of species in the predicted and reference data at the site-level. This is the data used to calculate the Bray-Curtis similarity/dissimilarity and proportional RMSE accuracy metrics.</p>
 <div class="sourceCode" id="cb448"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb448-1"><a href="taxon_acc.html#cb448-1" tabindex="-1"></a><span class="co"># comp_df_temp %&gt;% dplyr::glimpse()</span></span>
 <span id="cb448-2"><a href="taxon_acc.html#cb448-2" tabindex="-1"></a></span>
@@ -1526,8 +1539,8 @@ NA
 <span id="cb450-88"><a href="taxon_acc.html#cb450-88" tabindex="-1"></a>    , <span class="at">fill =</span> <span class="st">&quot;none&quot;</span></span>
 <span id="cb450-89"><a href="taxon_acc.html#cb450-89" tabindex="-1"></a>  )</span></code></pre></div>
 <p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-463-1.png" alt="" width="1008" /></p>
-<p>The median decrease in Bray-Curtis similarity (site-level accuracy) from genus-level to species-level is 6%. The greatest decrease in Bray-Curtis similarity from genus-level to species-level of 22% was observed at WFSI_FtStewart (southern yellow pine) based on a genus-level Bray-Curtis similarity of 89% and a species-level similarity of 67%. The smallest decrease in Bray-Curtis similarity from genus-level to species-level of 0% was observed at USFS_ManitouEF_N1 (ponderosa pine) based on a genus-level Bray-Curtis similarity of 76% and a species-level similarity of 76%.</p>
-<p>The median decrease in overall accuracy (tree-level accuracy) from genus-level to species-level is 2%. The greatest decrease in overall accuracy from genus-level to species-level of 24% was observed at USFS_UteCreek (dry-mesic mixed conifer) based on a genus-level overall accuracy of 88% and a species-level accuracy of 64%. The smallest decrease in overall accuracy from genus-level to species-level of 0% was observed at BLM_TRFO (pinyon-juniper) based on a genus-level overall accuracy of 39% and a species-level accuracy of 39%.</p>
+<p>The median decrease in Bray-Curtis similarity (site-level accuracy) from genus-level to species-level is 5%. The greatest decrease in Bray-Curtis similarity from genus-level to species-level of 22% was observed at WFSI_FtStewart (southern yellow pine) based on a genus-level Bray-Curtis similarity of 89% and a species-level similarity of 68%. The smallest decrease in Bray-Curtis similarity from genus-level to species-level of 0% was observed at USFS_ManitouEF_N1 (ponderosa pine) based on a genus-level Bray-Curtis similarity of 75% and a species-level similarity of 75%.</p>
+<p>The median decrease in overall accuracy (tree-level accuracy) from genus-level to species-level is 2%. The greatest decrease in overall accuracy from genus-level to species-level of 23% was observed at USFS_UteCreek (dry-mesic mixed conifer) based on a genus-level overall accuracy of 87% and a species-level accuracy of 63%. The smallest decrease in overall accuracy from genus-level to species-level of 0% was observed at BLM_TRFO (pinyon-juniper) based on a genus-level overall accuracy of 39% and a species-level accuracy of 39%.</p>
 
 </div>
 </div>

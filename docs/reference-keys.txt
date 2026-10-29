@@ -115,4 +115,11 @@ species-level
 species--vs.-genus-level
 nsvb-for-biomass
 nsvb-setup
-basic-nsvb-values
+nsvb-gross-values
+data-preparation
+nsvb-gross-volume-function
+nsvb-modified-sound-values
+nsvb-sound-volume-function
+nsvb-biomass-values
+example-cbh-data
+nsvb-biomass-function
