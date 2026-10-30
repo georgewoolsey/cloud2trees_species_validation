@@ -3327,20 +3327,20 @@ let's try to define those metrics based on Westfall et al. ([2024](https://doi.o
 # ), "\\s+", "' ~ 'hey', name == '")
 
 new_tree_temp %>% 
-  dplyr::select(ACTUALHT,HT,CR_H,CR)
+  # dplyr::select(ACTUALHT,HT,CR_H,CR)
   dplyr::mutate(
-    V_miss_ob_Gross2 = V_miss_ib_Gross + V_miss_bk_Gross
-    , iseq = V_miss_ob_Gross2==V_miss_ob_Gross
+    W_stump_ob2 = W_stump_ib + W_stump_bk
+    , iseq = W_stump_ob==W_stump_ob2
   ) %>% 
   dplyr::select(
-    iseq,V_miss_ob_Gross,V_miss_ob_Gross2 ,V_miss_ib_Gross , V_miss_bk_Gross
+    iseq,W_stump_ob,W_stump_ob2,W_stump_ib , W_stump_bk
   )
 
 
 
 dplyr::tribble(
   ~name, ~description, ~fia_db_abbr, ~units
-    "V_tot_ib_Gross", "Gross cubic-foot total-stem wood volume", "VOLTSGRS", "cubic feet"
+    , "V_tot_ib_Gross", "Gross cubic-foot total-stem wood volume", "VOLTSGRS", "cubic feet"
     , "V_tot_bk_Gross", "Gross cubic-foot total-stem bark volume", "VOLTSGRS_BARK", "cubic feet"
     , "V_tot_ob_Gross", "Gross cubic-foot total outside-bark volume (`V_tot_ib_Gross` + `V_tot_bk_Gross`)", NA, "cubic feet"
     , "hm", "Merchantable height to a 4.0 inch top", NA, "feet"
@@ -3376,7 +3376,7 @@ dplyr::tribble(
     , "V_miss_ob_Gross", "Gross cubic-foot missing top wood volume, outside bark (`V_miss_ib_Gross` + `V_miss_bk_Gross`)", NA, "cubic feet"
     , "V_miss_ib_Gross", "Gross cubic-foot missing top wood volume, inside bark", NA, "cubic feet"
     , "V_miss_bk_Gross", "Gross cubic-foot missing top bark volume", NA, "cubic feet"
-    , "W_tot_ib", "Total stem wood dry weight in pounds, inside bark", NA, "pounds"
+    , "W_tot_ib", "Total stem wood dry weight in pounds (inside bark) computed by converting wood volume to weight based on the wood density (specific gravity) and the weight of a cubic foot of water (62.4 lb/ft3)", NA, "pounds"
     , "W_tot_ib_red", "Total stem wood dry weight in pounds reduced due to cull and decay, inside bark", NA, "pounds"
     , "W_tot_bk", "Total stem bark dry weight in pounds", NA, "pounds"
     , "W_branch", "Total branch dry weight in pounds", NA, "pounds"
@@ -3384,27 +3384,26 @@ dplyr::tribble(
     , "W_tot_bk_red", "Total stem bark dry weight in pounds reduced for dead trees and trees with broken tops", NA, "pounds"
     , "W_branch_red", "Total branch dry weight in pounds reduced for dead trees and trees with broken tops", NA, "pounds"
     , "Branch_Rem", "The proportion of the branch volume that remains on a tree with a broken top", NA, "proportion [0,1]"
-    , "AGB_pred", "Aboveground dry biomass of wood and bark", "DRYBIO_AG", "pounds"
-    , "AGB_comp_red", "hey", "FIA_XXX", "pounds"
-    , "AGB_reduce", "hey", "FIA_XXX", "pounds"
-    , "AGB_pred_red", "hey", "FIA_XXX", "pounds"
-    , "AGB_diff", "hey", "FIA_XXX", "pounds"
-    , "Wood_harm", "Dry biomass of wood in the total stem", "DRYBIO_STEM", "pounds"
-    , "Bark_harm", "Dry biomass of bark in the total stem", "DRYBIO_STEM_BARK", "pounds"
-    , "Branch_harm", "Dry biomass of branches", "DRYBIO_BRANCH", "pounds"
-    , "W_foliage", "hey", "DRYBIO_FOLIAGE", "pounds"
-    , "W_foliage_red", "hey", "FIA_XXX", "pounds"
-    , "WDSG_Adj", "hey", "FIA_XXX", "pounds"
-    , "BKSG_Adj", "hey", "FIA_XXX", "pounds"
-    , "W_mer_ib", "hey", "FIA_XXX", "pounds"
+    , "AGB_pred", "Aboveground dry biomass of wood and bark predicted via allometry based on species and ecological conditions", "DRYBIO_AG", "pounds"
+    , "AGB_comp_red", "Aboveground dry biomass sum of the three components: `W_tot_ib_red`, `W_tot_bk_red`, `W_branch_red`", NA, "pounds"
+    , "AGB_reduce", "A reduction factor used to modify aboveground dry biomass of wood and bark (`AGB_pred`) to account for any component rot or loss", NA, "proportion"
+    , "AGB_pred_red", "Aboveground dry biomass of wood and bark reduced to account for any component rot or loss (`AGB_pred_red = Wood_harm + Bark_harm + Branch_harm`)", NA, "pounds"
+    , "AGB_diff", "The difference in aboveground dry biomass between the predicted ", NA, "pounds"
+    , "Wood_harm", "Dry biomass of wood in the total stem (a component of `AGB_pred_red`)", "DRYBIO_STEM", "pounds"
+    , "Bark_harm", "Dry biomass of bark in the total stem (a component of `AGB_pred_red`)", "DRYBIO_STEM_BARK", "pounds"
+    , "Branch_harm", "Dry biomass of branches (a component of `AGB_pred_red`)", "DRYBIO_BRANCH", "pounds"
+    , "W_foliage", "Total foliage dry weight in pounds", "DRYBIO_FOLIAGE", "pounds"
+    , "W_foliage_red", "Total foliage dry weight in pounds reduced for dead trees and trees with broken tops", NA, "pounds"
+    , "WDSG_Adj", "Adjusted wood density (specific gravity) based on the harmonized total stem wood weight and the predicted total stem wood volume", NA, "unitless ratio of wood density to the density of water"
+    , "BKSG_Adj", "Adjusted bark density (specific gravity) based on the harmonized total stem bark weight and the predicted total stem bark volume", NA, "unitless ratio of bark density to the density of water"
+    , "W_mer_ib", "Dry biomass of wood in the merchantable bole, inside bark", NA, "pounds"
     , "W_mer_bk", "Dry biomass of bark in the merchantable bole", "DRYBIO_BOLE_BARK", "pounds"
-    , "W_mer_ob", "Dry biomass of wood in the merchantable bole", "DRYBIO_BOLE", "pounds"
-    , "W_stump_ib", "Dry biomass of wood in the stump", "DRYBIO_STUMP", "pounds"
+    , "W_mer_ob", "Dry biomass of wood in the merchantable bole, outside bark (`W_mer_ib` + `W_mer_bk`)", "DRYBIO_BOLE", "pounds"
+    , "W_stump_ib", "Dry biomass of wood in the stump, inside bark", NA, "pounds" ## this DRYBIO_STUMP was incorrectly flipped in M.Russel
     , "W_stump_bk", "Dry biomass of bark in the stump", "DRYBIO_STUMP_BARK", "pounds"
-    , "W_stump_ob", "hey", "FIA_XXX", "pounds"
-    , "DRYBIO_TOP", "hey", "FIA_XXX", "pounds"
+    , "W_stump_ob", "Dry biomass of wood in the stump, outside bark (`W_stump_ib` + `W_stump_bk`)", "DRYBIO_STUMP", "pounds" ## this DRYBIO_STUMP was incorrectly flipped in M.Russel
+    , "DRYBIO_TOP", "dry biomass in the top and branches of the tree", "DRYBIO_TOP", "pounds"
     , "C", "Aboveground carbon of wood and bark", "CARBON_AG", "pounds"
-  )
 ) %>% 
 dplyr::glimpse()
 
