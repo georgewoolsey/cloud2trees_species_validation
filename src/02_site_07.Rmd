@@ -12,7 +12,7 @@ gc()
 
 Field data from this study site is from: 
 
-Colorado State Forest Service’s monitoring program led by [Ethan Bucholz](https://newsmediarelations.colostate.edu/contacts/ethan-bucholz/) installed snow water equivalent (SWE) sampling plots on the State Forest State Park at a lodgepole pine (Pinus contorta) treatment site. Two treatment applications included thinning with residual waste material subjected to either lop-and-scatter (LNS) or Pile-and-Burn (PLB) with nearby untreatend control sites also established. Across treatment and control sites, 1/10th acre monitoring plots were established with trees of at least 5 inch DBH measured for diameter, height, species, and crown status.
+Colorado State Forest Service’s monitoring program led by [Ethan Bucholz](https://newsmediarelations.colostate.edu/contacts/ethan-bucholz/) installed snow water equivalent (SWE) sampling plots on the Colorado State Forest State Park at a lodgepole pine (Pinus contorta) treatment site. Two treatment applications included thinning with residual waste material subjected to either lop-and-scatter (LNS) or Pile-and-Burn (PLB) with nearby untreatend control sites also established. Across treatment and control sites, 1/10th acre monitoring plots were established with trees of at least 5 inch DBH measured for diameter, height, species, and crown status.
 
 **Important Detail**
 Note that this is the first data set we have reviewed that does not include tree location data, we only have information on trees within plots. As such, we will only be able to evaluate the proportional compositions of each species predicted by the model against the reference proportions within the measured plot area (i.e. using Bray-Curtis dissimilarity/similarity index ).

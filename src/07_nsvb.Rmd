@@ -1688,16 +1688,16 @@ trees_nsvb_volume_sound <- function(
   ######################################################################################################
   new_names_temp <- base::setdiff(names(tree_list_w_nsvb),hey_names_temp)
   
-  # some of these calculations resulted in negative volume values...impossible????
-  # not sure if this messes up biomasss....
-  ### !!!!!!!!!!!!!!!!! GW add ###
-  tree_list_w_nsvb <- 
-    tree_list_w_nsvb %>% 
-      dplyr::mutate(dplyr::across(
-        .cols = dplyr::all_of(new_names_temp)
-        , .fns = ~ifelse(.x<0 & !is.na(.x),0,.x)
-      ))
-  ### !!!!!!!!!!!!!!!!! GW add end ###
+  # # some of these calculations resulted in negative volume values...impossible????
+  # # not sure if this messes up biomasss....
+  # ### !!!!!!!!!!!!!!!!! GW add ###
+  # tree_list_w_nsvb <- 
+  #   tree_list_w_nsvb %>% 
+  #     dplyr::mutate(dplyr::across(
+  #       .cols = dplyr::all_of(new_names_temp)
+  #       , .fns = ~ifelse(.x<0 & !is.na(.x),0,.x)
+  #     ))
+  # ### !!!!!!!!!!!!!!!!! GW add end ###
   
   tree_list <-
     tree_list %>% 
@@ -1756,6 +1756,12 @@ get_col_names_trees_nsvb_volume_sound_irrelevant <- function() {
     ,"V_mer_ib_Sound3","V_stump_ib_Sound3","V_tot_ib_Sound3"
     # # # these are actually used in trees_nsvb_biomass
     # , c("V_stump_ib_Sound2","V_tot_ob_Sound2","V_tot_ib_Sound2","V_miss_ib_Gross2")
+  )
+}
+get_col_names_trees_nsvb_volume_sound_intermediate <- function() {
+  c(
+    # # # these are actually used in trees_nsvb_biomass
+    "V_stump_ib_Sound2","V_tot_ob_Sound2","V_tot_ib_Sound2","V_miss_ib_Gross2"
   )
 }
 
@@ -2799,6 +2805,7 @@ trees_nsvb_biomass <- function(
       dplyr::select( -dplyr::any_of(c(
         "hey_xxxxxxxxxx"
         , get_col_names_trees_nsvb_volume_sound_irrelevant()
+        , get_col_names_trees_nsvb_volume_sound_intermediate()
       )))
   }
 
@@ -2817,6 +2824,7 @@ get_col_names_trees_nsvb_biomass <- function() {
 }
 
 # get_col_names_trees_nsvb_biomass()
+# get_col_names_trees_nsvb_volume_sound_intermediate()
 
 # # # # testtest
 # pred_trees_list[[2]] %>% trees_nsvb_biomass() %>% dplyr::glimpse()
@@ -3176,14 +3184,238 @@ plt_scatter_fn(
 # scales::comma(quantile(pred_trees_list[["USFS_ManitouEF_N1"]]$tree_height_m,probs = 0.11),accuracy=1,suffix = " m")
 ```
 
-* For smaller trees: The NSVB framework yields systematically larger foliage estimates than the Cruz et al. (2003) method. For small trees (less than approximately `r scales::comma(quantile(pred_trees_list[["USFS_ManitouEF_N1"]]$tree_height_m,probs = 0.11),accuracy=1,suffix = " m")` in height) where Cruz et al. (2003) might estimate close to 0 pounds, the NSVB framework maintains a baseline floor near 16.45 pounds
-* At the Crossover Point (~87 lbs crown biomass): The two methods yield similar biomass estimates. Because the dataset is skewed toward smaller trees (median height: `r scales::comma(median(pred_trees_list[["USFS_ManitouEF_N1"]]$tree_height_m),accuracy=.1,suffix = " m")`; mean height: `r scales::comma(mean(pred_trees_list[["USFS_ManitouEF_N1"]]$tree_height_m),accuracy=.1,suffix = " m")`), this crossover point represents the tree size where the NSVB framework transitions from having larger estimates to smaller estimates of crown biomass
+* For smaller trees: The NSVB framework yields systematically larger foliage estimates than the Cruz et al. (2003) method. For small trees (less than approximately `r scales::comma(quantile(pred_trees_list[["USFS_ManitouEF_N1"]]$tree_height_m,probs = 0.11),accuracy=1,suffix = " m")` in height) where Cruz et al. (2003) might estimate close to 0 pounds, the NSVB framework maintains a baseline floor near 16.5 pounds
+* At the Crossover Point (~87 lbs crown biomass): The two methods yield similar biomass estimates. The dataset is skewed toward smaller trees (median height: `r scales::comma(median(pred_trees_list[["USFS_ManitouEF_N1"]]$tree_height_m),accuracy=.1,suffix = " m")`; mean height: `r scales::comma(mean(pred_trees_list[["USFS_ManitouEF_N1"]]$tree_height_m),accuracy=.1,suffix = " m")`) and this crossover point represents the tree size where the NSVB framework transitions from having larger estimates to smaller estimates of crown biomass
 * For larger trees: The NSVB framework yields systematically smaller foliage estimates than the Cruz et al. (2003) method. Visual examination of the figure reveals that the NSVB framework effectively caps the upper limit of estimated crown foliage biomass compared to Cruz et al. (2003)
 
 Because the majority of trees in this example data are small, the NSVB framework is likely going to systematically result in higher aggregate stand-level biomass totals compared to Cruz et al. (2003)
 
+## Comparison of NSVB outputs
+
+Let's compare the NSVB volume and biomass values obtained via our functions (`trees_nsvb_volume_gross()`, `trees_nsvb_volume_sound()`, and `trees_nsvb_biomass()`) against those obtained using the example `tree` data defined by M. Russell in `apply_nsvb.Rmd` and the values calculated with their `nsvb.Rmd`
+
+note, we built our process so that a user only has to call `trees_nsvb_biomass()` which will check for the required column names and automatically execute `trees_nsvb_volume_gross()` and `trees_nsvb_volume_sound()` if the columns are missing from the input data.
+
+```{r, results=F}
+input_cols_temp <- c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
+
+# get estimates from our process
+new_tree_temp <- tree %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(dplyr::all_of(c(
+    input_cols_temp
+  ))) %>% 
+  trees_nsvb_biomass()
+
+# new_tree_temp %>% dplyr::glimpse()
+# tree %>% dplyr::glimpse()
+
+# which cols to evaluate?
+eval_cols_temp <- base::setdiff(names(tree)[names(tree) %in% names(new_tree_temp)],input_cols_temp)
+
+#
+iseq_temp <- 
+  tree %>% 
+  dplyr::select(dplyr::all_of(c(
+    input_cols_temp,eval_cols_temp
+  ))) %>% 
+  dplyr::mutate(dplyr::across(
+    .cols = dplyr::all_of(eval_cols_temp)
+    , .fns = ~round(.x,4)
+  )) %>% 
+  dplyr::rename_with(
+    .cols = dplyr::all_of(eval_cols_temp)
+    , .fn = ~paste0("orig_",.x,recycle0 = T)
+  ) %>% 
+  dplyr::inner_join(
+    new_tree_temp %>% 
+      dplyr::select(dplyr::all_of(c(
+        "EXAMPLE",eval_cols_temp
+      ))) %>% 
+      dplyr::mutate(dplyr::across(
+        .cols = dplyr::all_of(eval_cols_temp)
+        , .fns = ~round(.x,4)
+      )) %>% 
+      dplyr::rename_with(
+        .cols = dplyr::all_of(eval_cols_temp)
+        , .fn = ~paste0("new_",.x,recycle0 = T)
+      )
+    , by = "EXAMPLE"
+  ) %>% 
+  dplyr::mutate(
+    # 'diff_' columns are calculated as the NEW value minus the ORIG value
+    dplyr::across(
+      .cols = tidyselect::starts_with("orig_")
+      , .fns = ~ base::get(stringr::str_replace(dplyr::cur_column(), "^orig_", "new_")) - .x
+      , .names = "diff_{stringr::str_remove(.col, '^orig_')}"
+    )
+    # 'pct_diff_' columns are calculated as the ORIG value minus the NEW value divided by the ORIG value
+    , dplyr::across(
+      .cols = tidyselect::starts_with("orig_")
+      #
+      , .fns = ~ dplyr::case_when(
+          is.na(.x) & is.na( base::get(stringr::str_replace(dplyr::cur_column(), "^orig_", "new_")) ) ~ T
+          , base::get(stringr::str_replace(dplyr::cur_column(), "^orig_", "diff_"))==0 ~ T
+          , T ~ F
+        )
+      , .names = "iseq_{stringr::str_remove(.col, '^orig_')}"
+    )
+  ) %>% 
+  dplyr::select(EXAMPLE,tidyselect::starts_with("iseq_")) %>% 
+  tidyr::pivot_longer(cols = -EXAMPLE) %>% 
+  dplyr::group_by(name) %>% 
+  dplyr::summarise(
+    pct_trees_equal = mean(value)
+    , n_trees = dplyr::n()
+  ) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(
+    name = stringr::str_remove(name,"^iseq_")
+  )
+
+# iseq_temp %>% dplyr::glimpse()
+
+
+```
+
+here is a plot of the proportion of equal tree-level values by metric
+
+```{r, fig.height=11.2}
+iseq_temp %>% 
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = pct_trees_equal, y = name)
+  ) +
+  ggplot2::geom_col(width = 0.05, color = "plum3") +
+  ggplot2::geom_point(color = "plum4") +
+  ggplot2::scale_x_continuous(labels = scales::percent, limits = c(0,1), expand = ggplot2::expansion(mult = c(0,0.02))) +
+  ggplot2::labs(
+    x = "% of trees with equivalent values between the old and our new method"
+    , y = ""
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    axis.text.x = ggplot2::element_text(size = 6)
+    , axis.title.x = ggplot2::element_text(size = 7.5)
+    , axis.text.y = ggplot2::element_text(size = 6.8, color = "black", face = "bold")
+    , panel.grid = ggplot2::element_blank()
+  )
+```
+
+There were `r nrow(tree)` example trees in the `tree` data that we calculated `nrow(iseq_temp)` NSVB-predicted metrics for. of those `nrow(iseq_temp)` metrics, the exact same tree-level value was achieved by our defined functions as in the original `nsvb.Rmd` process for `iseq_temp %>% dplyr::filter(pct_trees_equal==1) %>% nrow()` metrics (`r scales::percent( (iseq_temp %>% dplyr::filter(pct_trees_equal==1) %>% nrow())/nrow(iseq_temp) )` of metrics). that is what we want to see.
+
+nice.
+
+let's try to define those metrics based on Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104))
+
+```{r, eval=F}
+# # eval_cols_temp
+# 
+# stringr::str_replace_all(stringr::str_squish(
+# "V_tot_ib_Gross    V_tot_bk_Gross    V_tot_ob_Gross    hm                R_1               R_m               R_m_2            
+# V_mer_ib_Gross    V_mer_ob_Gross    V_mer_bk_Gross    hm_saw            R_s               V_saw_ib_Gross    V_saw_ob_Gross   
+# V_saw_bk_Gross    V_stump_ob_Gross  V_stump_ib_Gross  V_stump_bk_Gross  V_top_ob_Gross    V_top_ib_Gross    V_top_bk_Gross   
+# V_top_bk_Sound    V_mer_ib_Sound    V_mer_bk_Sound    V_mer_ob_Sound    V_stump_ib_Sound  V_stump_ob_Sound  V_tot_ib_Sound   
+# V_stump_ib_Sound2 V_tot_ib_Sound2   V_tot_bk_Sound    V_tot_ob_Sound    V_tot_ob_Sound2   V_top_ob_Sound    V_top_ib_Sound   "
+# ), "\\s+", "' ~ 'hey', name == '")
+# 
+# stringr::str_replace_all(stringr::str_squish(
+# "V_top_bk          V_miss_ob_Gross   V_miss_ib_Gross   V_miss_ib_Gross2  V_miss_bk_Gross   W_tot_ib          W_tot_ib_red     
+# W_tot_bk          W_branch          CR_H              W_tot_bk_red      W_branch_red      Branch_Rem        AGB_pred         
+# AGB_comp_red      AGB_reduce        AGB_pred_red      AGB_diff          Wood_harm         Bark_harm         Branch_harm      
+# W_foliage         W_foliage_red     WDSG_Adj          BKSG_Adj          W_mer_ib          W_mer_bk          W_mer_ob         
+# W_stump_ib        W_stump_bk        W_stump_ob        DRYBIO_TOP        C      "
+# ), "\\s+", "' ~ 'hey', name == '")
+
+new_tree_temp %>% 
+  dplyr::select(ACTUALHT,HT,CR_H,CR)
+  dplyr::mutate(
+    V_miss_ob_Gross2 = V_miss_ib_Gross + V_miss_bk_Gross
+    , iseq = V_miss_ob_Gross2==V_miss_ob_Gross
+  ) %>% 
+  dplyr::select(
+    iseq,V_miss_ob_Gross,V_miss_ob_Gross2 ,V_miss_ib_Gross , V_miss_bk_Gross
+  )
+
+
+
+dplyr::tribble(
+  ~name, ~description, ~fia_db_abbr, ~units
+    "V_tot_ib_Gross", "Gross cubic-foot total-stem wood volume", "VOLTSGRS", "cubic feet"
+    , "V_tot_bk_Gross", "Gross cubic-foot total-stem bark volume", "VOLTSGRS_BARK", "cubic feet"
+    , "V_tot_ob_Gross", "Gross cubic-foot total outside-bark volume (`V_tot_ib_Gross` + `V_tot_bk_Gross`)", NA, "cubic feet"
+    , "hm", "Merchantable height to a 4.0 inch top", NA, "feet"
+    , "R_1", "Proportion of volume to 1 foot (i.e., stump)", NA, "proportion [0,1]"
+    , "R_m", "Proportion of volume to the merchantable height (i.e., 4.0 inches) for trees with a DBH >= 5 inches", NA, "proportion [0,1]"
+    , "R_m_2", "Proportion of volume to the merchantable height (i.e., 4.0 inches) for all trees (no DBH limit)", NA, "proportion [0,1]"
+    , "V_mer_ib_Gross", "Gross cubic-foot merchantable stem wood volume, inside bark", "VOLCFGRS", "cubic feet"
+    , "V_mer_ob_Gross", "Gross cubic-foot merchantable stem wood volume, outside bark (`V_mer_ib_Gross` + `V_mer_bk_Gross`)", NA, "cubic feet"
+    , "V_mer_bk_Gross", "Merchantable stem bark volume", "VOLCFGRS_BARK", "cubic feet"
+    , "hm_saw", "Merchantable height to a top diameter threshold based on hardwood/softwood used to delineate the sawlog portion of the stem", NA, "feet" ## not explicitly noted in westfall
+    , "R_s", "Proportion of volume to sawlog top (7.0 inches for softwoods; 9.0 inches for hardwoods)", NA, "proportion [0,1]"
+    , "V_saw_ib_Gross", "Gross cubic-foot wood volume in the sawlog portion of a sawtimber tree, inside bark", "VOLCSGRS", "cubic feet"
+    , "V_saw_ob_Gross", "Gross cubic-foot wood volume in the sawlog portion of a sawtimber tree, outside bark (`V_saw_ib_Gross` + `V_saw_bk_Gross`)", NA, "cubic feet"
+    , "V_saw_bk_Gross", "Gross cubic-foot volume in the sawlog stem bark", NA, "cubic feet"
+    , "V_stump_ob_Gross", "Gross cubic-foot stump wood volume, outside bark (`V_stump_ib_Gross` + `V_stump_bk_Gross`)", NA, "cubic feet"
+    , "V_stump_ib_Gross", "Gross cubic-foot stump wood volume, inside bark", "VOLCFGRS_STUMP", "cubic feet"
+    , "V_stump_bk_Gross", "Gross cubic-foot stump bark volume", "VOLCFGRS_STUMP_BARK", "cubic feet"
+    , "V_top_ob_Gross", "Gross cubic-foot stem-top wood volume, outside bark (`V_top_ib_Gross` + `V_top_bk_Gross`)", NA, "cubic feet"
+    , "V_top_ib_Gross", "Gross cubic-foot stem-top wood volume, inside bark", "VOLCFGRS_TOP", "cubic feet"
+    , "V_top_bk_Gross", "Gross cubic-foot stem-top bark volume at the threshold", "VOLCFGRS_TOP_BARK", "cubic feet"
+    , "V_top_bk_Sound", "Sound cubic-foot stem-top bark volume", "VOLCFSND_TOP_BARK", "cubic feet"
+    , "V_mer_ib_Sound", "Sound cubic-foot stem wood volume, inside bark", "VOLCFSND", "cubic feet"
+    , "V_mer_bk_Sound", "	Sound cubic-foot stem bark volume", "VOLCFSND_BARK", "cubic feet"
+    , "V_mer_ob_Sound", "Sound cubic-foot stem wood volume, outside bark (`V_mer_ib_Sound` + `V_mer_bk_Sound`)", NA, "cubic feet"
+    , "V_stump_ib_Sound", "Sound cubic-foot stump wood volume, inside bark", "VOLCFSND_STUMP", "cubic feet"
+    , "V_stump_ob_Sound", "Sound cubic-foot stump wood volume, outside bark (`V_stump_ib_Sound` + `V_stump_bk_Gross`)", NA, "cubic feet"
+    , "V_tot_ib_Sound", "Sound cubic-foot total-stem wood volume, inside bark", "VOLTSSND", "cubic feet"
+    , "V_tot_bk_Sound", "Sound cubic-foot total-stem bark volume", "VOLTSSND_BARK", "cubic feet"
+    , "V_tot_ob_Sound", "Sound cubic-foot total-stem wood volume, outside bark (`V_tot_ib_Sound` + `V_tot_bk_Sound`)", NA, "cubic feet"
+    , "V_top_ob_Sound", "Sound cubic-foot stem-top wood volume, outside bark", NA, "cubic feet"
+    , "V_top_ib_Sound", "Sound cubic-foot stem-top wood volume, inside bark", "VOLCFSND_TOP", "cubic feet"
+    , "V_top_bk", "Stem-top bark volume (`V_top_ob_Sound` - `V_top_ib_Sound`)", NA, "cubic feet"
+    , "V_miss_ob_Gross", "Gross cubic-foot missing top wood volume, outside bark (`V_miss_ib_Gross` + `V_miss_bk_Gross`)", NA, "cubic feet"
+    , "V_miss_ib_Gross", "Gross cubic-foot missing top wood volume, inside bark", NA, "cubic feet"
+    , "V_miss_bk_Gross", "Gross cubic-foot missing top bark volume", NA, "cubic feet"
+    , "W_tot_ib", "Total stem wood dry weight in pounds, inside bark", NA, "pounds"
+    , "W_tot_ib_red", "Total stem wood dry weight in pounds reduced due to cull and decay, inside bark", NA, "pounds"
+    , "W_tot_bk", "Total stem bark dry weight in pounds", NA, "pounds"
+    , "W_branch", "Total branch dry weight in pounds", NA, "pounds"
+    , "CR_H", "Adjusted crown ratio for a tree with a broken top as a proportion of the tree's derived height (`HT`)", NA, "proportion [0,1]"
+    , "W_tot_bk_red", "Total stem bark dry weight in pounds reduced for dead trees and trees with broken tops", NA, "pounds"
+    , "W_branch_red", "Total branch dry weight in pounds reduced for dead trees and trees with broken tops", NA, "pounds"
+    , "Branch_Rem", "The proportion of the branch volume that remains on a tree with a broken top", NA, "proportion [0,1]"
+    , "AGB_pred", "Aboveground dry biomass of wood and bark", "DRYBIO_AG", "pounds"
+    , "AGB_comp_red", "hey", "FIA_XXX", "pounds"
+    , "AGB_reduce", "hey", "FIA_XXX", "pounds"
+    , "AGB_pred_red", "hey", "FIA_XXX", "pounds"
+    , "AGB_diff", "hey", "FIA_XXX", "pounds"
+    , "Wood_harm", "Dry biomass of wood in the total stem", "DRYBIO_STEM", "pounds"
+    , "Bark_harm", "Dry biomass of bark in the total stem", "DRYBIO_STEM_BARK", "pounds"
+    , "Branch_harm", "Dry biomass of branches", "DRYBIO_BRANCH", "pounds"
+    , "W_foliage", "hey", "DRYBIO_FOLIAGE", "pounds"
+    , "W_foliage_red", "hey", "FIA_XXX", "pounds"
+    , "WDSG_Adj", "hey", "FIA_XXX", "pounds"
+    , "BKSG_Adj", "hey", "FIA_XXX", "pounds"
+    , "W_mer_ib", "hey", "FIA_XXX", "pounds"
+    , "W_mer_bk", "Dry biomass of bark in the merchantable bole", "DRYBIO_BOLE_BARK", "pounds"
+    , "W_mer_ob", "Dry biomass of wood in the merchantable bole", "DRYBIO_BOLE", "pounds"
+    , "W_stump_ib", "Dry biomass of wood in the stump", "DRYBIO_STUMP", "pounds"
+    , "W_stump_bk", "Dry biomass of bark in the stump", "DRYBIO_STUMP_BARK", "pounds"
+    , "W_stump_ob", "hey", "FIA_XXX", "pounds"
+    , "DRYBIO_TOP", "hey", "FIA_XXX", "pounds"
+    , "C", "Aboveground carbon of wood and bark", "CARBON_AG", "pounds"
+  )
+) %>% 
+dplyr::glimpse()
+
+
+
+```
+
 
 ```{r, include=F, eval=F}
+
+
 tree %>% dplyr::glimpse()
 
 spp_live %>% dplyr::ungroup() %>% dplyr::count(SPCD) %>% dplyr::filter(n>1)
