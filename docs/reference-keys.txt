@@ -121,5 +121,6 @@ nsvb-gross-volume-function
 nsvb-modified-sound-values
 nsvb-sound-volume-function
 nsvb-biomass-values
-example-cbh-data
+ex_cbh
 nsvb-biomass-function
+comparison-and-review-of-nsvb-outputs
