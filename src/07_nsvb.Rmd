@@ -940,10 +940,26 @@ cols_set_nsvb_stdorgcd <- function(df, default_val = NA){
   return(df)
 }
 
+
+### how we arrived at this list is discussed near the bottom of this script
+get_col_names_trees_nsvb_curated <- function() {
+  c(
+    "V_mer_bk_Gross","V_mer_ib_Gross","V_saw_bk_Gross","V_saw_ib_Gross"
+    ,"V_stump_bk_Gross","V_stump_ib_Gross","V_top_bk_Gross","V_top_ib_Gross"
+    ,"V_tot_bk_Gross","V_tot_ib_Gross","V_mer_bk_Sound","V_mer_ib_Sound"
+    ,"V_stump_ib_Sound","V_top_bk_Sound","V_top_ib_Sound","V_tot_bk_Sound"
+    ,"V_tot_ib_Sound","AGB_pred","AGB_pred_red","Bark_harm","Branch_harm"
+    ,"Wood_harm","W_foliage","W_foliage_red","W_mer_bk"
+    ,"W_mer_ob","W_stump_bk","W_stump_ob","C","DRYBIO_TOP"
+  )
+}
+
+
 # function to get all nsvb gross stuff
 trees_nsvb_volume_gross <- function(
   tree_list
   , default_stdorgcd = NA
+  , curated_cols = F
 ){
   # add check for fia_ecodivisions_sf like checks for treemap data
   maybe_include_fia_ecoprovinces_sf <- NULL
@@ -1263,6 +1279,21 @@ trees_nsvb_volume_gross <- function(
       , new_names_temp
     )))
   
+  if(curated_cols){
+    possible_cols_temp <- c(
+      get_col_names_trees_nsvb_volume_gross()
+      # , get_col_names_trees_nsvb_volume_sound()
+    )
+    
+    tree_list <-
+      tree_list %>% 
+      # get rid of columns we'll create
+      dplyr::select( -dplyr::any_of(c(
+        "hey_xxxxxxxxxx"
+        , possible_cols_temp[!possible_cols_temp %in% get_col_names_trees_nsvb_curated()]
+      )))
+  }
+  
   # return
   return(tree_list)
 }
@@ -1283,6 +1314,7 @@ get_col_names_trees_nsvb_volume_gross <- function() {
 # # # testtest
 # ref_trees_list[[1]] %>% trees_nsvb_volume_gross() %>% dplyr::glimpse()
 # pred_trees_list[[2]] %>% trees_nsvb_volume_gross() %>% dplyr::glimpse()
+# pred_trees_list[[2]] %>% trees_nsvb_volume_gross(curated_cols = T) %>% dplyr::glimpse()
 # pred_trees_list[[2]] %>% trees_nsvb_volume_gross() %>% dplyr::filter(stringr::str_starts(species_symbol,"QU")) %>% dplyr::glimpse()
 # pred_trees_list[[3]] %>% trees_nsvb_volume_gross() %>% dplyr::filter(is.na(hm)) %>% dplyr::glimpse()
 # pred_trees_list[[3]] %>% trees_nsvb_volume_gross() %>% dplyr::mutate(huh=is.na(hm)) %>% ggplot(aes(x=dbh_cm,y=tree_height_m,color=huh)) + geom_point()
@@ -1307,6 +1339,14 @@ base::setdiff(names(tree_temp), orig_cols_temp)
 #  V_stump_ib_Gross V_stump_bk_Gross V_top_ob_Gross   V_top_ib_Gross   V_top_bk_Gross"  
 # ), "\\s+", ",")
 
+
+tree %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(dplyr::any_of(c(
+    orig_cols_temp
+  ))) %>% 
+  trees_nsvb_volume_gross(curated_cols = T) %>% 
+  dplyr::glimpse()
 ```
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
@@ -1533,7 +1573,7 @@ trees_nsvb_volume_sound <- function(
   tree_list
   , default_cull = 0
   , default_statuscd = 1L
-  , drop_irrelevant = F
+  , curated_cols = F
   ### trees_nsvb_volume_gross() inherits
   , default_stdorgcd = NA
 ) {
@@ -1551,7 +1591,12 @@ trees_nsvb_volume_sound <- function(
   ){
     # try to go through trees_nsvb_volume_gross() then
     message("NSVB volume columns not found...attempting to estimate with trees_nsvb_volume_gross()")
-    tree_list <- trees_nsvb_volume_gross(tree_list = tree_list, default_stdorgcd = default_stdorgcd)
+    tree_list <- trees_nsvb_volume_gross(
+      tree_list = tree_list
+      , default_stdorgcd = default_stdorgcd
+      # force this to F so we get all cols needed to calc subsequent vals
+      , curated_cols = F
+    )
   }
   
   # save name for later
@@ -1722,12 +1767,18 @@ trees_nsvb_volume_sound <- function(
       , new_names_temp
     )))
 
-  if(dplyr::coalesce(drop_irrelevant[1],F)){
-    tree_list <- tree_list %>% 
-      # get rid of irrelevant columns created for biomass
+  if(curated_cols){
+    possible_cols_temp <- c(
+      get_col_names_trees_nsvb_volume_gross()
+      , get_col_names_trees_nsvb_volume_sound()
+    )
+    
+    tree_list <-
+      tree_list %>% 
+      # get rid of columns we'll create
       dplyr::select( -dplyr::any_of(c(
         "hey_xxxxxxxxxx"
-        , get_col_names_trees_nsvb_volume_sound_irrelevant()
+        , possible_cols_temp[!possible_cols_temp %in% get_col_names_trees_nsvb_curated()]
       )))
   }
     
@@ -2413,7 +2464,7 @@ trees_nsvb_biomass <- function(
   ### trees_nsvb_volume_gross() inherits
   , default_stdorgcd = NA
   # clean up allllll irrelevant including from trees_nsvb_volume_sound() 
-  , drop_irrelevant = T
+  , curated_cols = F
 ) {
   # add check for fia_ecodivisions_sf like checks for treemap data
   maybe_include_fia_ecoprovinces_sf <- NULL
@@ -2438,7 +2489,8 @@ trees_nsvb_biomass <- function(
       , default_cull = default_cull
       , default_statuscd = default_statuscd
       , default_stdorgcd = default_stdorgcd
-      , drop_irrelevant = F ## needed for these biomass
+      # force this to F so we get all cols needed to calc subsequent vals
+      , curated_cols = F
     )
   }
   
@@ -2714,7 +2766,16 @@ trees_nsvb_biomass <- function(
         )
         , 0
       )
-      , W_foliage_red = W_foliage
+      ### !!!!!!!!!!!!!!!!! GW add ###
+      , Foliage_Rem = (ACTUALHT - HT * (1 - CR_H))/(HT * CR_H) ## [AH – H × (1 – CRH)]/(H × CRH)
+      , W_foliage_red = 
+        ifelse(
+          STATUSCD == 1 & ACTUALHT != HT
+          , W_foliage*Foliage_Rem
+          , W_foliage
+        )
+      # , W_foliage_red = W_foliage
+      ### !!!!!!!!!!!!!!!!! GW add end ###
     ) %>% 
     dplyr::select(
       -base::setdiff(names(spp_foliage_all),c("DIVISION", "STDORGCD", "SPCD"))
@@ -2799,13 +2860,28 @@ trees_nsvb_biomass <- function(
       , new_names_temp
     )))
 
-  if(dplyr::coalesce(drop_irrelevant[1],F)){
-    tree_list <- tree_list %>%
-      # get rid of irrelevant columns created for biomass
+  # if(dplyr::coalesce(drop_irrelevant[1],F)){
+  #   tree_list <- tree_list %>%
+  #     # get rid of irrelevant columns created for biomass
+  #     dplyr::select( -dplyr::any_of(c(
+  #       "hey_xxxxxxxxxx"
+  #       , get_col_names_trees_nsvb_volume_sound_irrelevant()
+  #       , get_col_names_trees_nsvb_volume_sound_intermediate()
+  #     )))
+  # }
+  if(curated_cols){
+    possible_cols_temp <- c(
+      get_col_names_trees_nsvb_volume_gross()
+      , get_col_names_trees_nsvb_volume_sound()
+      , get_col_names_trees_nsvb_biomass()
+    )
+    
+    tree_list <-
+      tree_list %>% 
+      # get rid of columns we'll create
       dplyr::select( -dplyr::any_of(c(
         "hey_xxxxxxxxxx"
-        , get_col_names_trees_nsvb_volume_sound_irrelevant()
-        , get_col_names_trees_nsvb_volume_sound_intermediate()
+        , possible_cols_temp[!possible_cols_temp %in% get_col_names_trees_nsvb_curated()]
       )))
   }
 
@@ -2817,7 +2893,7 @@ get_col_names_trees_nsvb_biomass <- function() {
   c(
     "W_tot_ib","W_tot_ib_red","W_tot_bk","W_branch","W_tot_bk_red","W_branch_red"
     ,"CR_H","Branch_Rem","AGB_pred","AGB_comp_red","AGB_reduce","AGB_pred_red"
-    ,"AGB_diff","Wood_harm","Bark_harm","Branch_harm","W_foliage"
+    ,"AGB_diff","Wood_harm","Bark_harm","Branch_harm","W_foliage","Foliage_Rem"
     ,"W_foliage_red","WDSG_Adj","BKSG_Adj","W_mer_ib","W_mer_bk","W_mer_ob"
     ,"W_stump_ib","W_stump_bk","W_stump_ob","DRYBIO_TOP","C"
   )
@@ -3180,8 +3256,6 @@ plt_scatter_fn(
 # crossover point
 # y=0.81x+16.45
 # cross=16.45/(1-0.81) = 86.57895
-
-# scales::comma(quantile(pred_trees_list[["USFS_ManitouEF_N1"]]$tree_height_m,probs = 0.11),accuracy=1,suffix = " m")
 ```
 
 * For smaller trees: The NSVB framework yields systematically larger foliage estimates than the Cruz et al. (2003) method. For small trees (less than approximately `r scales::comma(quantile(pred_trees_list[["USFS_ManitouEF_N1"]]$tree_height_m,probs = 0.11),accuracy=1,suffix = " m")` in height) where Cruz et al. (2003) might estimate close to 0 pounds, the NSVB framework maintains a baseline floor near 16.5 pounds
@@ -3190,9 +3264,11 @@ plt_scatter_fn(
 
 Because the majority of trees in this example data are small, the NSVB framework is likely going to systematically result in higher aggregate stand-level biomass totals compared to Cruz et al. (2003)
 
-## Comparison of NSVB outputs
+## Comparison and Review of NSVB outputs
 
 Let's compare the NSVB volume and biomass values obtained via our functions (`trees_nsvb_volume_gross()`, `trees_nsvb_volume_sound()`, and `trees_nsvb_biomass()`) against those obtained using the example `tree` data defined by M. Russell in `apply_nsvb.Rmd` and the values calculated with their `nsvb.Rmd`
+
+**Note, GW identified missing step in `nsvb.Rmd` that was updated in the process defined here. Specifically, the $FoliageRem$ metric was not use to reduce the foliage weight in the $Wfoliagered$ calculation. So, we expect `W_foliage_red` to be different for the Example 4 tree which is live with a broken top**
 
 note, we built our process so that a user only has to call `trees_nsvb_biomass()` which will check for the required column names and automatically execute `trees_nsvb_volume_gross()` and `trees_nsvb_volume_sound()` if the columns are missing from the input data.
 
@@ -3207,8 +3283,18 @@ new_tree_temp <- tree %>%
   ))) %>% 
   trees_nsvb_biomass()
 
+# # get estimates from our process
+# xxxx_temp <- tree %>%
+#   dplyr::ungroup() %>%
+#   dplyr::select(dplyr::all_of(c(
+#     input_cols_temp
+#   ))) %>%
+#   trees_nsvb_biomass(curated_cols = T)
+
 # new_tree_temp %>% dplyr::glimpse()
 # tree %>% dplyr::glimpse()
+# # xxxx_temp %>% dplyr::glimpse()
+# # base::setdiff( names(new_tree_temp), names(xxxx_temp) )
 
 # which cols to evaluate?
 eval_cols_temp <- base::setdiff(names(tree)[names(tree) %in% names(new_tree_temp)],input_cols_temp)
@@ -3303,11 +3389,13 @@ iseq_temp %>%
 
 There were `r nrow(tree)` example trees in the `tree` data that we calculated `nrow(iseq_temp)` NSVB-predicted metrics for. of those `nrow(iseq_temp)` metrics, the exact same tree-level value was achieved by our defined functions as in the original `nsvb.Rmd` process for `iseq_temp %>% dplyr::filter(pct_trees_equal==1) %>% nrow()` metrics (`r scales::percent( (iseq_temp %>% dplyr::filter(pct_trees_equal==1) %>% nrow())/nrow(iseq_temp) )` of metrics). that is what we want to see.
 
+**Recall, GW identified missing step in `nsvb.Rmd` that was updated in the process defined here. Specifically, the $FoliageRem$ metric was not use to reduce the foliage weight in the $Wfoliagered$ calculation. So, we expect `W_foliage_red` to be different for the Example 4 tree which is live with a broken top**
+
 nice.
 
 let's try to define those metrics based on Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104))
 
-```{r, eval=F}
+```{r}
 # # eval_cols_temp
 # 
 # stringr::str_replace_all(stringr::str_squish(
@@ -3325,19 +3413,21 @@ let's try to define those metrics based on Westfall et al. ([2024](https://doi.o
 # W_foliage         W_foliage_red     WDSG_Adj          BKSG_Adj          W_mer_ib          W_mer_bk          W_mer_ob         
 # W_stump_ib        W_stump_bk        W_stump_ob        DRYBIO_TOP        C      "
 # ), "\\s+", "' ~ 'hey', name == '")
+# 
+# new_tree_temp %>% 
+#   # dplyr::select(ACTUALHT,HT,CR_H,CR)
+#   dplyr::mutate(
+#     W_stump_ob2 = W_stump_ib + W_stump_bk
+#     , iseq = W_stump_ob==W_stump_ob2
+#   ) %>% 
+#   dplyr::select(
+#     iseq,W_stump_ob,W_stump_ob2,W_stump_ib , W_stump_bk
+#   )
 
-new_tree_temp %>% 
-  # dplyr::select(ACTUALHT,HT,CR_H,CR)
-  dplyr::mutate(
-    W_stump_ob2 = W_stump_ib + W_stump_bk
-    , iseq = W_stump_ob==W_stump_ob2
-  ) %>% 
-  dplyr::select(
-    iseq,W_stump_ob,W_stump_ob2,W_stump_ib , W_stump_bk
-  )
 
-
-
+#### define the table based on README at https://github.com/mbrussell/NSVB
+#### and filling in gaps using descriptions from Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104))
+nsvb_data_desc_df <- 
 dplyr::tribble(
   ~name, ~description, ~fia_db_abbr, ~units
     , "V_tot_ib_Gross", "Gross cubic-foot total-stem wood volume", "VOLTSGRS", "cubic feet"
@@ -3349,7 +3439,7 @@ dplyr::tribble(
     , "R_m_2", "Proportion of volume to the merchantable height (i.e., 4.0 inches) for all trees (no DBH limit)", NA, "proportion [0,1]"
     , "V_mer_ib_Gross", "Gross cubic-foot merchantable stem wood volume, inside bark", "VOLCFGRS", "cubic feet"
     , "V_mer_ob_Gross", "Gross cubic-foot merchantable stem wood volume, outside bark (`V_mer_ib_Gross` + `V_mer_bk_Gross`)", NA, "cubic feet"
-    , "V_mer_bk_Gross", "Merchantable stem bark volume", "VOLCFGRS_BARK", "cubic feet"
+    , "V_mer_bk_Gross", "Gross cubic-foot merchantable stem bark volume", "VOLCFGRS_BARK", "cubic feet"
     , "hm_saw", "Merchantable height to a top diameter threshold based on hardwood/softwood used to delineate the sawlog portion of the stem", NA, "feet" ## not explicitly noted in westfall
     , "R_s", "Proportion of volume to sawlog top (7.0 inches for softwoods; 9.0 inches for hardwoods)", NA, "proportion [0,1]"
     , "V_saw_ib_Gross", "Gross cubic-foot wood volume in the sawlog portion of a sawtimber tree, inside bark", "VOLCSGRS", "cubic feet"
@@ -3381,8 +3471,8 @@ dplyr::tribble(
     , "W_tot_bk", "Total stem bark dry weight in pounds", NA, "pounds"
     , "W_branch", "Total branch dry weight in pounds", NA, "pounds"
     , "CR_H", "Adjusted crown ratio for a tree with a broken top as a proportion of the tree's derived height (`HT`)", NA, "proportion [0,1]"
-    , "W_tot_bk_red", "Total stem bark dry weight in pounds reduced for dead trees and trees with broken tops", NA, "pounds"
-    , "W_branch_red", "Total branch dry weight in pounds reduced for dead trees and trees with broken tops", NA, "pounds"
+    , "W_tot_bk_red", "Total stem bark dry weight in pounds reduced for dead status and broken top portion", NA, "pounds"
+    , "W_branch_red", "Total branch dry weight in pounds reduced for dead status and broken top portion", NA, "pounds"
     , "Branch_Rem", "The proportion of the branch volume that remains on a tree with a broken top", NA, "proportion [0,1]"
     , "AGB_pred", "Aboveground dry biomass of wood and bark predicted via allometry based on species and ecological conditions", "DRYBIO_AG", "pounds"
     , "AGB_comp_red", "Aboveground dry biomass sum of the three components: `W_tot_ib_red`, `W_tot_bk_red`, `W_branch_red`", NA, "pounds"
@@ -3393,7 +3483,8 @@ dplyr::tribble(
     , "Bark_harm", "Dry biomass of bark in the total stem (a component of `AGB_pred_red`)", "DRYBIO_STEM_BARK", "pounds"
     , "Branch_harm", "Dry biomass of branches (a component of `AGB_pred_red`)", "DRYBIO_BRANCH", "pounds"
     , "W_foliage", "Total foliage dry weight in pounds", "DRYBIO_FOLIAGE", "pounds"
-    , "W_foliage_red", "Total foliage dry weight in pounds reduced for dead trees and trees with broken tops", NA, "pounds"
+    , "Foliage_Rem", "The proportion of the foliage that remains on a live tree with a broken top", NA, "proportion [0,1]"
+    , "W_foliage_red", "Total foliage dry weight in pounds reduced for dead status and broken top portion", NA, "pounds"
     , "WDSG_Adj", "Adjusted wood density (specific gravity) based on the harmonized total stem wood weight and the predicted total stem wood volume", NA, "unitless ratio of wood density to the density of water"
     , "BKSG_Adj", "Adjusted bark density (specific gravity) based on the harmonized total stem bark weight and the predicted total stem bark volume", NA, "unitless ratio of bark density to the density of water"
     , "W_mer_ib", "Dry biomass of wood in the merchantable bole, inside bark", NA, "pounds"
@@ -3405,9 +3496,100 @@ dplyr::tribble(
     , "DRYBIO_TOP", "dry biomass in the top and branches of the tree", "DRYBIO_TOP", "pounds"
     , "C", "Aboveground carbon of wood and bark", "CARBON_AG", "pounds"
 ) %>% 
-dplyr::glimpse()
+dplyr::mutate(
+  units_lab = dplyr::case_when(
+    units == "cubic feet" ~ "cubic feet<br>(volume)"
+    , units == "pounds" ~ "pounds<br>(biomass)"
+    , T ~ units
+  )
+  , is_intermediate = is.na(fia_db_abbr)
+  , sorter = tolower(name) %>% 
+    stringr::str_extract(
+      "^(agb_pred|w_)|(sound|gross|harm)$"
+      # "(sound|gross|harm|agb_pred_red|agb_pred)$"
+    ) %>% 
+    stringr::str_replace("agb_pred_red","harm") %>% 
+    stringr::str_replace("agb_pred","harm") %>% 
+    stringr::str_replace("w_foliage_red","harmzzz") %>% 
+    stringr::str_replace("w_foliage","harmzzz")
+  , is_intermediate_but_primary = tolower(name) %in% c(
+    "v_saw_bk_gross"
+    , "agb_pred_red"
+    , "w_foliage_red"
+  )
+  , is_primary_or_fia = is_intermediate_but_primary | !is_intermediate
+)
 
+# nsvb_data_desc_df %>% dplyr::glimpse()
+```
 
+let's check out the full table of columns generated by the NSVB process with full descriptions and units. we'll try to organize the table so it's easy to follow
+
+```{r}
+nsvb_data_desc_df %>% 
+  # dplyr::glimpse()
+  dplyr::arrange(
+    units, sorter, name, desc(is_intermediate)
+  ) %>% 
+  dplyr::select(units_lab,name,description,fia_db_abbr) %>% 
+  kableExtra::kbl(
+    col.names = c(
+      "Units",	"Name", "Description", "FIADB attribute"
+    )
+    , escape = F
+  ) %>% 
+  kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>% # 
+  kableExtra::scroll_box(width = "100%",height = "100%") %>% #  put a HTML kable object in a fixed-height, fixed-width or both box and make it scrollable
+  # font
+  kableExtra::column_spec(1, bold = T) %>% 
+  # ref lab
+  kableExtra::collapse_rows(columns = 1, valign = "middle")
+```
+
+wow. that is so many variables. let's try to focus on the variables that have either an equivalent FIADB variable or are a primary, new output from the NSVB framework
+
+```{r}
+nsvb_data_desc_df %>% 
+  dplyr::filter(is_primary_or_fia) %>% 
+  dplyr::arrange(
+    units, sorter, name, desc(is_intermediate)
+  ) %>% 
+  dplyr::select(units_lab,name,description,fia_db_abbr) %>% 
+  kableExtra::kbl(
+    col.names = c(
+      "Units",	"Name", "Description", "FIADB attribute"
+    )
+    , escape = F
+  ) %>% 
+  kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>% # 
+  kableExtra::scroll_box(width = "100%",height = "100%") %>% #  put a HTML kable object in a fixed-height, fixed-width or both box and make it scrollable
+  # font
+  kableExtra::column_spec(1, bold = T) %>% 
+  # ref lab
+  kableExtra::collapse_rows(columns = 1, valign = "middle")
+```
+
+that looks pretty good. let's save those variables in a function so that we can use it to select only the curated list of variables from our `trees_nsvb_*` functions
+
+```{r}
+# nsvb_data_desc_df %>% 
+#   dplyr::filter(is_primary_or_fia) %>% 
+#   dplyr::arrange(
+#     units, sorter, name, desc(is_intermediate)
+#   ) %>% 
+#   dplyr::pull(name) %>% 
+#   paste0(collapse = "','")
+get_col_names_trees_nsvb_curated <- function() {
+  c(
+    "V_mer_bk_Gross","V_mer_ib_Gross","V_saw_bk_Gross","V_saw_ib_Gross"
+    ,"V_stump_bk_Gross","V_stump_ib_Gross","V_top_bk_Gross","V_top_ib_Gross"
+    ,"V_tot_bk_Gross","V_tot_ib_Gross","V_mer_bk_Sound","V_mer_ib_Sound"
+    ,"V_stump_ib_Sound","V_top_bk_Sound","V_top_ib_Sound","V_tot_bk_Sound"
+    ,"V_tot_ib_Sound","AGB_pred","AGB_pred_red","Bark_harm","Branch_harm"
+    ,"Wood_harm","W_foliage","W_foliage_red","W_mer_bk"
+    ,"W_mer_ob","W_stump_bk","W_stump_ob","C","DRYBIO_TOP"
+  )
+}
 
 ```
 
@@ -3416,6 +3598,14 @@ dplyr::glimpse()
 
 
 tree %>% dplyr::glimpse()
+tree %>% dplyr::select(W_foliage,W_foliage_red)
+tree %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(dplyr::any_of(c(
+    c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
+  ))) %>% 
+  trees_nsvb_biomass(curated_cols = T) %>%  
+  dplyr::select(W_foliage,W_foliage_red)
 
 spp_live %>% dplyr::ungroup() %>% dplyr::count(SPCD) %>% dplyr::filter(n>1)
 spp_dead %>% dplyr::glimpse()
