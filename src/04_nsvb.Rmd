@@ -3743,6 +3743,7 @@ Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) describe the NSVB c
 ls()
 clean_nsvb_objects_fn()
 remove(list = ls()[grep("_temp",ls())])
+remove(this_data_site_nm)
 ls()
 gc()
 ```

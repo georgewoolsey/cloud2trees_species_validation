@@ -11,18 +11,122 @@ Now, we'll compare the NSVB volume estimates obtained via reference field sample
 
 it is important to note that NSVB calculations rely on tree height values, so, not all field reference data will be usable for this comparison. we already used the `trees_nsvb_biomass()` function to perform all NSVB calculations on the predicted and reference data sets. The `trees_nsvb_biomass()` function will checks for the required column names and automatically executes (or, attempts to execute) `trees_nsvb_volume_gross()` and `trees_nsvb_volume_sound()` if the columns are missing from the input data
 
+let's look at the curated list of columns we get from NSVB for one of our prediction (point cloud-based) data sets
+
 ```{r, results=F, message=F}
-# do it
-ref_trees_list %>% purrr::map(names)
-pred_trees_list %>% purrr::map(names)
+# # do it
+# ref_trees_list %>% purrr::map(names)
+# pred_trees_list %>% purrr::map(names)
+pred_trees_list[["USFS_ManitouEF_N1"]] %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(dplyr::all_of(c(
+    "treeID"
+    , "species_symbol"
+    , "tree_height_m"
+    , "dbh_cm"
+    # , get_col_names_trees_nsvb_biomass()
+    , get_col_names_trees_nsvb_curated()
+  ))) %>% 
+  dplyr::glimpse()
 ```
 
-for this evaluation of tree and stand volume, we'll use the gross cubic-foot merchantable stem wood volume (inside bark) value calculated from NSVB which is represented by the `V_mer_ib_Gross` in the outputs from our `trees_nsvb_*()` functions (e.g. `trees_nsvb_volume_gross()`) and the `VOLCFGRS` variable in the [USFS FIA database](https://research.fs.usda.gov/understory/forest-inventory-and-analysis-database-user-guide-nfi)
+for this evaluation of tree and stand volume, we'll use the gross cubic-foot of stem wood volume (inside bark) value calculated from NSVB which is represented by the `V_tot_ib_Gross` in the outputs from our `trees_nsvb_*()` functions (e.g. `trees_nsvb_volume_gross()`) and the `VOLTSGRS` variable in the [USFS FIA database](https://research.fs.usda.gov/understory/forest-inventory-and-analysis-database-user-guide-nfi). Since the NSVB values are in imperial units (i.e. cubic feet and pounds), we'll continue with those units and convert any area-based measurements to acres instead of hectares or square meters
+
+here is the distribution comparison of the gross cubic-foot of stem wood volume (inside bark) value for both predicted and reference data for trees within the field-measured area which was used to spatially filter the point cloud-based forest inventory.
+
+```{r, fig.height=11}
+comp_df_temp <-
+  pred_trees_list %>% 
+  purrr::compact() %>% 
+  names() %>% 
+  purrr::set_names() %>% 
+  purrr::map(function(nm){
+    pred_trees_list[[nm]] %>%
+      sf::st_drop_geometry() %>% 
+      dplyr::ungroup() %>% 
+      dplyr::select(dplyr::any_of(c(
+        "plot_id", "treeID", "tree_height_m", "dbh_cm", "species_symbol", "genus"
+        , "V_tot_ib_Gross", "AGB_pred_red", "W_foliage_red"
+      ))) %>% 
+      dplyr::mutate(name = "predicted") %>% 
+      # dplyr::summarize(
+      #   dplyr::across(
+      #     .cols = c(V_tot_ib_Gross, AGB_pred_red, W_foliage_red)
+      #     , ~sum(.x,na.rm = T)
+      #   )
+      #   , n_trees = dplyr::n()
+      # )
+      dplyr::bind_rows(
+        ref_trees_list[[nm]] %>% 
+          sf::st_drop_geometry() %>% 
+          dplyr::ungroup() %>% 
+          dplyr::select(dplyr::any_of(c(
+            "plot_id", "treeID", "tree_height_m", "dbh_cm", "species_symbol", "genus"
+            , "V_tot_ib_Gross", "AGB_pred_red", "W_foliage_red"
+          ))) %>% 
+          dplyr::mutate(name = "reference")
+      )
+  }) %>% 
+  purrr::list_rbind(names_to = "data_site_nm") %>% 
+  dplyr::mutate(
+    name = factor(
+      name
+      , levels = c("reference","predicted")
+      , labels = c("reference","predicted")
+      , ordered = T
+    )
+  )
+
+# comp_df_temp %>% dplyr::select(V_tot_ib_Gross, AGB_pred_red, W_foliage_red) %>% summary()
+comp_df_temp %>% 
+  # dplyr::glimpse()
+  ggplot2::ggplot(mapping = ggplot2::aes(x = V_tot_ib_Gross, color = name, fill = name)) +
+  ggplot2::geom_density(mapping = ggplot2::aes(y=ggplot2::after_stat(scaled)), alpha = 0.7) +
+  ggplot2::facet_wrap(
+    facets = dplyr::vars(data_site_nm)
+    , ncol = 2
+    , scales = "free"
+    , axes = "all_x"
+  ) + 
+  harrypotter::scale_fill_hp_d(option = "hermionegranger") +
+  harrypotter::scale_color_hp_d(option = "hermionegranger") +
+  ggplot2::scale_y_continuous(NULL,breaks=NULL) +
+  ggplot2::scale_x_continuous(labels = scales::comma, breaks=scales::breaks_extended(n=6)) +
+  ggplot2::labs(
+    color="",fill=""
+    , x="gross cubic-foot of stem wood volume"
+    # , subtitle = "comparison of height and DBH distributions"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+    , panel.grid.major.x = ggplot2::element_blank()
+    , panel.grid.minor.x = ggplot2::element_blank()
+    # , axis.text.x = ggplot2::element_blank()
+  )
+  
+  
+
+
+```
+
+interesting
+
+what if we aggregate the individual tree volume across the entire field-measured reference area and compare the total (this would effectively be the same as aggregating per-acre volumes from all sampled plots across a forest stand)
+
+```{r}
+comp_df_temp %>% dplyr::glimpse()
+# gross cubic feet per acre
+```
+
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
 remove(list = ls()[grep("_temp",ls())])
 gc()
 ```
+
+
 
 
 
