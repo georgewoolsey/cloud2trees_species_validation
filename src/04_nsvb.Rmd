@@ -1,4 +1,4 @@
-# `NSVB` for Biomass
+# `NSVB` for Volume and Biomass{#nsvb}
 
 ```{r, include=F, warning=F, message=F, eval = F}
 ######################################################################################################################
@@ -2973,7 +2973,7 @@ A few notes regarding `CR` (compacted crown ratio) and the NSVB biomass calculat
   + for dead (`STATUSCD == 2`), broken-top trees in which `ACTUALHT != HT`, the `CR` value does not influence the calculation of any metrics:
     - *Mean crown ratios of live trees based on FIA data are provided in table S11 for making branch and foliage weight deductions for dead trees with broken tops. Example 3 in the Results section provides additional information on using table S11.* (p. 6)
   + However, for live (`STATUSCD == 1`), broken-top trees in which `ACTUALHT != HT` incomplete calculations will be returned if `CR` is set to `NA`. For these cases, the following will be `NA`:
-    - `W_branch_red`, `AGB_comp_red`, `AGB_reduce`, `AGB_pred_red`, `AGB_diff`, `Wood_harm`, `Bark_harm`, `Branch_harm`, `WDSG_Adj`, `BKSG_Adj`, `W_mer_ib`, `W_mer_bk`, `W_mer_ob`, `W_stump_ib`, `W_stump_bk`, `W_stump_ob`, `DRYBIO_TOP`, `C`
+    - `W_branch_red`, `AGB_comp_red`, `AGB_reduce`, `AGB_pred_red`, `AGB_diff`, `Wood_harm`, `Bark_harm`, `Branch_harm`, `WDSG_Adj`, `BKSG_Adj`, `Foliage_Rem`, `W_foliage_red`, `W_mer_ib`, `W_mer_bk`, `W_mer_ob`, `W_stump_ib`, `W_stump_bk`, `W_stump_ob`, `DRYBIO_TOP`, `C`
     - this is because a non-NA `CR` value is needed: *Consulting the branch weight coefficient table (table S7b), use model 5 with the appropriate coefficients and WDSG value to estimate total branch weight. Subsequently, also use table 1 to account for...branches remaining due to the broken top (BranchRem). The latter adjustment requires consulting the crown ratio table (table S11) to assume the proportion of the stem having branch wood, which indicates the expected crown ratio calculated from live trees by hardwood vs. softwood species classification and PROVINCE* (p. 19)
     - Additionally: *Consulting the branch weight coefficient table (table S7a), use model 1 with the appropriate coefficients to estimate total branch weight. Additionally, account for the branches remaining due to the broken top (BranchRem). The latter adjustment requires use of the observed crown ratio (CR = 30 percent) based on AH to standardize the CR value to H (CRH) and then assess the proportion of the branch wood still intact* (p. 24)
   + For trees without broken-tops in which `ACTUALHT == HT`, `CR` does not influence the calculation of any metrics. 
@@ -2990,7 +2990,7 @@ note, that some of the reference data does not have tree height measurement info
 ref_trees_list <- ref_trees_list %>% 
   purrr::map(function(df){
     safe_trees_nsvb_biomass <- purrr::safely(trees_nsvb_biomass)
-    ans <- safe_trees_nsvb_biomass(df)
+    ans <- safe_trees_nsvb_biomass(df, curated_cols = T)
     if(is.null(ans$error)){
       return(ans$result)
     }else{
@@ -3000,7 +3000,7 @@ ref_trees_list <- ref_trees_list %>%
 pred_trees_list <- pred_trees_list %>% 
   purrr::map(function(df){
     safe_trees_nsvb_biomass <- purrr::safely(trees_nsvb_biomass)
-    ans <- safe_trees_nsvb_biomass(df)
+    ans <- safe_trees_nsvb_biomass(df, curated_cols = T)
     if(is.null(ans$error)){
       return(ans$result)
     }else{
@@ -3013,6 +3013,7 @@ check it for one data set
 
 ```{r, results=F, message=F}
 ## check it for one data
+
 pred_trees_list[[1]] %>% 
   sf::st_drop_geometry() %>% 
   dplyr::select(dplyr::all_of(c(
@@ -3020,7 +3021,11 @@ pred_trees_list[[1]] %>%
     , "species_symbol"
     , "tree_height_m"
     , "dbh_cm"
-    , get_col_names_trees_nsvb_biomass()
+    # , get_col_names_trees_nsvb_biomass()
+    , get_col_names_trees_nsvb_biomass()[
+      get_col_names_trees_nsvb_biomass() %in% 
+      get_col_names_trees_nsvb_curated()
+    ]
   ))) %>% 
   dplyr::glimpse()
 ```
@@ -3266,6 +3271,8 @@ Because the majority of trees in this example data are small, the NSVB framework
 
 ## Comparison and Review of NSVB outputs
 
+### Value Comparison
+
 Let's compare the NSVB volume and biomass values obtained via our functions (`trees_nsvb_volume_gross()`, `trees_nsvb_volume_sound()`, and `trees_nsvb_biomass()`) against those obtained using the example `tree` data defined by M. Russell in `apply_nsvb.Rmd` and the values calculated with their `nsvb.Rmd`
 
 **Note, GW identified missing step in `nsvb.Rmd` that was updated in the process defined here. Specifically, the $FoliageRem$ metric was not use to reduce the foliage weight in the $Wfoliagered$ calculation. So, we expect `W_foliage_red` to be different for the Example 4 tree which is live with a broken top**
@@ -3393,7 +3400,142 @@ There were `r nrow(tree)` example trees in the `tree` data that we calculated `n
 
 nice.
 
-let's try to define those metrics based on Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104))
+let's check out an example of the updated `W_foliage_red` calculation which represents *total foliage dry weight in pounds reduced for dead status and broken top portion*. The update will only impact live trees (`STATUSCD = 1`) with a broken top (`ACTUALHT!=HT`). Importantly, for these broken-top, live tree cases, a non-NA `CR` is required based on Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) to:
+
+>use table 1 to account for...branches remaining due to the broken top (BranchRem). The latter adjustment requires consulting the crown ratio table (table S11) to assume the proportion of the stem having branch wood, which indicates the expected crown ratio calculated from live trees by hardwood vs. softwood species classification and PROVINCE. (p. 19)
+
+first, we'll look at the example trees used in Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) with calculations applied to the `tree` data defined by M. Russell in `apply_nsvb.Rmd` and the values calculated with their `nsvb.Rmd`
+
+```{r}
+# tree %>% dplyr::glimpse()
+v_temp <- c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
+tree %>% 
+  dplyr::select(dplyr::all_of(c(v_temp, "W_foliage","W_foliage_red"))) %>% 
+  dplyr::mutate(dplyr::across(
+    .cols = c(W_foliage,W_foliage_red)
+    , ~scales::comma(.x,accuracy=0.001)
+  )) %>% 
+  kableExtra::kbl(
+    escape = F
+    , caption = "Westfall et al. (2024) example trees originally worked by M.Russell in `nsvb.Rmd`"
+  ) %>% 
+  kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>%
+  kableExtra::scroll_box(width = "100%",height = "100%") %>% 
+  kableExtra::column_spec(
+    c(length(v_temp),length(v_temp)+2)
+    , border_right = T
+    , include_thead = T
+  )
+```
+
+note Example 4 which is worked in Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) on p.25, this is a live tree (`STATUSCD=1`) with a broken top (`ACTUALHT!=HT`), so, we expect `W_foliage_red < W_foliage` but the worked example incorrectly has `W_foliage_red = W_foliage`. It's possible this example was updated after M. Russell released the repository at [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB).
+
+let's check out the values for the same trees with the same attributes worked by our `trees_nsvb_biomass()` function noting that we expect `W_foliage_red < W_foliage`
+
+```{r}
+# tree %>% dplyr::glimpse()
+quiet_trees_nsvb_biomass_temp <- purrr::quietly(trees_nsvb_biomass)
+tree %>% 
+  dplyr::select(dplyr::all_of(c(v_temp))) %>% 
+  quiet_trees_nsvb_biomass_temp() %>% 
+  purrr::pluck("result") %>% 
+  dplyr::select(dplyr::all_of(c(v_temp, "W_foliage","W_foliage_red"))) %>% 
+  dplyr::mutate(dplyr::across(
+    .cols = c(W_foliage,W_foliage_red)
+    , ~scales::comma(.x,accuracy=0.001)
+  )) %>% 
+  kableExtra::kbl(
+    escape = F
+    , caption = "Westfall et al. (2024) example trees worked by our `trees_nsvb_biomass()` function"
+  ) %>% 
+  kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>%
+  kableExtra::scroll_box(width = "100%",height = "100%") %>% 
+  kableExtra::column_spec(
+    c(length(v_temp),length(v_temp)+2)
+    , border_right = T
+    , include_thead = T
+  )
+```
+
+that looks better for Example 4 and now aligns with Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) on p.25.
+
+let's update the other example live tree (`STATUSCD=1`), Example 1 and 2, to have a broken top (`ACTUALHT!=HT`) and see what happens
+
+```{r}
+# tree %>% dplyr::glimpse()
+tree %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(dplyr::all_of(c(v_temp))) %>% 
+  ## update 
+  dplyr::mutate(
+    ACTUALHT = c(99,33,tree$ACTUALHT[3:4])
+  ) %>% 
+  quiet_trees_nsvb_biomass_temp() %>% 
+  purrr::pluck("result") %>% 
+  dplyr::select(dplyr::all_of(c(v_temp, "W_foliage","W_foliage_red"))) %>% 
+  dplyr::mutate(dplyr::across(
+    .cols = c(W_foliage,W_foliage_red)
+    , ~scales::comma(.x,accuracy=0.001)
+  )) %>% 
+  kableExtra::kbl(
+    escape = F
+    , caption = "Westfall et al. (2024) example trees worked by our `trees_nsvb_biomass()` function<br />Updated Example 1 & 2 to have broken top"
+  ) %>% 
+  kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>%
+  kableExtra::scroll_box(width = "100%",height = "100%") %>% 
+  kableExtra::column_spec(
+    c(length(v_temp),length(v_temp)+2)
+    , border_right = T
+    , include_thead = T
+  )
+```
+
+this isn't exactly what we wanted but what we should expect:
+
+* For live (`STATUSCD == 1`), broken-top trees in which `ACTUALHT != HT` incomplete calculations will be returned if `CR` is set to `NA`. For these cases, the following will be `NA`:
+  - `W_branch_red`, `AGB_comp_red`, `AGB_reduce`, `AGB_pred_red`, `AGB_diff`, `Wood_harm`, `Bark_harm`, `Branch_harm`, `WDSG_Adj`, `BKSG_Adj`, `Foliage_Rem`, `W_foliage_red`, `W_mer_ib`, `W_mer_bk`, `W_mer_ob`, `W_stump_ib`, `W_stump_bk`, `W_stump_ob`, `DRYBIO_TOP`, `C`
+  - this is because a non-NA `CR` value is needed: *Consulting the branch weight coefficient table (table S7b), use model 5 with the appropriate coefficients and WDSG value to estimate total branch weight. Subsequently, also use table 1 to account for...branches remaining due to the broken top (BranchRem). The latter adjustment requires consulting the crown ratio table (table S11) to assume the proportion of the stem having branch wood, which indicates the expected crown ratio calculated from live trees by hardwood vs. softwood species classification and PROVINCE* (p. 19)
+  - Additionally: *Consulting the branch weight coefficient table (table S7a), use model 1 with the appropriate coefficients to estimate total branch weight. Additionally, account for the branches remaining due to the broken top (BranchRem). The latter adjustment requires use of the observed crown ratio (CR = 30 percent) based on AH to standardize the CR value to H (CRH) and then assess the proportion of the branch wood still intact* (p. 24)
+* For trees without broken-tops in which `ACTUALHT == HT`, `CR` does not influence the calculation of any metrics. 
+  - for both live trees (`STATUSCD == 1`) and dead trees (`STATUSCD == 2`): *Total branch weight can then be estimated using the appropriate model form and coefficients. Consulting the branch weight coefficient table (table S7a), use model 1 with the appropriate coefficients* (p. 10-11)
+  
+let's give Example 1 and 2 a non-NA `CR` value while also updating to have a broken top (`ACTUALHT!=HT`) and see what happens
+
+```{r}
+# tree %>% dplyr::glimpse()
+tree %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(dplyr::all_of(c(v_temp))) %>% 
+  ## update 
+  dplyr::mutate(
+    ACTUALHT = c(99,33,tree$ACTUALHT[3:4])
+    , CR = c(44,55,NA,30)
+  ) %>% 
+  quiet_trees_nsvb_biomass_temp() %>% 
+  purrr::pluck("result") %>% 
+  dplyr::select(dplyr::all_of(c(v_temp, "W_foliage","W_foliage_red"))) %>% 
+  dplyr::mutate(dplyr::across(
+    .cols = c(W_foliage,W_foliage_red)
+    , ~scales::comma(.x,accuracy=0.001)
+  )) %>% 
+  kableExtra::kbl(
+    escape = F
+    , caption = "Westfall et al. (2024) example trees worked by our `trees_nsvb_biomass()` function<br />Updated Example 1 & 2 to have broken top AND non-NA `CR`"
+  ) %>% 
+  kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed")) %>%
+  kableExtra::scroll_box(width = "100%",height = "100%") %>% 
+  kableExtra::column_spec(
+    c(length(v_temp),length(v_temp)+2)
+    , border_right = T
+    , include_thead = T
+  )
+```
+
+our `trees_nsvb_biomass()` function is working exactly as expected for the NSVB tree foliage weight (`W_foliage` and `W_foliage_red`) calculation presented by Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104))
+
+### Variable Definitions
+
+let's try to define all of those metrics obtained via our functions (`trees_nsvb_volume_gross()`, `trees_nsvb_volume_sound()`, and `trees_nsvb_biomass()`) based on descriptions in Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) and using the README table from M. Russell at [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB)
 
 ```{r}
 # # eval_cols_temp
@@ -3494,7 +3636,7 @@ dplyr::tribble(
     , "W_stump_bk", "Dry biomass of bark in the stump", "DRYBIO_STUMP_BARK", "pounds"
     , "W_stump_ob", "Dry biomass of wood in the stump, outside bark (`W_stump_ib` + `W_stump_bk`)", "DRYBIO_STUMP", "pounds" ## this DRYBIO_STUMP was incorrectly flipped in M.Russel
     , "DRYBIO_TOP", "dry biomass in the top and branches of the tree", "DRYBIO_TOP", "pounds"
-    , "C", "Aboveground carbon of wood and bark", "CARBON_AG", "pounds"
+    , "C", "Aboveground carbon content of the stem, bark, and branches (but not foliage) obtained via multiplication of species-specific C fraction by the aboveground dry biomass (`C = AGB_pred_red * C-fraction`)", "CARBON_AG", "pounds of carbon"
 ) %>% 
 dplyr::mutate(
   units_lab = dplyr::case_when(
@@ -3571,7 +3713,7 @@ nsvb_data_desc_df %>%
 
 that looks pretty good. let's save those variables in a function so that we can use it to select only the curated list of variables from our `trees_nsvb_*` functions
 
-```{r}
+```{r, include = T, eval = F}
 # nsvb_data_desc_df %>% 
 #   dplyr::filter(is_primary_or_fia) %>% 
 #   dplyr::arrange(
@@ -3593,39 +3735,15 @@ get_col_names_trees_nsvb_curated <- function() {
 
 ```
 
+Westfall et al. ([2024](https://doi.org/10.2737/WO-GTR-104)) describe the NSVB calculation of carbon content `C`: 
 
-```{r, include=F, eval=F}
-
-
-tree %>% dplyr::glimpse()
-tree %>% dplyr::select(W_foliage,W_foliage_red)
-tree %>% 
-  dplyr::ungroup() %>% 
-  dplyr::select(dplyr::any_of(c(
-    c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
-  ))) %>% 
-  trees_nsvb_biomass(curated_cols = T) %>%  
-  dplyr::select(W_foliage,W_foliage_red)
-
-spp_live %>% dplyr::ungroup() %>% dplyr::count(SPCD) %>% dplyr::filter(n>1)
-spp_dead %>% dplyr::glimpse()
-spp_dead %>% dplyr::ungroup() %>% dplyr::count(SFTWD_HRDWD,DECAYCD) %>% dplyr::filter(n>1)
-
-tidyr::crossing(
-  dplyr::tibble(DECAYCD = 0:5)
-  , dplyr::tibble(SFTWD_HRDWD = c("S","H"))
-) %>% 
-dplyr::anti_join(spp_dead, by = dplyr::join_by(SFTWD_HRDWD,DECAYCD))
-
-tree %>% 
-  dplyr::ungroup() %>% 
-  dplyr::select(dplyr::any_of(c(
-    c("EXAMPLE", "DIVISION", "PROVINCE", "STDORGCD", "SPCD", "DIA",  "HT", "ACTUALHT", "CR",  "CULL", "DECAYCD", "STATUSCD")
-  ))) %>% 
-  dplyr::left_join(spp_agb_all, relationship = "many-to-one")
-```
+>Typically, biomass is converted to carbon by applying a carbon fraction value. Previously, FIA used the generic approximation of 0.5 as the ratio of carbon to dry wood weight for all species. For the species addressed in this study, the NSVB framework introduces more rigorous carbon content predictions. Species-specific carbon fractions were developed for 100 species using the Global Woody Tissue Carbon Concentration Database (GLOWCAD) ([Doraisami et al. 2022](https://doi.org/10.1038/s41597-022-01396-1)) and were established for the remaining 321 species as a linear model prediction based on specific gravity ([Martin et al. 2018](https://doi.org/10.1038/s41561-018-0246-x)). On average, the carbon fraction is 0.477 across all species, with a minimum value of 0.420 and a maximum value of 0.538. (p. 7)
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+ls()
+clean_nsvb_objects_fn()
 remove(list = ls()[grep("_temp",ls())])
+ls()
 gc()
 ```
+

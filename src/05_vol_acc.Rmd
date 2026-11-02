@@ -1,0 +1,32 @@
+# `NSVB` Volume Accuracy Summary{#vol_acc}
+
+Earlier: 
+
+* we [proposed a method](#site_01) to attach species/genus to individual tree forest inventories generated from aerial point cloud data using the `cloud2trees` framework and 
+* evaluated the [accuracy of that taxonomic classification method](#taxon_acc)
+* Then, defined [our on functions](#nsvb) to implement the US National Scale Volume Biomass (NSVB) method (Westfall et al. [2024](https://doi.org/10.2737/WO-GTR-104)) to predict tree volume, biomass, and carbon using the foundational workflow made available by Matthew Russell at [https://github.com/mbrussell/NSVB](https://github.com/mbrussell/NSVB). 
+  - this functionality we defined enables us to attach the NSVB volume and biomass calculations to any spatial tree list or a tree list with all required attributes
+  
+Now, we'll compare the NSVB volume estimates obtained via reference field sample sample plots versus those obtained from aerial point cloud data using the `cloud2trees` framework with species/genus to attached to individual trees using the [proposed method](#site_01).
+
+it is important to note that NSVB calculations rely on tree height values, so, not all field reference data will be usable for this comparison. we already used the `trees_nsvb_biomass()` function to perform all NSVB calculations on the predicted and reference data sets. The `trees_nsvb_biomass()` function will checks for the required column names and automatically executes (or, attempts to execute) `trees_nsvb_volume_gross()` and `trees_nsvb_volume_sound()` if the columns are missing from the input data
+
+```{r, results=F, message=F}
+# do it
+ref_trees_list %>% purrr::map(names)
+pred_trees_list %>% purrr::map(names)
+```
+
+for this evaluation of tree and stand volume, we'll use the gross cubic-foot merchantable stem wood volume (inside bark) value calculated from NSVB which is represented by the `V_mer_ib_Gross` in the outputs from our `trees_nsvb_*()` functions (e.g. `trees_nsvb_volume_gross()`) and the `VOLCFGRS` variable in the [USFS FIA database](https://research.fs.usda.gov/understory/forest-inventory-and-analysis-database-user-guide-nfi)
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
+
+
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
+remove(list = ls()[grep("_temp",ls())])
+gc()
+```
