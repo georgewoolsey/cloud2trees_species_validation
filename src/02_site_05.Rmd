@@ -17,7 +17,7 @@ The data from the USFS Ute Creek site was collected by the Colorado Forest Resto
 here is the data description from CFRI:
 
 1) `Stem_map_326134.shp`: shapefile of the mapped trees (>= 5 inch DBH) using distance and azimuth from plot center, with attributes for PlotCode, Species, DBH (inches), Height (feet), CBH(feet), and TreeStatus (L=live, 1b=Recently dead trees/saplings, top intact, fine branches present, 2= Snags with coarse branches, but fine branches and foliage have fallen off, 3=Rotten snags. Very few if any branches remain. Usually short (<20 ft) due to decay status)
-2) `Sample_points_from_emlid.shp`: plot center locations with attribute for PlotCode for 1/10 acre plots with a 3
+2) `Sample_points_from_emlid.shp`: plot center locations with attribute for PlotCode for 1/10 acre plots
 3) `UteCreekUnits.shp`: unit boundaries 
 
 load in the tree data

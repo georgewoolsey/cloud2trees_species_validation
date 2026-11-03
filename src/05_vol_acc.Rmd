@@ -65,6 +65,12 @@ comp_df_temp <-
             , "V_tot_ib_Gross", "AGB_pred_red", "W_foliage_red"
           ))) %>% 
           dplyr::mutate(name = "reference")
+      ) %>% 
+      dplyr::left_join(
+        ref_plots_list[[nm]] %>% 
+          sf::st_drop_geometry() %>% 
+          dplyr::select(plot_id,plot_area_m2)
+        , by = "plot_id"
       )
   }) %>% 
   purrr::list_rbind(names_to = "data_site_nm") %>% 
@@ -113,11 +119,208 @@ comp_df_temp %>%
 
 interesting
 
-what if we aggregate the individual tree volume across the entire field-measured reference area and compare the total (this would effectively be the same as aggregating per-acre volumes from all sampled plots across a forest stand)
+now we'll aggregate the individual tree volume across the entire field-measured reference area and compare the total per-acre volumes from all sampled plots across a forest stand
 
 ```{r}
-comp_df_temp %>% dplyr::glimpse()
-# gross cubic feet per acre
+# comp_df_temp %>% dplyr::glimpse()
+agg_comp_df_temp <- 
+  comp_df_temp %>% 
+  dplyr::ungroup() %>% 
+  dplyr::group_by(data_site_nm,name) %>% 
+  dplyr::summarise(
+    n_trees_non_na = sum(!is.na(V_tot_ib_Gross))
+    , n_trees = dplyr::n()
+    , V_tot_ib_Gross = sum(V_tot_ib_Gross, na.rm = T)
+  ) %>% 
+  dplyr::mutate(
+    # sites with insufficient data to get NSVB calcs
+    V_tot_ib_Gross = ifelse(n_trees_non_na==0, NA, V_tot_ib_Gross)
+  ) %>% 
+  # add area
+  dplyr::left_join(
+    comp_df_temp %>% 
+      dplyr::distinct(data_site_nm,plot_id,plot_area_m2) %>%
+      dplyr::group_by(data_site_nm) %>% 
+      dplyr::summarise(plot_area_m2 = sum(plot_area_m2))
+    , by = "data_site_nm"
+  ) %>% 
+  # gross cubic feet per acre
+  dplyr::mutate(
+    plot_area_ha = plot_area_m2/10000
+    , V_tot_ib_Gross_per_ac = V_tot_ib_Gross/ (plot_area_ha * 2.471)
+  ) %>% 
+  dplyr::select(data_site_nm,name,n_trees,V_tot_ib_Gross_per_ac) %>% 
+  dplyr::mutate(
+    name = dplyr::recode_values(
+      name
+      , "predicted" ~ "pred"
+      , "reference" ~ "ref"
+    )
+  ) %>% 
+  tidyr::pivot_wider(
+    names_from = name
+    , values_from = -c(data_site_nm,name)
+    , names_glue = "{name}_{.value}"
+  ) %>% 
+  dplyr::mutate(
+    # 'diff_' columns are calculated as the predicted value minus the actual value
+    dplyr::across(
+      .cols = paste0(
+        "ref_"
+        , c("V_tot_ib_Gross_per_ac") # comp_cols # c("tree_height_m", "dbh_cm")
+        , recycle0 = T
+      )
+      , .fns = ~ base::get(stringr::str_replace(dplyr::cur_column(), "^ref_", "pred_")) - .x
+      , .names = "diff_{stringr::str_remove(.col, '^ref_')}"
+    )
+    # 'pct_diff_' columns are calculated as the actual value minus the predicted value divided by the actual value
+    , dplyr::across(
+      .cols = paste0(
+        "ref_"
+        , c("V_tot_ib_Gross_per_ac") # comp_cols # c("tree_height_m", "dbh_cm")
+        , recycle0 = T
+      )
+      # 
+      , .fns = ~ (.x-base::get(stringr::str_replace(dplyr::cur_column(), "^ref_", "pred_")))/(.x + 1e-5)
+      , .names = "pct_diff_{stringr::str_remove(.col, '^ref_')}"
+    )
+  )
+
+# agg_comp_df_temp %>% dplyr::glimpse()
+
+# table it
+agg_comp_df_temp %>%
+  dplyr::ungroup() %>% 
+  dplyr::left_join(
+    project_data_df %>% 
+      dplyr::select(data_site_nm,data_ftype_desc)
+    , by = "data_site_nm"
+  ) %>% 
+  dplyr::mutate(
+    site = paste0(
+      data_site_nm
+      , "<br />("
+      , data_ftype_desc
+      , ")"
+    )
+  ) %>% 
+  dplyr::select(
+    site, tidyselect::ends_with("V_tot_ib_Gross_per_ac")
+  ) %>% 
+  dplyr::mutate(
+    dplyr::across(
+      .cols = tidyselect::starts_with("pct_")
+      , ~scales::percent(.x,accuracy=0.1)
+    )
+    , dplyr::across(
+      .cols = dplyr::where(is.numeric)
+      , ~scales::comma(.x,accuracy=0.1)
+    )
+  ) %>% 
+  dplyr::arrange(site) %>% 
+  kableExtra::kbl(
+    caption = "Proposed Tree Classification Method Accuracy Performance<br />by site"
+    , col.names = c(
+      "site"
+      , "reference gross volume<br/>(ft<sup>3</sup> ac<sup>-1</sup>)"
+      , "predicted gross volume<br/>(ft<sup>3</sup> ac<sup>-1</sup>)"
+      , "difference gross volume<br/>(ft<sup>3</sup> ac<sup>-1</sup>)"
+      , "% difference gross volume"
+    )
+    , escape = F
+  ) %>% 
+  kableExtra::kable_styling(font_size = 11.5, bootstrap_options = c("responsive", "condensed","striped")) %>% # 
+  kableExtra::scroll_box(width = "100%") %>% #  put a HTML kable object in a fixed-height, fixed-width or both box and make it scrollable
+  kableExtra::column_spec(1, bold = TRUE) %>% 
+  kableExtra::column_spec(c(1,5), border_right = TRUE, include_thead = TRUE) 
+
+```
+
+let's plot that too
+
+```{r}
+agg_comp_df_temp %>% 
+  dplyr::select(data_site_nm, tidyselect::ends_with("V_tot_ib_Gross_per_ac")) %>% 
+  tidyr::pivot_longer(cols = c(tidyselect::starts_with("pred_"), tidyselect::starts_with("ref_"))) %>% 
+  dplyr::mutate(
+    name = dplyr::recode_values(
+      stringr::str_extract(name, "^(pred_|ref_)")
+      , "ref_" ~ "reference"
+      , "pred_" ~ "predicted"
+    ) %>% 
+    ordered() %>% forcats::fct_rev()
+    , value_lab = 
+      dplyr::case_when(
+        name=="reference" & is.na(value) ~ scales::comma(value,accuracy=0.1)
+        , name=="predicted" & !is.na(pct_diff_V_tot_ib_Gross_per_ac ) ~ paste0(
+            scales::comma(value,accuracy=0.1)
+            , "\n"
+            , ifelse(name=="predicted" & diff_V_tot_ib_Gross_per_ac>0,"+","")
+            , scales::comma( ifelse(name=="predicted",diff_V_tot_ib_Gross_per_ac,NA), accuracy = 0.1 )
+            , " ("
+            , scales::percent( ifelse(name=="predicted",pct_diff_V_tot_ib_Gross_per_ac,NA), accuracy = 0.1 )
+            , ")"
+          )  
+        , T ~ scales::comma(value,accuracy=0.1)
+    )
+      
+      
+  ) %>% 
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = name, y = value, group = data_site_nm)
+  ) +
+  ggplot2::geom_line(key_glyph = "point", alpha = 0.7, color = "gray", lwd = 1.1) +
+  # ref labs
+  ggplot2::geom_text(
+    data = function(x){dplyr::filter(x,name=="reference")}
+    , mapping = ggplot2::aes(label = value_lab)
+    , size = 3
+    , hjust = 0.5, vjust = 2.2
+  ) +
+  # pred labs
+  ggrepel::geom_text_repel(
+  # ggplot2::geom_text(
+    data = function(x){dplyr::filter(x,name=="predicted")}
+    , mapping = ggplot2::aes(label = value_lab)
+    , size = 2.7
+    , hjust = 0.5, vjust = 2.2
+  ) +
+  ggplot2::geom_point(
+    mapping = ggplot2::aes(color = name)
+    # , alpha = 0.7
+    , size = 4
+  ) +
+  ggplot2::facet_wrap(
+    facets = dplyr::vars(data_site_nm)
+    , scales = "free"
+    , axes = "all_y"
+  ) +
+  harrypotter::scale_color_hp_d(option = "hermionegranger") +
+  ggplot2::scale_y_continuous(
+    limits = c(0,NA)
+    , labels = scales::comma
+    , breaks = scales::breaks_extended(n=7)
+    , expand = ggplot2::expansion(mult = c(0.01,0.1))
+  ) +
+  ggplot2::labs(
+    x = "" # "comparison"
+    , y = "gross volume ft³ ac⁻¹"
+    , color = ""
+    # , subtitle = "gross volume ft³ ac⁻¹"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , axis.text.x = ggplot2::element_text(size = 10, face = "bold", color = "black")
+    # , axis.text.y = ggplot2::element_text(size = 7)
+    # , axis.title.y = ggplot2::element_text(size = 7)
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+  ) +
+  ggplot2::guides(
+    color = ggplot2::guide_legend(
+      override.aes = list(shape = 15, size = 6, linetype = 0)
+    )
+  )
 ```
 
 
