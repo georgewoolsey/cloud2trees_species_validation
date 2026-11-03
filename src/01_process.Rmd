@@ -233,7 +233,7 @@ wfsi_eglinafb_plots <-
   # "After the study fires in March 2023, trees within 10 m of plot center were identified..."
   sf::st_buffer(10) %>% 
   dplyr::mutate(
-    plot_area_m2 = sf::st_area(.) %>% as.numeric()
+    plot_area_m2 = pi*10^2
     # this is good data mgmt: make sure to specify unit orientation in the plot data but not the tree data
     , burn_unit = burn_unit %>% stringr::str_remove("[EWSNewsn]$")
     # # another good practice is to format the plot id's to have padding of two zeros in the plot data but only padding of one zero in the tree data

@@ -396,11 +396,10 @@ so it looks like the taxonomic classification accuracy has limited influence on 
 
 ```{r}
 lm_temp <- stats::lm(acc_site_vol_cuft_ac_pct_diff ~ acc_site_species_bc_dissimilarity, data = project_data_df)
-# summary(lm_temp)
+summary(lm_temp)
 # summary(lm_temp)[["r.squared"]]
 # summary(lm_temp)[["coefficients"]][2, 1] # coeff est
 # summary(lm_temp)[["coefficients"]][2, 4] # p-val
-
 ```
 
 the simple linear regression model of predicted stand-level gross volume error against dissimilarity in the predicted species composition shows that the Bray-Curtis dissimilarity in species explains **`r scales::percent(summary(lm_temp)[["r.squared"]], accuracy = 0.001)`** of the variance in stand-level gross volume error (R-squared = `r scales::number(summary(lm_temp)[["r.squared"]],accuracy=0.00001)`). The p-value on the Bray-Curtis species-level dissimilarity of `r scales::number(summary(lm_temp)[["coefficients"]][2, 4],accuracy=0.001)` provides evidence that there is `r ifelse(summary(lm_temp)[["coefficients"]][2, 4]<0.1,"a significant relationship", "no relationship")` between the accuracy of the predicted species composition and the accuracy of the predicted stand-level gross volume compared to the field reference data.

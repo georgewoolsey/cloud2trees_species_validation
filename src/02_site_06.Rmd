@@ -108,6 +108,7 @@ blm_trfo_plots <-
   sf::st_transform(sf::st_crs(blm_trfo_trees)) %>% 
   dplyr::mutate(
     plot_radius_meters = 10
+    , plot_area_m2 = pi*plot_radius_meters^2
   ) %>% 
   sf::st_buffer(.$plot_radius_meters)
 # huh?

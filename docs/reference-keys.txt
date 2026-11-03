@@ -23,6 +23,11 @@ tab:unnamed-chunk-420
 tab:unnamed-chunk-430
 tab:unnamed-chunk-441
 tab:unnamed-chunk-454
+tab:unnamed-chunk-510
+tab:unnamed-chunk-511
+tab:unnamed-chunk-512
+tab:unnamed-chunk-513
+tab:unnamed-chunk-521
 introduction
 proposed-species-classification-method
 validation-data-and-accuracy-evaluation
@@ -113,7 +118,7 @@ summary-table
 genus-level
 species-level
 species--vs.-genus-level
-nsvb-for-biomass
+nsvb
 nsvb-setup
 nsvb-gross-values
 data-preparation
@@ -124,3 +129,6 @@ nsvb-biomass-values
 ex_cbh
 nsvb-biomass-function
 comparison-and-review-of-nsvb-outputs
+value-comparison
+variable-definitions
+vol_acc

@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en-US" xml:lang="en-US">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>13 NSVB Volume Accuracy Summary | cloud2trees Species Validation</title>
+  <meta name="description" content="13 NSVB Volume Accuracy Summary | cloud2trees Species Validation" />
+  <meta name="generator" content="bookdown 0.47 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="13 NSVB Volume Accuracy Summary | cloud2trees Species Validation" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="13 NSVB Volume Accuracy Summary | cloud2trees Species Validation" />
+  
+  
+  
+
+<meta name="author" content="George Woolsey" />
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="nsvb.html"/>
+
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+<link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
+<link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
+<script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+<link href="libs/htmltools-fill-0.5.9/fill.css" rel="stylesheet" />
+<script src="libs/htmlwidgets-1.6.4/htmlwidgets.js"></script>
+<link href="libs/leaflet-1.3.1/leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-1.3.1/leaflet.js"></script>
+<link href="libs/leafletfix-1.0.0/leafletfix.css" rel="stylesheet" />
+<script src="libs/proj4-2.6.2/proj4.min.js"></script>
+<script src="libs/Proj4Leaflet-1.0.1/proj4leaflet.js"></script>
+<link href="libs/rstudio_leaflet-1.3.1/rstudio_leaflet.css" rel="stylesheet" />
+<script src="libs/leaflet-binding-2.2.3/leaflet.js"></script>
+<script src="libs/leaflet-providers-3.0.0/leaflet-providers.js"></script>
+<script src="libs/leaflet-providers-plugin-2.2.3/leaflet-providers-plugin.js"></script>
+<script src="libs/clipboard-0.0.1/setClipboardText.js"></script>
+<link href="libs/mapviewCSS-0.0.1/mapview-popup.css" rel="stylesheet" />
+<link href="libs/mapviewCSS-0.0.1/mapview.css" rel="stylesheet" />
+<script src="libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="libs/lightable-0.0.1/lightable.css" rel="stylesheet" />
+<link href="libs/bsTable-3.3.7/bootstrapTable.min.css" rel="stylesheet" />
+<script src="libs/bsTable-3.3.7/bootstrapTable.js"></script>
+<script type="text/javascript">
+
+// toggle visibility of R source blocks in R Markdown output
+function toggle_R() {
+  var x = document.getElementsByClassName('r');
+  if (x.length == 0) return;
+  function toggle_vis(o) {
+    var d = o.style.display;
+    o.style.display = (d == 'block' || d == '') ? 'none':'block';
+  }
+
+  for (i = 0; i < x.length; i++) {
+    var y = x[i];
+    if (y.tagName.toLowerCase() === 'pre') toggle_vis(y);
+  }
+
+    var elem = document.getElementById("myButton1");
+    if (elem.value === "Hide Code") elem.value = "Show Code";
+    else elem.value = "Hide Code";
+}
+
+document.write('<input onclick="toggle_R();" type="button" value="Hide Code" id="myButton1" style="position: absolute; top: 10%; right: 2%; z-index: 200"></input>')
+
+</script>
+
+
+<style type="text/css">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Introduction</a>
+<ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#proposed-species-classification-method"><i class="fa fa-check"></i><b>1.1</b> Proposed Species Classification Method</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#validation-data-and-accuracy-evaluation"><i class="fa fa-check"></i><b>1.2</b> Validation Data and Accuracy Evaluation</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#benefits-and-next-steps"><i class="fa fa-check"></i><b>1.3</b> Benefits and Next Steps</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="data-and-process-overview.html"><a href="data-and-process-overview.html"><i class="fa fa-check"></i><b>2</b> Data and Process Overview</a></li>
+<li class="chapter" data-level="3" data-path="site_01.html"><a href="site_01.html"><i class="fa fa-check"></i><b>3</b> Eglin Air Force Base (Florida)</a>
+<ul>
+<li class="chapter" data-level="3.1" data-path="site_01.html"><a href="site_01.html#id_01_fld_dta"><i class="fa fa-check"></i><b>3.1</b> Field Data</a></li>
+<li class="chapter" data-level="3.2" data-path="site_01.html"><a href="site_01.html#id_02_ptcld_dta"><i class="fa fa-check"></i><b>3.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="3.3" data-path="site_01.html"><a href="site_01.html#id_03_itd"><i class="fa fa-check"></i><b>3.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="3.4" data-path="site_01.html"><a href="site_01.html#id_04_species"><i class="fa fa-check"></i><b>3.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="3.4.1" data-path="site_01.html"><a href="site_01.html#training-data"><i class="fa fa-check"></i><b>3.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="3.5" data-path="site_01.html"><a href="site_01.html#predict-speciesgenus-application"><i class="fa fa-check"></i><b>3.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="3.6" data-path="site_01.html"><a href="site_01.html#speciesgenus-accuracy-evaluation"><i class="fa fa-check"></i><b>3.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="3.6.1" data-path="site_01.html"><a href="site_01.html#id_05_tree_acc"><i class="fa fa-check"></i><b>3.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="3.6.2" data-path="site_01.html"><a href="site_01.html#id_06_site_acc"><i class="fa fa-check"></i><b>3.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="site_02.html"><a href="site_02.html"><i class="fa fa-check"></i><b>4</b> USFS Manitou Experimental Forest: N1 (Colorado)</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="site_02.html"><a href="site_02.html#field-data"><i class="fa fa-check"></i><b>4.1</b> Field Data</a></li>
+<li class="chapter" data-level="4.2" data-path="site_02.html"><a href="site_02.html#point-cloud-data"><i class="fa fa-check"></i><b>4.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="4.3" data-path="site_02.html"><a href="site_02.html#tree-detection"><i class="fa fa-check"></i><b>4.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="4.4" data-path="site_02.html"><a href="site_02.html#speciesgenus-prediction-method"><i class="fa fa-check"></i><b>4.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="4.4.1" data-path="site_02.html"><a href="site_02.html#training-data-1"><i class="fa fa-check"></i><b>4.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="4.5" data-path="site_02.html"><a href="site_02.html#predict-speciesgenus-application-1"><i class="fa fa-check"></i><b>4.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="4.6" data-path="site_02.html"><a href="site_02.html#speciesgenus-accuracy-evaluation-1"><i class="fa fa-check"></i><b>4.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="4.6.1" data-path="site_02.html"><a href="site_02.html#tree-level-accuracy"><i class="fa fa-check"></i><b>4.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="4.6.2" data-path="site_02.html"><a href="site_02.html#site-level-accuracy"><i class="fa fa-check"></i><b>4.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="site_03.html"><a href="site_03.html"><i class="fa fa-check"></i><b>5</b> USFS Manitou Experimental Forest: BigPlot (Colorado)</a>
+<ul>
+<li class="chapter" data-level="5.1" data-path="site_03.html"><a href="site_03.html#field-data-1"><i class="fa fa-check"></i><b>5.1</b> Field Data</a></li>
+<li class="chapter" data-level="5.2" data-path="site_03.html"><a href="site_03.html#point-cloud-data-1"><i class="fa fa-check"></i><b>5.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="5.3" data-path="site_03.html"><a href="site_03.html#tree-detection-1"><i class="fa fa-check"></i><b>5.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="5.4" data-path="site_03.html"><a href="site_03.html#speciesgenus-prediction-method-1"><i class="fa fa-check"></i><b>5.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="5.4.1" data-path="site_03.html"><a href="site_03.html#training-data-2"><i class="fa fa-check"></i><b>5.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="5.5" data-path="site_03.html"><a href="site_03.html#predict-speciesgenus-application-2"><i class="fa fa-check"></i><b>5.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="5.6" data-path="site_03.html"><a href="site_03.html#speciesgenus-accuracy-evaluation-2"><i class="fa fa-check"></i><b>5.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="5.6.1" data-path="site_03.html"><a href="site_03.html#tree-level-accuracy-1"><i class="fa fa-check"></i><b>5.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="5.6.2" data-path="site_03.html"><a href="site_03.html#site-level-accuracy-1"><i class="fa fa-check"></i><b>5.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="site_04.html"><a href="site_04.html"><i class="fa fa-check"></i><b>6</b> Penobscot Experimental Forest (Maine)</a>
+<ul>
+<li class="chapter" data-level="6.1" data-path="site_04.html"><a href="site_04.html#field-data-2"><i class="fa fa-check"></i><b>6.1</b> Field Data</a></li>
+<li class="chapter" data-level="6.2" data-path="site_04.html"><a href="site_04.html#point-cloud-data-2"><i class="fa fa-check"></i><b>6.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="6.3" data-path="site_04.html"><a href="site_04.html#tree-detection-2"><i class="fa fa-check"></i><b>6.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="6.4" data-path="site_04.html"><a href="site_04.html#speciesgenus-prediction-method-2"><i class="fa fa-check"></i><b>6.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="6.4.1" data-path="site_04.html"><a href="site_04.html#training-data-3"><i class="fa fa-check"></i><b>6.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="6.5" data-path="site_04.html"><a href="site_04.html#predict-speciesgenus-application-3"><i class="fa fa-check"></i><b>6.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="6.6" data-path="site_04.html"><a href="site_04.html#speciesgenus-accuracy-evaluation-3"><i class="fa fa-check"></i><b>6.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="6.6.1" data-path="site_04.html"><a href="site_04.html#tree-level-accuracy-2"><i class="fa fa-check"></i><b>6.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="6.6.2" data-path="site_04.html"><a href="site_04.html#site-level-accuracy-2"><i class="fa fa-check"></i><b>6.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="7" data-path="site_05.html"><a href="site_05.html"><i class="fa fa-check"></i><b>7</b> USFS Ute Creek (Colorado)</a>
+<ul>
+<li class="chapter" data-level="7.1" data-path="site_05.html"><a href="site_05.html#field-data-3"><i class="fa fa-check"></i><b>7.1</b> Field Data</a></li>
+<li class="chapter" data-level="7.2" data-path="site_05.html"><a href="site_05.html#point-cloud-data-3"><i class="fa fa-check"></i><b>7.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="7.3" data-path="site_05.html"><a href="site_05.html#tree-detection-3"><i class="fa fa-check"></i><b>7.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="7.4" data-path="site_05.html"><a href="site_05.html#speciesgenus-prediction-method-3"><i class="fa fa-check"></i><b>7.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="7.4.1" data-path="site_05.html"><a href="site_05.html#training-data-4"><i class="fa fa-check"></i><b>7.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="7.5" data-path="site_05.html"><a href="site_05.html#predict-speciesgenus-application-4"><i class="fa fa-check"></i><b>7.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="7.6" data-path="site_05.html"><a href="site_05.html#speciesgenus-accuracy-evaluation-4"><i class="fa fa-check"></i><b>7.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="7.6.1" data-path="site_05.html"><a href="site_05.html#tree-level-accuracy-3"><i class="fa fa-check"></i><b>7.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="7.6.2" data-path="site_05.html"><a href="site_05.html#site-level-accuracy-3"><i class="fa fa-check"></i><b>7.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="8" data-path="site_06.html"><a href="site_06.html"><i class="fa fa-check"></i><b>8</b> BLM-TRFO Pinyon-Juniper (Colorado)</a>
+<ul>
+<li class="chapter" data-level="8.1" data-path="site_06.html"><a href="site_06.html#field-data-4"><i class="fa fa-check"></i><b>8.1</b> Field Data</a></li>
+<li class="chapter" data-level="8.2" data-path="site_06.html"><a href="site_06.html#point-cloud-data-4"><i class="fa fa-check"></i><b>8.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="8.3" data-path="site_06.html"><a href="site_06.html#tree-detection-4"><i class="fa fa-check"></i><b>8.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="8.4" data-path="site_06.html"><a href="site_06.html#speciesgenus-prediction-method-4"><i class="fa fa-check"></i><b>8.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="8.4.1" data-path="site_06.html"><a href="site_06.html#training-data-5"><i class="fa fa-check"></i><b>8.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="8.5" data-path="site_06.html"><a href="site_06.html#predict-speciesgenus-application-5"><i class="fa fa-check"></i><b>8.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="8.6" data-path="site_06.html"><a href="site_06.html#speciesgenus-accuracy-evaluation-5"><i class="fa fa-check"></i><b>8.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="8.6.1" data-path="site_06.html"><a href="site_06.html#tree-level-accuracy-4"><i class="fa fa-check"></i><b>8.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="8.6.2" data-path="site_06.html"><a href="site_06.html#site-level-accuracy-4"><i class="fa fa-check"></i><b>8.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="9" data-path="site_07.html"><a href="site_07.html"><i class="fa fa-check"></i><b>9</b> Colorado State Forest (Colorado)</a>
+<ul>
+<li class="chapter" data-level="9.1" data-path="site_07.html"><a href="site_07.html#field-data-5"><i class="fa fa-check"></i><b>9.1</b> Field Data</a></li>
+<li class="chapter" data-level="9.2" data-path="site_07.html"><a href="site_07.html#point-cloud-data-5"><i class="fa fa-check"></i><b>9.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="9.3" data-path="site_07.html"><a href="site_07.html#tree-detection-5"><i class="fa fa-check"></i><b>9.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="9.4" data-path="site_07.html"><a href="site_07.html#speciesgenus-prediction-method-5"><i class="fa fa-check"></i><b>9.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="9.4.1" data-path="site_07.html"><a href="site_07.html#training-data-6"><i class="fa fa-check"></i><b>9.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="9.5" data-path="site_07.html"><a href="site_07.html#predict-speciesgenus-application-6"><i class="fa fa-check"></i><b>9.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="9.6" data-path="site_07.html"><a href="site_07.html#speciesgenus-accuracy-evaluation-6"><i class="fa fa-check"></i><b>9.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="9.6.1" data-path="site_07.html"><a href="site_07.html#tree-level-accuracy-5"><i class="fa fa-check"></i><b>9.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="9.6.2" data-path="site_07.html"><a href="site_07.html#site-level-accuracy-5"><i class="fa fa-check"></i><b>9.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="10" data-path="site_08.html"><a href="site_08.html"><i class="fa fa-check"></i><b>10</b> Fort Stewart (Georgia)</a>
+<ul>
+<li class="chapter" data-level="10.1" data-path="site_08.html"><a href="site_08.html#field-data-6"><i class="fa fa-check"></i><b>10.1</b> Field Data</a></li>
+<li class="chapter" data-level="10.2" data-path="site_08.html"><a href="site_08.html#point-cloud-data-6"><i class="fa fa-check"></i><b>10.2</b> Point Cloud Data</a></li>
+<li class="chapter" data-level="10.3" data-path="site_08.html"><a href="site_08.html#tree-detection-6"><i class="fa fa-check"></i><b>10.3</b> Tree Detection</a></li>
+<li class="chapter" data-level="10.4" data-path="site_08.html"><a href="site_08.html#speciesgenus-prediction-method-6"><i class="fa fa-check"></i><b>10.4</b> Species/Genus Prediction Method</a>
+<ul>
+<li class="chapter" data-level="10.4.1" data-path="site_08.html"><a href="site_08.html#training-data-7"><i class="fa fa-check"></i><b>10.4.1</b> Training Data</a></li>
+</ul></li>
+<li class="chapter" data-level="10.5" data-path="site_08.html"><a href="site_08.html#predict-speciesgenus-application-7"><i class="fa fa-check"></i><b>10.5</b> Predict Species/Genus Application</a></li>
+<li class="chapter" data-level="10.6" data-path="site_08.html"><a href="site_08.html#speciesgenus-accuracy-evaluation-7"><i class="fa fa-check"></i><b>10.6</b> Species/Genus Accuracy Evaluation</a>
+<ul>
+<li class="chapter" data-level="10.6.1" data-path="site_08.html"><a href="site_08.html#tree-level-accuracy-6"><i class="fa fa-check"></i><b>10.6.1</b> Tree-Level Accuracy</a></li>
+<li class="chapter" data-level="10.6.2" data-path="site_08.html"><a href="site_08.html#site-level-accuracy-6"><i class="fa fa-check"></i><b>10.6.2</b> Site-Level Accuracy</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="11" data-path="taxon_acc.html"><a href="taxon_acc.html"><i class="fa fa-check"></i><b>11</b> Taxonomic Classification Accuracy Summary</a>
+<ul>
+<li class="chapter" data-level="11.1" data-path="taxon_acc.html"><a href="taxon_acc.html#summary-table"><i class="fa fa-check"></i><b>11.1</b> Summary Table</a></li>
+<li class="chapter" data-level="11.2" data-path="taxon_acc.html"><a href="taxon_acc.html#genus-level"><i class="fa fa-check"></i><b>11.2</b> Genus-level</a></li>
+<li class="chapter" data-level="11.3" data-path="taxon_acc.html"><a href="taxon_acc.html#species-level"><i class="fa fa-check"></i><b>11.3</b> Species-level</a></li>
+<li class="chapter" data-level="11.4" data-path="taxon_acc.html"><a href="taxon_acc.html#species--vs.-genus-level"><i class="fa fa-check"></i><b>11.4</b> Species- vs. Genus-level</a></li>
+</ul></li>
+<li class="chapter" data-level="12" data-path="nsvb.html"><a href="nsvb.html"><i class="fa fa-check"></i><b>12</b> <code>NSVB</code> for Volume and Biomass</a>
+<ul>
+<li class="chapter" data-level="12.1" data-path="nsvb.html"><a href="nsvb.html#nsvb-setup"><i class="fa fa-check"></i><b>12.1</b> NSVB setup</a></li>
+<li class="chapter" data-level="12.2" data-path="nsvb.html"><a href="nsvb.html#nsvb-gross-values"><i class="fa fa-check"></i><b>12.2</b> NSVB Gross Values</a>
+<ul>
+<li class="chapter" data-level="12.2.1" data-path="nsvb.html"><a href="nsvb.html#data-preparation"><i class="fa fa-check"></i><b>12.2.1</b> Data Preparation</a></li>
+<li class="chapter" data-level="12.2.2" data-path="nsvb.html"><a href="nsvb.html#nsvb-gross-volume-function"><i class="fa fa-check"></i><b>12.2.2</b> NSVB Gross Volume Function</a></li>
+</ul></li>
+<li class="chapter" data-level="12.3" data-path="nsvb.html"><a href="nsvb.html#nsvb-modified-sound-values"><i class="fa fa-check"></i><b>12.3</b> NSVB Modified “Sound” Values</a>
+<ul>
+<li class="chapter" data-level="12.3.1" data-path="nsvb.html"><a href="nsvb.html#nsvb-sound-volume-function"><i class="fa fa-check"></i><b>12.3.1</b> NSVB Sound Volume Function</a></li>
+</ul></li>
+<li class="chapter" data-level="12.4" data-path="nsvb.html"><a href="nsvb.html#nsvb-biomass-values"><i class="fa fa-check"></i><b>12.4</b> NSVB Biomass Values</a>
+<ul>
+<li class="chapter" data-level="12.4.1" data-path="nsvb.html"><a href="nsvb.html#ex_cbh"><i class="fa fa-check"></i><b>12.4.1</b> Example CBH Data</a></li>
+<li class="chapter" data-level="12.4.2" data-path="nsvb.html"><a href="nsvb.html#nsvb-biomass-function"><i class="fa fa-check"></i><b>12.4.2</b> NSVB Biomass Function</a></li>
+</ul></li>
+<li class="chapter" data-level="12.5" data-path="nsvb.html"><a href="nsvb.html#comparison-and-review-of-nsvb-outputs"><i class="fa fa-check"></i><b>12.5</b> Comparison and Review of NSVB outputs</a>
+<ul>
+<li class="chapter" data-level="12.5.1" data-path="nsvb.html"><a href="nsvb.html#value-comparison"><i class="fa fa-check"></i><b>12.5.1</b> Value Comparison</a></li>
+<li class="chapter" data-level="12.5.2" data-path="nsvb.html"><a href="nsvb.html#variable-definitions"><i class="fa fa-check"></i><b>12.5.2</b> Variable Definitions</a></li>
+</ul></li>
+</ul></li>
+<li class="chapter" data-level="13" data-path="vol_acc.html"><a href="vol_acc.html"><i class="fa fa-check"></i><b>13</b> <code>NSVB</code> Volume Accuracy Summary</a></li>
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./"><code>cloud2trees</code> Species Validation</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="vol_acc" class="section level1 hasAnchor" number="13">
+<h1><span class="header-section-number">13</span> <code>NSVB</code> Volume Accuracy Summary<a href="vol_acc.html#vol_acc" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<p>Earlier:</p>
+<ul>
+<li>we <a href="site_01.html#site_01">proposed a method</a> to attach species/genus to individual tree forest inventories generated from aerial point cloud data using the <code>cloud2trees</code> framework and</li>
+<li>evaluated the <a href="taxon_acc.html#taxon_acc">accuracy of that taxonomic classification method</a></li>
+<li>Then, defined <a href="nsvb.html#nsvb">our on functions</a> to implement the US National Scale Volume Biomass (NSVB) method (Westfall et al. <a href="https://doi.org/10.2737/WO-GTR-104">2024</a>) to predict tree volume, biomass, and carbon using the foundational workflow made available by Matthew Russell at <a href="https://github.com/mbrussell/NSVB">https://github.com/mbrussell/NSVB</a>.
+<ul>
+<li>this functionality we defined enables us to attach the NSVB volume and biomass calculations to any spatial tree list or a tree list with all required attributes</li>
+</ul></li>
+</ul>
+<p>Now, we’ll compare the NSVB volume estimates obtained via reference field sample sample plots versus those obtained from aerial point cloud data using the <code>cloud2trees</code> framework with species/genus to attached to individual trees using the <a href="site_01.html#site_01">proposed method</a>.</p>
+<p>it is important to note that NSVB calculations rely on tree height values, so, not all field reference data will be usable for this comparison. we already used the <code>trees_nsvb_biomass()</code> function to perform all NSVB calculations on the predicted and reference data sets. The <code>trees_nsvb_biomass()</code> function will checks for the required column names and automatically executes (or, attempts to execute) <code>trees_nsvb_volume_gross()</code> and <code>trees_nsvb_volume_sound()</code> if the columns are missing from the input data</p>
+<p>let’s look at the curated list of columns we get from NSVB for one of our prediction (point cloud-based) data sets</p>
+<div class="sourceCode" id="cb490"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb490-1"><a href="vol_acc.html#cb490-1" tabindex="-1"></a><span class="co"># # do it</span></span>
+<span id="cb490-2"><a href="vol_acc.html#cb490-2" tabindex="-1"></a><span class="co"># ref_trees_list %&gt;% purrr::map(names)</span></span>
+<span id="cb490-3"><a href="vol_acc.html#cb490-3" tabindex="-1"></a><span class="co"># pred_trees_list %&gt;% purrr::map(names)</span></span>
+<span id="cb490-4"><a href="vol_acc.html#cb490-4" tabindex="-1"></a>pred_trees_list[[<span class="st">&quot;USFS_ManitouEF_N1&quot;</span>]] <span class="sc">%&gt;%</span> </span>
+<span id="cb490-5"><a href="vol_acc.html#cb490-5" tabindex="-1"></a>  sf<span class="sc">::</span><span class="fu">st_drop_geometry</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb490-6"><a href="vol_acc.html#cb490-6" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(dplyr<span class="sc">::</span><span class="fu">all_of</span>(<span class="fu">c</span>(</span>
+<span id="cb490-7"><a href="vol_acc.html#cb490-7" tabindex="-1"></a>    <span class="st">&quot;treeID&quot;</span></span>
+<span id="cb490-8"><a href="vol_acc.html#cb490-8" tabindex="-1"></a>    , <span class="st">&quot;species_symbol&quot;</span></span>
+<span id="cb490-9"><a href="vol_acc.html#cb490-9" tabindex="-1"></a>    , <span class="st">&quot;tree_height_m&quot;</span></span>
+<span id="cb490-10"><a href="vol_acc.html#cb490-10" tabindex="-1"></a>    , <span class="st">&quot;dbh_cm&quot;</span></span>
+<span id="cb490-11"><a href="vol_acc.html#cb490-11" tabindex="-1"></a>    <span class="co"># , get_col_names_trees_nsvb_biomass()</span></span>
+<span id="cb490-12"><a href="vol_acc.html#cb490-12" tabindex="-1"></a>    , <span class="fu">get_col_names_trees_nsvb_curated</span>()</span>
+<span id="cb490-13"><a href="vol_acc.html#cb490-13" tabindex="-1"></a>  ))) <span class="sc">%&gt;%</span> </span>
+<span id="cb490-14"><a href="vol_acc.html#cb490-14" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">glimpse</span>()</span></code></pre></div>
+<p>for this evaluation of tree and stand volume, we’ll use the gross cubic-foot of stem wood volume (inside bark) value calculated from NSVB which is represented by the <code>V_tot_ib_Gross</code> in the outputs from our <code>trees_nsvb_*()</code> functions (e.g. <code>trees_nsvb_volume_gross()</code>) and the <code>VOLTSGRS</code> variable in the <a href="https://research.fs.usda.gov/understory/forest-inventory-and-analysis-database-user-guide-nfi">USFS FIA database</a>. Since the NSVB values are in imperial units (i.e. cubic feet and pounds), we’ll continue with those units and convert any area-based measurements to acres instead of hectares or square meters</p>
+<p>here is the distribution comparison of the gross cubic-foot of stem wood volume (inside bark) value for both predicted and reference data for trees within the field-measured area which was used to spatially filter the point cloud-based forest inventory.</p>
+<div class="sourceCode" id="cb491"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb491-1"><a href="vol_acc.html#cb491-1" tabindex="-1"></a>comp_df_temp <span class="ot">&lt;-</span></span>
+<span id="cb491-2"><a href="vol_acc.html#cb491-2" tabindex="-1"></a>  pred_trees_list <span class="sc">%&gt;%</span> </span>
+<span id="cb491-3"><a href="vol_acc.html#cb491-3" tabindex="-1"></a>  purrr<span class="sc">::</span><span class="fu">compact</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb491-4"><a href="vol_acc.html#cb491-4" tabindex="-1"></a>  <span class="fu">names</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb491-5"><a href="vol_acc.html#cb491-5" tabindex="-1"></a>  purrr<span class="sc">::</span><span class="fu">set_names</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb491-6"><a href="vol_acc.html#cb491-6" tabindex="-1"></a>  purrr<span class="sc">::</span><span class="fu">map</span>(<span class="cf">function</span>(nm){</span>
+<span id="cb491-7"><a href="vol_acc.html#cb491-7" tabindex="-1"></a>    pred_trees_list[[nm]] <span class="sc">%&gt;%</span></span>
+<span id="cb491-8"><a href="vol_acc.html#cb491-8" tabindex="-1"></a>      sf<span class="sc">::</span><span class="fu">st_drop_geometry</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb491-9"><a href="vol_acc.html#cb491-9" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb491-10"><a href="vol_acc.html#cb491-10" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">select</span>(dplyr<span class="sc">::</span><span class="fu">any_of</span>(<span class="fu">c</span>(</span>
+<span id="cb491-11"><a href="vol_acc.html#cb491-11" tabindex="-1"></a>        <span class="st">&quot;plot_id&quot;</span>, <span class="st">&quot;treeID&quot;</span>, <span class="st">&quot;tree_height_m&quot;</span>, <span class="st">&quot;dbh_cm&quot;</span>, <span class="st">&quot;species_symbol&quot;</span>, <span class="st">&quot;genus&quot;</span></span>
+<span id="cb491-12"><a href="vol_acc.html#cb491-12" tabindex="-1"></a>        , <span class="st">&quot;V_tot_ib_Gross&quot;</span>, <span class="st">&quot;AGB_pred_red&quot;</span>, <span class="st">&quot;W_foliage_red&quot;</span></span>
+<span id="cb491-13"><a href="vol_acc.html#cb491-13" tabindex="-1"></a>      ))) <span class="sc">%&gt;%</span> </span>
+<span id="cb491-14"><a href="vol_acc.html#cb491-14" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">name =</span> <span class="st">&quot;predicted&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb491-15"><a href="vol_acc.html#cb491-15" tabindex="-1"></a>      <span class="co"># dplyr::summarize(</span></span>
+<span id="cb491-16"><a href="vol_acc.html#cb491-16" tabindex="-1"></a>      <span class="co">#   dplyr::across(</span></span>
+<span id="cb491-17"><a href="vol_acc.html#cb491-17" tabindex="-1"></a>      <span class="co">#     .cols = c(V_tot_ib_Gross, AGB_pred_red, W_foliage_red)</span></span>
+<span id="cb491-18"><a href="vol_acc.html#cb491-18" tabindex="-1"></a>      <span class="co">#     , ~sum(.x,na.rm = T)</span></span>
+<span id="cb491-19"><a href="vol_acc.html#cb491-19" tabindex="-1"></a>      <span class="co">#   )</span></span>
+<span id="cb491-20"><a href="vol_acc.html#cb491-20" tabindex="-1"></a>      <span class="co">#   , n_trees = dplyr::n()</span></span>
+<span id="cb491-21"><a href="vol_acc.html#cb491-21" tabindex="-1"></a>      <span class="co"># )</span></span>
+<span id="cb491-22"><a href="vol_acc.html#cb491-22" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">bind_rows</span>(</span>
+<span id="cb491-23"><a href="vol_acc.html#cb491-23" tabindex="-1"></a>        ref_trees_list[[nm]] <span class="sc">%&gt;%</span> </span>
+<span id="cb491-24"><a href="vol_acc.html#cb491-24" tabindex="-1"></a>          sf<span class="sc">::</span><span class="fu">st_drop_geometry</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb491-25"><a href="vol_acc.html#cb491-25" tabindex="-1"></a>          dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb491-26"><a href="vol_acc.html#cb491-26" tabindex="-1"></a>          dplyr<span class="sc">::</span><span class="fu">select</span>(dplyr<span class="sc">::</span><span class="fu">any_of</span>(<span class="fu">c</span>(</span>
+<span id="cb491-27"><a href="vol_acc.html#cb491-27" tabindex="-1"></a>            <span class="st">&quot;plot_id&quot;</span>, <span class="st">&quot;treeID&quot;</span>, <span class="st">&quot;tree_height_m&quot;</span>, <span class="st">&quot;dbh_cm&quot;</span>, <span class="st">&quot;species_symbol&quot;</span>, <span class="st">&quot;genus&quot;</span></span>
+<span id="cb491-28"><a href="vol_acc.html#cb491-28" tabindex="-1"></a>            , <span class="st">&quot;V_tot_ib_Gross&quot;</span>, <span class="st">&quot;AGB_pred_red&quot;</span>, <span class="st">&quot;W_foliage_red&quot;</span></span>
+<span id="cb491-29"><a href="vol_acc.html#cb491-29" tabindex="-1"></a>          ))) <span class="sc">%&gt;%</span> </span>
+<span id="cb491-30"><a href="vol_acc.html#cb491-30" tabindex="-1"></a>          dplyr<span class="sc">::</span><span class="fu">mutate</span>(<span class="at">name =</span> <span class="st">&quot;reference&quot;</span>)</span>
+<span id="cb491-31"><a href="vol_acc.html#cb491-31" tabindex="-1"></a>      ) <span class="sc">%&gt;%</span> </span>
+<span id="cb491-32"><a href="vol_acc.html#cb491-32" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">left_join</span>(</span>
+<span id="cb491-33"><a href="vol_acc.html#cb491-33" tabindex="-1"></a>        ref_plots_list[[nm]] <span class="sc">%&gt;%</span> </span>
+<span id="cb491-34"><a href="vol_acc.html#cb491-34" tabindex="-1"></a>          sf<span class="sc">::</span><span class="fu">st_drop_geometry</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb491-35"><a href="vol_acc.html#cb491-35" tabindex="-1"></a>          dplyr<span class="sc">::</span><span class="fu">select</span>(plot_id,plot_area_m2)</span>
+<span id="cb491-36"><a href="vol_acc.html#cb491-36" tabindex="-1"></a>        , <span class="at">by =</span> <span class="st">&quot;plot_id&quot;</span></span>
+<span id="cb491-37"><a href="vol_acc.html#cb491-37" tabindex="-1"></a>      )</span>
+<span id="cb491-38"><a href="vol_acc.html#cb491-38" tabindex="-1"></a>  }) <span class="sc">%&gt;%</span> </span>
+<span id="cb491-39"><a href="vol_acc.html#cb491-39" tabindex="-1"></a>  purrr<span class="sc">::</span><span class="fu">list_rbind</span>(<span class="at">names_to =</span> <span class="st">&quot;data_site_nm&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb491-40"><a href="vol_acc.html#cb491-40" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb491-41"><a href="vol_acc.html#cb491-41" tabindex="-1"></a>    <span class="at">name =</span> <span class="fu">factor</span>(</span>
+<span id="cb491-42"><a href="vol_acc.html#cb491-42" tabindex="-1"></a>      name</span>
+<span id="cb491-43"><a href="vol_acc.html#cb491-43" tabindex="-1"></a>      , <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;reference&quot;</span>,<span class="st">&quot;predicted&quot;</span>)</span>
+<span id="cb491-44"><a href="vol_acc.html#cb491-44" tabindex="-1"></a>      , <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">&quot;reference&quot;</span>,<span class="st">&quot;predicted&quot;</span>)</span>
+<span id="cb491-45"><a href="vol_acc.html#cb491-45" tabindex="-1"></a>      , <span class="at">ordered =</span> T</span>
+<span id="cb491-46"><a href="vol_acc.html#cb491-46" tabindex="-1"></a>    )</span>
+<span id="cb491-47"><a href="vol_acc.html#cb491-47" tabindex="-1"></a>  )</span>
+<span id="cb491-48"><a href="vol_acc.html#cb491-48" tabindex="-1"></a></span>
+<span id="cb491-49"><a href="vol_acc.html#cb491-49" tabindex="-1"></a><span class="co"># comp_df_temp %&gt;% dplyr::select(V_tot_ib_Gross, AGB_pred_red, W_foliage_red) %&gt;% summary()</span></span>
+<span id="cb491-50"><a href="vol_acc.html#cb491-50" tabindex="-1"></a>comp_df_temp <span class="sc">%&gt;%</span> </span>
+<span id="cb491-51"><a href="vol_acc.html#cb491-51" tabindex="-1"></a>  <span class="co"># dplyr::glimpse()</span></span>
+<span id="cb491-52"><a href="vol_acc.html#cb491-52" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(<span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> V_tot_ib_Gross, <span class="at">color =</span> name, <span class="at">fill =</span> name)) <span class="sc">+</span></span>
+<span id="cb491-53"><a href="vol_acc.html#cb491-53" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_density</span>(<span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">y=</span>ggplot2<span class="sc">::</span><span class="fu">after_stat</span>(scaled)), <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb491-54"><a href="vol_acc.html#cb491-54" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(</span>
+<span id="cb491-55"><a href="vol_acc.html#cb491-55" tabindex="-1"></a>    <span class="at">facets =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(data_site_nm)</span>
+<span id="cb491-56"><a href="vol_acc.html#cb491-56" tabindex="-1"></a>    , <span class="at">ncol =</span> <span class="dv">2</span></span>
+<span id="cb491-57"><a href="vol_acc.html#cb491-57" tabindex="-1"></a>    , <span class="at">scales =</span> <span class="st">&quot;free&quot;</span></span>
+<span id="cb491-58"><a href="vol_acc.html#cb491-58" tabindex="-1"></a>    , <span class="at">axes =</span> <span class="st">&quot;all_x&quot;</span></span>
+<span id="cb491-59"><a href="vol_acc.html#cb491-59" tabindex="-1"></a>  ) <span class="sc">+</span> </span>
+<span id="cb491-60"><a href="vol_acc.html#cb491-60" tabindex="-1"></a>  harrypotter<span class="sc">::</span><span class="fu">scale_fill_hp_d</span>(<span class="at">option =</span> <span class="st">&quot;hermionegranger&quot;</span>) <span class="sc">+</span></span>
+<span id="cb491-61"><a href="vol_acc.html#cb491-61" tabindex="-1"></a>  harrypotter<span class="sc">::</span><span class="fu">scale_color_hp_d</span>(<span class="at">option =</span> <span class="st">&quot;hermionegranger&quot;</span>) <span class="sc">+</span></span>
+<span id="cb491-62"><a href="vol_acc.html#cb491-62" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>,<span class="at">breaks=</span><span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb491-63"><a href="vol_acc.html#cb491-63" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_x_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>comma, <span class="at">breaks=</span>scales<span class="sc">::</span><span class="fu">breaks_extended</span>(<span class="at">n=</span><span class="dv">6</span>)) <span class="sc">+</span></span>
+<span id="cb491-64"><a href="vol_acc.html#cb491-64" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
+<span id="cb491-65"><a href="vol_acc.html#cb491-65" tabindex="-1"></a>    <span class="at">color=</span><span class="st">&quot;&quot;</span>,<span class="at">fill=</span><span class="st">&quot;&quot;</span></span>
+<span id="cb491-66"><a href="vol_acc.html#cb491-66" tabindex="-1"></a>    , <span class="at">x=</span><span class="st">&quot;gross stem wood volume (ft³)&quot;</span></span>
+<span id="cb491-67"><a href="vol_acc.html#cb491-67" tabindex="-1"></a>    <span class="co"># , subtitle = &quot;comparison of height and DBH distributions&quot;</span></span>
+<span id="cb491-68"><a href="vol_acc.html#cb491-68" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb491-69"><a href="vol_acc.html#cb491-69" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme_light</span>() <span class="sc">+</span></span>
+<span id="cb491-70"><a href="vol_acc.html#cb491-70" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme</span>(</span>
+<span id="cb491-71"><a href="vol_acc.html#cb491-71" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;top&quot;</span></span>
+<span id="cb491-72"><a href="vol_acc.html#cb491-72" tabindex="-1"></a>    , <span class="at">strip.text =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb491-73"><a href="vol_acc.html#cb491-73" tabindex="-1"></a>    , <span class="at">panel.grid.major.x =</span> ggplot2<span class="sc">::</span><span class="fu">element_blank</span>()</span>
+<span id="cb491-74"><a href="vol_acc.html#cb491-74" tabindex="-1"></a>    , <span class="at">panel.grid.minor.x =</span> ggplot2<span class="sc">::</span><span class="fu">element_blank</span>()</span>
+<span id="cb491-75"><a href="vol_acc.html#cb491-75" tabindex="-1"></a>    <span class="co"># , axis.text.x = ggplot2::element_blank()</span></span>
+<span id="cb491-76"><a href="vol_acc.html#cb491-76" tabindex="-1"></a>  )</span></code></pre></div>
+<p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-520-1.png" alt="" width="1008" /></p>
+<p>interesting</p>
+<p>now we’ll aggregate the individual tree volume across the entire field-measured reference area and compare the total per-acre volumes from all sampled plots across a forest stand</p>
+<div class="sourceCode" id="cb492"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb492-1"><a href="vol_acc.html#cb492-1" tabindex="-1"></a><span class="co"># comp_df_temp %&gt;% dplyr::glimpse()</span></span>
+<span id="cb492-2"><a href="vol_acc.html#cb492-2" tabindex="-1"></a>agg_comp_df_temp <span class="ot">&lt;-</span> </span>
+<span id="cb492-3"><a href="vol_acc.html#cb492-3" tabindex="-1"></a>  comp_df_temp <span class="sc">%&gt;%</span> </span>
+<span id="cb492-4"><a href="vol_acc.html#cb492-4" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb492-5"><a href="vol_acc.html#cb492-5" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">group_by</span>(data_site_nm,name) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-6"><a href="vol_acc.html#cb492-6" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">summarise</span>(</span>
+<span id="cb492-7"><a href="vol_acc.html#cb492-7" tabindex="-1"></a>    <span class="at">n_trees_non_na =</span> <span class="fu">sum</span>(<span class="sc">!</span><span class="fu">is.na</span>(V_tot_ib_Gross))</span>
+<span id="cb492-8"><a href="vol_acc.html#cb492-8" tabindex="-1"></a>    , <span class="at">n_trees =</span> dplyr<span class="sc">::</span><span class="fu">n</span>()</span>
+<span id="cb492-9"><a href="vol_acc.html#cb492-9" tabindex="-1"></a>    , <span class="at">V_tot_ib_Gross =</span> <span class="fu">sum</span>(V_tot_ib_Gross, <span class="at">na.rm =</span> T)</span>
+<span id="cb492-10"><a href="vol_acc.html#cb492-10" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-11"><a href="vol_acc.html#cb492-11" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb492-12"><a href="vol_acc.html#cb492-12" tabindex="-1"></a>    <span class="co"># sites with insufficient data to get NSVB calcs</span></span>
+<span id="cb492-13"><a href="vol_acc.html#cb492-13" tabindex="-1"></a>    <span class="at">V_tot_ib_Gross =</span> <span class="fu">ifelse</span>(n_trees_non_na<span class="sc">==</span><span class="dv">0</span>, <span class="cn">NA</span>, V_tot_ib_Gross)</span>
+<span id="cb492-14"><a href="vol_acc.html#cb492-14" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-15"><a href="vol_acc.html#cb492-15" tabindex="-1"></a>  <span class="co"># add area</span></span>
+<span id="cb492-16"><a href="vol_acc.html#cb492-16" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">left_join</span>(</span>
+<span id="cb492-17"><a href="vol_acc.html#cb492-17" tabindex="-1"></a>    comp_df_temp <span class="sc">%&gt;%</span> </span>
+<span id="cb492-18"><a href="vol_acc.html#cb492-18" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">distinct</span>(data_site_nm,plot_id,plot_area_m2) <span class="sc">%&gt;%</span></span>
+<span id="cb492-19"><a href="vol_acc.html#cb492-19" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">group_by</span>(data_site_nm) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-20"><a href="vol_acc.html#cb492-20" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">summarise</span>(<span class="at">plot_area_m2 =</span> <span class="fu">sum</span>(plot_area_m2))</span>
+<span id="cb492-21"><a href="vol_acc.html#cb492-21" tabindex="-1"></a>    , <span class="at">by =</span> <span class="st">&quot;data_site_nm&quot;</span></span>
+<span id="cb492-22"><a href="vol_acc.html#cb492-22" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-23"><a href="vol_acc.html#cb492-23" tabindex="-1"></a>  <span class="co"># gross cubic feet per acre</span></span>
+<span id="cb492-24"><a href="vol_acc.html#cb492-24" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb492-25"><a href="vol_acc.html#cb492-25" tabindex="-1"></a>    <span class="at">plot_area_ha =</span> plot_area_m2<span class="sc">/</span><span class="dv">10000</span></span>
+<span id="cb492-26"><a href="vol_acc.html#cb492-26" tabindex="-1"></a>    , <span class="at">V_tot_ib_Gross_per_ac =</span> V_tot_ib_Gross<span class="sc">/</span> (plot_area_ha <span class="sc">*</span> <span class="fl">2.471</span>)</span>
+<span id="cb492-27"><a href="vol_acc.html#cb492-27" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-28"><a href="vol_acc.html#cb492-28" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(data_site_nm,name,n_trees,V_tot_ib_Gross_per_ac) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-29"><a href="vol_acc.html#cb492-29" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb492-30"><a href="vol_acc.html#cb492-30" tabindex="-1"></a>    <span class="at">name =</span> dplyr<span class="sc">::</span><span class="fu">recode_values</span>(</span>
+<span id="cb492-31"><a href="vol_acc.html#cb492-31" tabindex="-1"></a>      name</span>
+<span id="cb492-32"><a href="vol_acc.html#cb492-32" tabindex="-1"></a>      , <span class="st">&quot;predicted&quot;</span> <span class="sc">~</span> <span class="st">&quot;pred&quot;</span></span>
+<span id="cb492-33"><a href="vol_acc.html#cb492-33" tabindex="-1"></a>      , <span class="st">&quot;reference&quot;</span> <span class="sc">~</span> <span class="st">&quot;ref&quot;</span></span>
+<span id="cb492-34"><a href="vol_acc.html#cb492-34" tabindex="-1"></a>    )</span>
+<span id="cb492-35"><a href="vol_acc.html#cb492-35" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-36"><a href="vol_acc.html#cb492-36" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_wider</span>(</span>
+<span id="cb492-37"><a href="vol_acc.html#cb492-37" tabindex="-1"></a>    <span class="at">names_from =</span> name</span>
+<span id="cb492-38"><a href="vol_acc.html#cb492-38" tabindex="-1"></a>    , <span class="at">values_from =</span> <span class="sc">-</span><span class="fu">c</span>(data_site_nm,name)</span>
+<span id="cb492-39"><a href="vol_acc.html#cb492-39" tabindex="-1"></a>    , <span class="at">names_glue =</span> <span class="st">&quot;{name}_{.value}&quot;</span></span>
+<span id="cb492-40"><a href="vol_acc.html#cb492-40" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-41"><a href="vol_acc.html#cb492-41" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb492-42"><a href="vol_acc.html#cb492-42" tabindex="-1"></a>    <span class="co"># &#39;diff_&#39; columns are calculated as the predicted value minus the actual value</span></span>
+<span id="cb492-43"><a href="vol_acc.html#cb492-43" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">across</span>(</span>
+<span id="cb492-44"><a href="vol_acc.html#cb492-44" tabindex="-1"></a>      <span class="at">.cols =</span> <span class="fu">paste0</span>(</span>
+<span id="cb492-45"><a href="vol_acc.html#cb492-45" tabindex="-1"></a>        <span class="st">&quot;ref_&quot;</span></span>
+<span id="cb492-46"><a href="vol_acc.html#cb492-46" tabindex="-1"></a>        , <span class="fu">c</span>(<span class="st">&quot;V_tot_ib_Gross_per_ac&quot;</span>) <span class="co"># comp_cols # c(&quot;tree_height_m&quot;, &quot;dbh_cm&quot;)</span></span>
+<span id="cb492-47"><a href="vol_acc.html#cb492-47" tabindex="-1"></a>        , <span class="at">recycle0 =</span> T</span>
+<span id="cb492-48"><a href="vol_acc.html#cb492-48" tabindex="-1"></a>      )</span>
+<span id="cb492-49"><a href="vol_acc.html#cb492-49" tabindex="-1"></a>      , <span class="at">.fns =</span> <span class="sc">~</span> base<span class="sc">::</span><span class="fu">get</span>(stringr<span class="sc">::</span><span class="fu">str_replace</span>(dplyr<span class="sc">::</span><span class="fu">cur_column</span>(), <span class="st">&quot;^ref_&quot;</span>, <span class="st">&quot;pred_&quot;</span>)) <span class="sc">-</span> .x</span>
+<span id="cb492-50"><a href="vol_acc.html#cb492-50" tabindex="-1"></a>      , <span class="at">.names =</span> <span class="st">&quot;diff_{stringr::str_remove(.col, &#39;^ref_&#39;)}&quot;</span></span>
+<span id="cb492-51"><a href="vol_acc.html#cb492-51" tabindex="-1"></a>    )</span>
+<span id="cb492-52"><a href="vol_acc.html#cb492-52" tabindex="-1"></a>    <span class="co"># &#39;pct_diff_&#39; columns are calculated as the actual value minus the predicted value divided by the actual value</span></span>
+<span id="cb492-53"><a href="vol_acc.html#cb492-53" tabindex="-1"></a>    , dplyr<span class="sc">::</span><span class="fu">across</span>(</span>
+<span id="cb492-54"><a href="vol_acc.html#cb492-54" tabindex="-1"></a>      <span class="at">.cols =</span> <span class="fu">paste0</span>(</span>
+<span id="cb492-55"><a href="vol_acc.html#cb492-55" tabindex="-1"></a>        <span class="st">&quot;ref_&quot;</span></span>
+<span id="cb492-56"><a href="vol_acc.html#cb492-56" tabindex="-1"></a>        , <span class="fu">c</span>(<span class="st">&quot;V_tot_ib_Gross_per_ac&quot;</span>) <span class="co"># comp_cols # c(&quot;tree_height_m&quot;, &quot;dbh_cm&quot;)</span></span>
+<span id="cb492-57"><a href="vol_acc.html#cb492-57" tabindex="-1"></a>        , <span class="at">recycle0 =</span> T</span>
+<span id="cb492-58"><a href="vol_acc.html#cb492-58" tabindex="-1"></a>      )</span>
+<span id="cb492-59"><a href="vol_acc.html#cb492-59" tabindex="-1"></a>      <span class="co"># </span></span>
+<span id="cb492-60"><a href="vol_acc.html#cb492-60" tabindex="-1"></a>      , <span class="at">.fns =</span> <span class="sc">~</span> (.x<span class="sc">-</span>base<span class="sc">::</span><span class="fu">get</span>(stringr<span class="sc">::</span><span class="fu">str_replace</span>(dplyr<span class="sc">::</span><span class="fu">cur_column</span>(), <span class="st">&quot;^ref_&quot;</span>, <span class="st">&quot;pred_&quot;</span>)))<span class="sc">/</span>(.x <span class="sc">+</span> <span class="fl">1e-5</span>)</span>
+<span id="cb492-61"><a href="vol_acc.html#cb492-61" tabindex="-1"></a>      , <span class="at">.names =</span> <span class="st">&quot;pct_diff_{stringr::str_remove(.col, &#39;^ref_&#39;)}&quot;</span></span>
+<span id="cb492-62"><a href="vol_acc.html#cb492-62" tabindex="-1"></a>    )</span>
+<span id="cb492-63"><a href="vol_acc.html#cb492-63" tabindex="-1"></a>  )</span>
+<span id="cb492-64"><a href="vol_acc.html#cb492-64" tabindex="-1"></a></span>
+<span id="cb492-65"><a href="vol_acc.html#cb492-65" tabindex="-1"></a><span class="co"># agg_comp_df_temp %&gt;% dplyr::glimpse()</span></span>
+<span id="cb492-66"><a href="vol_acc.html#cb492-66" tabindex="-1"></a></span>
+<span id="cb492-67"><a href="vol_acc.html#cb492-67" tabindex="-1"></a><span class="co"># table it</span></span>
+<span id="cb492-68"><a href="vol_acc.html#cb492-68" tabindex="-1"></a>agg_comp_df_temp <span class="sc">%&gt;%</span></span>
+<span id="cb492-69"><a href="vol_acc.html#cb492-69" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb492-70"><a href="vol_acc.html#cb492-70" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">left_join</span>(</span>
+<span id="cb492-71"><a href="vol_acc.html#cb492-71" tabindex="-1"></a>    project_data_df <span class="sc">%&gt;%</span> </span>
+<span id="cb492-72"><a href="vol_acc.html#cb492-72" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">select</span>(data_site_nm,data_ftype_desc)</span>
+<span id="cb492-73"><a href="vol_acc.html#cb492-73" tabindex="-1"></a>    , <span class="at">by =</span> <span class="st">&quot;data_site_nm&quot;</span></span>
+<span id="cb492-74"><a href="vol_acc.html#cb492-74" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-75"><a href="vol_acc.html#cb492-75" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb492-76"><a href="vol_acc.html#cb492-76" tabindex="-1"></a>    <span class="at">site =</span> <span class="fu">paste0</span>(</span>
+<span id="cb492-77"><a href="vol_acc.html#cb492-77" tabindex="-1"></a>      data_site_nm</span>
+<span id="cb492-78"><a href="vol_acc.html#cb492-78" tabindex="-1"></a>      , <span class="st">&quot;&lt;br /&gt;(&quot;</span></span>
+<span id="cb492-79"><a href="vol_acc.html#cb492-79" tabindex="-1"></a>      , data_ftype_desc</span>
+<span id="cb492-80"><a href="vol_acc.html#cb492-80" tabindex="-1"></a>      , <span class="st">&quot;)&quot;</span></span>
+<span id="cb492-81"><a href="vol_acc.html#cb492-81" tabindex="-1"></a>    )</span>
+<span id="cb492-82"><a href="vol_acc.html#cb492-82" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-83"><a href="vol_acc.html#cb492-83" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(</span>
+<span id="cb492-84"><a href="vol_acc.html#cb492-84" tabindex="-1"></a>    site, tidyselect<span class="sc">::</span><span class="fu">ends_with</span>(<span class="st">&quot;V_tot_ib_Gross_per_ac&quot;</span>)</span>
+<span id="cb492-85"><a href="vol_acc.html#cb492-85" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-86"><a href="vol_acc.html#cb492-86" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb492-87"><a href="vol_acc.html#cb492-87" tabindex="-1"></a>    dplyr<span class="sc">::</span><span class="fu">across</span>(</span>
+<span id="cb492-88"><a href="vol_acc.html#cb492-88" tabindex="-1"></a>      <span class="at">.cols =</span> tidyselect<span class="sc">::</span><span class="fu">starts_with</span>(<span class="st">&quot;pct_&quot;</span>)</span>
+<span id="cb492-89"><a href="vol_acc.html#cb492-89" tabindex="-1"></a>      , <span class="sc">~</span>scales<span class="sc">::</span><span class="fu">percent</span>(.x,<span class="at">accuracy=</span><span class="fl">0.1</span>)</span>
+<span id="cb492-90"><a href="vol_acc.html#cb492-90" tabindex="-1"></a>    )</span>
+<span id="cb492-91"><a href="vol_acc.html#cb492-91" tabindex="-1"></a>    , dplyr<span class="sc">::</span><span class="fu">across</span>(</span>
+<span id="cb492-92"><a href="vol_acc.html#cb492-92" tabindex="-1"></a>      <span class="at">.cols =</span> dplyr<span class="sc">::</span><span class="fu">where</span>(is.numeric)</span>
+<span id="cb492-93"><a href="vol_acc.html#cb492-93" tabindex="-1"></a>      , <span class="sc">~</span>scales<span class="sc">::</span><span class="fu">comma</span>(.x,<span class="at">accuracy=</span><span class="fl">0.1</span>)</span>
+<span id="cb492-94"><a href="vol_acc.html#cb492-94" tabindex="-1"></a>    )</span>
+<span id="cb492-95"><a href="vol_acc.html#cb492-95" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-96"><a href="vol_acc.html#cb492-96" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">arrange</span>(site) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-97"><a href="vol_acc.html#cb492-97" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">kbl</span>(</span>
+<span id="cb492-98"><a href="vol_acc.html#cb492-98" tabindex="-1"></a>    <span class="at">caption =</span> <span class="st">&quot;Proposed Tree Classification Method Accuracy Performance&lt;br /&gt;by site&quot;</span></span>
+<span id="cb492-99"><a href="vol_acc.html#cb492-99" tabindex="-1"></a>    , <span class="at">col.names =</span> <span class="fu">c</span>(</span>
+<span id="cb492-100"><a href="vol_acc.html#cb492-100" tabindex="-1"></a>      <span class="st">&quot;site&quot;</span></span>
+<span id="cb492-101"><a href="vol_acc.html#cb492-101" tabindex="-1"></a>      , <span class="st">&quot;reference gross volume&lt;br/&gt;(ft&lt;sup&gt;3&lt;/sup&gt; ac&lt;sup&gt;-1&lt;/sup&gt;)&quot;</span></span>
+<span id="cb492-102"><a href="vol_acc.html#cb492-102" tabindex="-1"></a>      , <span class="st">&quot;predicted gross volume&lt;br/&gt;(ft&lt;sup&gt;3&lt;/sup&gt; ac&lt;sup&gt;-1&lt;/sup&gt;)&quot;</span></span>
+<span id="cb492-103"><a href="vol_acc.html#cb492-103" tabindex="-1"></a>      , <span class="st">&quot;difference gross volume&lt;br/&gt;(ft&lt;sup&gt;3&lt;/sup&gt; ac&lt;sup&gt;-1&lt;/sup&gt;)&quot;</span></span>
+<span id="cb492-104"><a href="vol_acc.html#cb492-104" tabindex="-1"></a>      , <span class="st">&quot;% difference gross volume&quot;</span></span>
+<span id="cb492-105"><a href="vol_acc.html#cb492-105" tabindex="-1"></a>    )</span>
+<span id="cb492-106"><a href="vol_acc.html#cb492-106" tabindex="-1"></a>    , <span class="at">escape =</span> F</span>
+<span id="cb492-107"><a href="vol_acc.html#cb492-107" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-108"><a href="vol_acc.html#cb492-108" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">kable_styling</span>(<span class="at">font_size =</span> <span class="fl">11.5</span>, <span class="at">bootstrap_options =</span> <span class="fu">c</span>(<span class="st">&quot;responsive&quot;</span>, <span class="st">&quot;condensed&quot;</span>,<span class="st">&quot;striped&quot;</span>)) <span class="sc">%&gt;%</span> <span class="co"># </span></span>
+<span id="cb492-109"><a href="vol_acc.html#cb492-109" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">scroll_box</span>(<span class="at">width =</span> <span class="st">&quot;100%&quot;</span>) <span class="sc">%&gt;%</span> <span class="co">#  put a HTML kable object in a fixed-height, fixed-width or both box and make it scrollable</span></span>
+<span id="cb492-110"><a href="vol_acc.html#cb492-110" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">column_spec</span>(<span class="dv">1</span>, <span class="at">bold =</span> <span class="cn">TRUE</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb492-111"><a href="vol_acc.html#cb492-111" tabindex="-1"></a>  kableExtra<span class="sc">::</span><span class="fu">column_spec</span>(<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">5</span>), <span class="at">border_right =</span> <span class="cn">TRUE</span>, <span class="at">include_thead =</span> <span class="cn">TRUE</span>) </span></code></pre></div>
+<div style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
+<table class="table table-responsive table-condensed table-striped" style="font-size: 11.5px; margin-left: auto; margin-right: auto;">
+<caption style="font-size: initial !important;">
+<span id="tab:unnamed-chunk-521">Table 13.1: </span>Proposed Tree Classification Method Accuracy Performance<br>by site
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;border-right:1px solid;">
+site
+</th>
+<th style="text-align:left;">
+reference gross volume<br>(ft<sup>3</sup> ac<sup>-1</sup>)
+</th>
+<th style="text-align:left;">
+predicted gross volume<br>(ft<sup>3</sup> ac<sup>-1</sup>)
+</th>
+<th style="text-align:left;">
+difference gross volume<br>(ft<sup>3</sup> ac<sup>-1</sup>)
+</th>
+<th style="text-align:left;border-right:1px solid;">
+% difference gross volume
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+BLM_TRFO<br>(pinyon-juniper)
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;border-right:1px solid;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+CSFS_SWE<br>(lodgepole pine)
+</td>
+<td style="text-align:left;">
+272.0
+</td>
+<td style="text-align:left;">
+235.4
+</td>
+<td style="text-align:left;">
+-36.6
+</td>
+<td style="text-align:left;border-right:1px solid;">
+13.4%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_ManitouEF_BigPlot<br>(western mixed conifer)
+</td>
+<td style="text-align:left;">
+1,267.7
+</td>
+<td style="text-align:left;">
+898.0
+</td>
+<td style="text-align:left;">
+-369.6
+</td>
+<td style="text-align:left;border-right:1px solid;">
+29.2%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_ManitouEF_N1<br>(ponderosa pine)
+</td>
+<td style="text-align:left;">
+2,639.4
+</td>
+<td style="text-align:left;">
+2,529.4
+</td>
+<td style="text-align:left;">
+-110.0
+</td>
+<td style="text-align:left;border-right:1px solid;">
+4.2%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_PenobscotEF<br>(northern mixed conifer)
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+1,532.2
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;border-right:1px solid;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+USFS_UteCreek<br>(dry-mesic mixed conifer)
+</td>
+<td style="text-align:left;">
+2,132.3
+</td>
+<td style="text-align:left;">
+1,675.6
+</td>
+<td style="text-align:left;">
+-456.7
+</td>
+<td style="text-align:left;border-right:1px solid;">
+21.4%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+WFSI_EglinAFB<br>(longleaf pine)
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+753.1
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;border-right:1px solid;">
+NA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+WFSI_FtStewart<br>(southern yellow pine)
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+1,892.7
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;border-right:1px solid;">
+NA
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>let’s plot that too</p>
+<div class="sourceCode" id="cb493"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb493-1"><a href="vol_acc.html#cb493-1" tabindex="-1"></a>agg_comp_df_temp <span class="sc">%&gt;%</span> </span>
+<span id="cb493-2"><a href="vol_acc.html#cb493-2" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(data_site_nm, tidyselect<span class="sc">::</span><span class="fu">ends_with</span>(<span class="st">&quot;V_tot_ib_Gross_per_ac&quot;</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb493-3"><a href="vol_acc.html#cb493-3" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">c</span>(tidyselect<span class="sc">::</span><span class="fu">starts_with</span>(<span class="st">&quot;pred_&quot;</span>), tidyselect<span class="sc">::</span><span class="fu">starts_with</span>(<span class="st">&quot;ref_&quot;</span>))) <span class="sc">%&gt;%</span> </span>
+<span id="cb493-4"><a href="vol_acc.html#cb493-4" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb493-5"><a href="vol_acc.html#cb493-5" tabindex="-1"></a>    <span class="at">name =</span> dplyr<span class="sc">::</span><span class="fu">recode_values</span>(</span>
+<span id="cb493-6"><a href="vol_acc.html#cb493-6" tabindex="-1"></a>      stringr<span class="sc">::</span><span class="fu">str_extract</span>(name, <span class="st">&quot;^(pred_|ref_)&quot;</span>)</span>
+<span id="cb493-7"><a href="vol_acc.html#cb493-7" tabindex="-1"></a>      , <span class="st">&quot;ref_&quot;</span> <span class="sc">~</span> <span class="st">&quot;reference&quot;</span></span>
+<span id="cb493-8"><a href="vol_acc.html#cb493-8" tabindex="-1"></a>      , <span class="st">&quot;pred_&quot;</span> <span class="sc">~</span> <span class="st">&quot;predicted&quot;</span></span>
+<span id="cb493-9"><a href="vol_acc.html#cb493-9" tabindex="-1"></a>    ) <span class="sc">%&gt;%</span> </span>
+<span id="cb493-10"><a href="vol_acc.html#cb493-10" tabindex="-1"></a>    <span class="fu">ordered</span>() <span class="sc">%&gt;%</span> forcats<span class="sc">::</span><span class="fu">fct_rev</span>()</span>
+<span id="cb493-11"><a href="vol_acc.html#cb493-11" tabindex="-1"></a>    , <span class="at">value_lab =</span> </span>
+<span id="cb493-12"><a href="vol_acc.html#cb493-12" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">case_when</span>(</span>
+<span id="cb493-13"><a href="vol_acc.html#cb493-13" tabindex="-1"></a>        name<span class="sc">==</span><span class="st">&quot;reference&quot;</span> <span class="sc">&amp;</span> <span class="fu">is.na</span>(value) <span class="sc">~</span> scales<span class="sc">::</span><span class="fu">comma</span>(value,<span class="at">accuracy=</span><span class="fl">0.1</span>)</span>
+<span id="cb493-14"><a href="vol_acc.html#cb493-14" tabindex="-1"></a>        , name<span class="sc">==</span><span class="st">&quot;predicted&quot;</span> <span class="sc">&amp;</span> <span class="sc">!</span><span class="fu">is.na</span>(pct_diff_V_tot_ib_Gross_per_ac ) <span class="sc">~</span> <span class="fu">paste0</span>(</span>
+<span id="cb493-15"><a href="vol_acc.html#cb493-15" tabindex="-1"></a>            scales<span class="sc">::</span><span class="fu">comma</span>(value,<span class="at">accuracy=</span><span class="fl">0.1</span>)</span>
+<span id="cb493-16"><a href="vol_acc.html#cb493-16" tabindex="-1"></a>            , <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span></span>
+<span id="cb493-17"><a href="vol_acc.html#cb493-17" tabindex="-1"></a>            , <span class="fu">ifelse</span>(name<span class="sc">==</span><span class="st">&quot;predicted&quot;</span> <span class="sc">&amp;</span> diff_V_tot_ib_Gross_per_ac<span class="sc">&gt;</span><span class="dv">0</span>,<span class="st">&quot;+&quot;</span>,<span class="st">&quot;&quot;</span>)</span>
+<span id="cb493-18"><a href="vol_acc.html#cb493-18" tabindex="-1"></a>            , scales<span class="sc">::</span><span class="fu">comma</span>( <span class="fu">ifelse</span>(name<span class="sc">==</span><span class="st">&quot;predicted&quot;</span>,diff_V_tot_ib_Gross_per_ac,<span class="cn">NA</span>), <span class="at">accuracy =</span> <span class="fl">0.1</span> )</span>
+<span id="cb493-19"><a href="vol_acc.html#cb493-19" tabindex="-1"></a>            , <span class="st">&quot; (&quot;</span></span>
+<span id="cb493-20"><a href="vol_acc.html#cb493-20" tabindex="-1"></a>            , scales<span class="sc">::</span><span class="fu">percent</span>( <span class="fu">ifelse</span>(name<span class="sc">==</span><span class="st">&quot;predicted&quot;</span>,pct_diff_V_tot_ib_Gross_per_ac,<span class="cn">NA</span>), <span class="at">accuracy =</span> <span class="fl">0.1</span> )</span>
+<span id="cb493-21"><a href="vol_acc.html#cb493-21" tabindex="-1"></a>            , <span class="st">&quot;)&quot;</span></span>
+<span id="cb493-22"><a href="vol_acc.html#cb493-22" tabindex="-1"></a>          )  </span>
+<span id="cb493-23"><a href="vol_acc.html#cb493-23" tabindex="-1"></a>        , T <span class="sc">~</span> scales<span class="sc">::</span><span class="fu">comma</span>(value,<span class="at">accuracy=</span><span class="fl">0.1</span>)</span>
+<span id="cb493-24"><a href="vol_acc.html#cb493-24" tabindex="-1"></a>    )</span>
+<span id="cb493-25"><a href="vol_acc.html#cb493-25" tabindex="-1"></a>      </span>
+<span id="cb493-26"><a href="vol_acc.html#cb493-26" tabindex="-1"></a>      </span>
+<span id="cb493-27"><a href="vol_acc.html#cb493-27" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb493-28"><a href="vol_acc.html#cb493-28" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(</span>
+<span id="cb493-29"><a href="vol_acc.html#cb493-29" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> name, <span class="at">y =</span> value, <span class="at">group =</span> data_site_nm)</span>
+<span id="cb493-30"><a href="vol_acc.html#cb493-30" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb493-31"><a href="vol_acc.html#cb493-31" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_line</span>(<span class="at">alpha =</span> <span class="fl">0.7</span>, <span class="at">color =</span> <span class="st">&quot;gray&quot;</span>, <span class="at">lwd =</span> <span class="fl">1.1</span>) <span class="sc">+</span></span>
+<span id="cb493-32"><a href="vol_acc.html#cb493-32" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_text</span>(</span>
+<span id="cb493-33"><a href="vol_acc.html#cb493-33" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">label =</span> value_lab)</span>
+<span id="cb493-34"><a href="vol_acc.html#cb493-34" tabindex="-1"></a>    , <span class="at">hjust =</span> <span class="fl">0.5</span></span>
+<span id="cb493-35"><a href="vol_acc.html#cb493-35" tabindex="-1"></a>    , <span class="at">vjust =</span> <span class="fl">1.8</span></span>
+<span id="cb493-36"><a href="vol_acc.html#cb493-36" tabindex="-1"></a>    , <span class="at">size =</span> <span class="fl">2.7</span></span>
+<span id="cb493-37"><a href="vol_acc.html#cb493-37" tabindex="-1"></a>    , <span class="at">show.legend =</span> F</span>
+<span id="cb493-38"><a href="vol_acc.html#cb493-38" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb493-39"><a href="vol_acc.html#cb493-39" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(</span>
+<span id="cb493-40"><a href="vol_acc.html#cb493-40" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">color =</span> name)</span>
+<span id="cb493-41"><a href="vol_acc.html#cb493-41" tabindex="-1"></a>    , <span class="at">size =</span> <span class="dv">4</span></span>
+<span id="cb493-42"><a href="vol_acc.html#cb493-42" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb493-43"><a href="vol_acc.html#cb493-43" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_wrap</span>(</span>
+<span id="cb493-44"><a href="vol_acc.html#cb493-44" tabindex="-1"></a>    <span class="at">facets =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(data_site_nm)</span>
+<span id="cb493-45"><a href="vol_acc.html#cb493-45" tabindex="-1"></a>    , <span class="at">ncol =</span> <span class="dv">3</span></span>
+<span id="cb493-46"><a href="vol_acc.html#cb493-46" tabindex="-1"></a>    , <span class="at">scales =</span> <span class="st">&quot;free&quot;</span></span>
+<span id="cb493-47"><a href="vol_acc.html#cb493-47" tabindex="-1"></a>    , <span class="at">axes =</span> <span class="st">&quot;all_y&quot;</span></span>
+<span id="cb493-48"><a href="vol_acc.html#cb493-48" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb493-49"><a href="vol_acc.html#cb493-49" tabindex="-1"></a>  harrypotter<span class="sc">::</span><span class="fu">scale_color_hp_d</span>(<span class="at">option =</span> <span class="st">&quot;hermionegranger&quot;</span>) <span class="sc">+</span></span>
+<span id="cb493-50"><a href="vol_acc.html#cb493-50" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_y_continuous</span>(</span>
+<span id="cb493-51"><a href="vol_acc.html#cb493-51" tabindex="-1"></a>    <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="cn">NA</span>)</span>
+<span id="cb493-52"><a href="vol_acc.html#cb493-52" tabindex="-1"></a>    , <span class="at">labels =</span> scales<span class="sc">::</span>comma</span>
+<span id="cb493-53"><a href="vol_acc.html#cb493-53" tabindex="-1"></a>    , <span class="at">breaks =</span> scales<span class="sc">::</span><span class="fu">breaks_extended</span>(<span class="at">n=</span><span class="dv">7</span>)</span>
+<span id="cb493-54"><a href="vol_acc.html#cb493-54" tabindex="-1"></a>    , <span class="at">expand =</span> ggplot2<span class="sc">::</span><span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.01</span>,<span class="fl">0.1</span>))</span>
+<span id="cb493-55"><a href="vol_acc.html#cb493-55" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb493-56"><a href="vol_acc.html#cb493-56" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
+<span id="cb493-57"><a href="vol_acc.html#cb493-57" tabindex="-1"></a>    <span class="at">x =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;comparison&quot;</span></span>
+<span id="cb493-58"><a href="vol_acc.html#cb493-58" tabindex="-1"></a>    , <span class="at">y =</span> <span class="st">&quot;gross stem wood volume ft³ ac⁻¹&quot;</span></span>
+<span id="cb493-59"><a href="vol_acc.html#cb493-59" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb493-60"><a href="vol_acc.html#cb493-60" tabindex="-1"></a>    <span class="co"># , subtitle = &quot;gross volume ft³ ac⁻¹&quot;</span></span>
+<span id="cb493-61"><a href="vol_acc.html#cb493-61" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb493-62"><a href="vol_acc.html#cb493-62" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme_light</span>() <span class="sc">+</span></span>
+<span id="cb493-63"><a href="vol_acc.html#cb493-63" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme</span>(</span>
+<span id="cb493-64"><a href="vol_acc.html#cb493-64" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;top&quot;</span></span>
+<span id="cb493-65"><a href="vol_acc.html#cb493-65" tabindex="-1"></a>    , <span class="at">axis.text.x =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">9</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>)</span>
+<span id="cb493-66"><a href="vol_acc.html#cb493-66" tabindex="-1"></a>    , <span class="at">axis.text.y =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">7</span>)</span>
+<span id="cb493-67"><a href="vol_acc.html#cb493-67" tabindex="-1"></a>    , <span class="at">strip.text =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb493-68"><a href="vol_acc.html#cb493-68" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb493-69"><a href="vol_acc.html#cb493-69" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">guides</span>(</span>
+<span id="cb493-70"><a href="vol_acc.html#cb493-70" tabindex="-1"></a>    <span class="at">color =</span> ggplot2<span class="sc">::</span><span class="fu">guide_legend</span>(</span>
+<span id="cb493-71"><a href="vol_acc.html#cb493-71" tabindex="-1"></a>      <span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">shape =</span> <span class="dv">15</span>, <span class="at">size =</span> <span class="dv">6</span>, <span class="at">linetype =</span> <span class="dv">0</span>)</span>
+<span id="cb493-72"><a href="vol_acc.html#cb493-72" tabindex="-1"></a>    )</span>
+<span id="cb493-73"><a href="vol_acc.html#cb493-73" tabindex="-1"></a>  )</span></code></pre></div>
+<p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-522-1.png" alt="" width="1008" /></p>
+<p>interesting, let’s plot the percent difference in stem wood volume per acre between the field reference data and our predicted data against the site-level accuracy of genus and species classification quantified with the Bray-Curtis dissimilarity/similarity index which compares the predicted composition against the observed field composition. for this figure, we’ll use the Bray-Curtis dissimilarity index where 0 indicates identical species compositions and 1 indicates completely non-overlapping communities. this will allow us to read the plot intuitively where points in the upper right have both high taxonomic classification and high volume prediction error while points in the lower left have both low taxonomic classification and low volume prediction error.</p>
+<div class="sourceCode" id="cb494"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb494-1"><a href="vol_acc.html#cb494-1" tabindex="-1"></a><span class="co"># add it to our data</span></span>
+<span id="cb494-2"><a href="vol_acc.html#cb494-2" tabindex="-1"></a><span class="co"># project_data_df %&gt;% dplyr::glimpse()</span></span>
+<span id="cb494-3"><a href="vol_acc.html#cb494-3" tabindex="-1"></a><span class="co"># agg_comp_df_temp %&gt;% dplyr::glimpse()</span></span>
+<span id="cb494-4"><a href="vol_acc.html#cb494-4" tabindex="-1"></a>project_data_df <span class="ot">&lt;-</span></span>
+<span id="cb494-5"><a href="vol_acc.html#cb494-5" tabindex="-1"></a>  project_data_df <span class="sc">%&gt;%</span> </span>
+<span id="cb494-6"><a href="vol_acc.html#cb494-6" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">left_join</span>(</span>
+<span id="cb494-7"><a href="vol_acc.html#cb494-7" tabindex="-1"></a>    agg_comp_df_temp <span class="sc">%&gt;%</span> </span>
+<span id="cb494-8"><a href="vol_acc.html#cb494-8" tabindex="-1"></a>      dplyr<span class="sc">::</span><span class="fu">select</span>(data_site_nm, <span class="at">acc_site_vol_cuft_ac_pct_diff=</span>pct_diff_V_tot_ib_Gross_per_ac)</span>
+<span id="cb494-9"><a href="vol_acc.html#cb494-9" tabindex="-1"></a>    , <span class="at">by =</span> <span class="st">&quot;data_site_nm&quot;</span></span>
+<span id="cb494-10"><a href="vol_acc.html#cb494-10" tabindex="-1"></a>  )</span></code></pre></div>
+<div class="sourceCode" id="cb495"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb495-1"><a href="vol_acc.html#cb495-1" tabindex="-1"></a><span class="co"># plot</span></span>
+<span id="cb495-2"><a href="vol_acc.html#cb495-2" tabindex="-1"></a><span class="co"># ?tidyr::pivot_longer</span></span>
+<span id="cb495-3"><a href="vol_acc.html#cb495-3" tabindex="-1"></a>project_data_df <span class="sc">%&gt;%</span></span>
+<span id="cb495-4"><a href="vol_acc.html#cb495-4" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(</span>
+<span id="cb495-5"><a href="vol_acc.html#cb495-5" tabindex="-1"></a>    data_site_nm, acc_site_vol_cuft_ac_pct_diff</span>
+<span id="cb495-6"><a href="vol_acc.html#cb495-6" tabindex="-1"></a>    , acc_site_genus_bc_dissimilarity</span>
+<span id="cb495-7"><a href="vol_acc.html#cb495-7" tabindex="-1"></a>    , acc_site_species_bc_dissimilarity</span>
+<span id="cb495-8"><a href="vol_acc.html#cb495-8" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb495-9"><a href="vol_acc.html#cb495-9" tabindex="-1"></a>  tidyr<span class="sc">::</span><span class="fu">pivot_longer</span>(</span>
+<span id="cb495-10"><a href="vol_acc.html#cb495-10" tabindex="-1"></a>    <span class="at">cols =</span> tidyselect<span class="sc">::</span><span class="fu">ends_with</span>(<span class="st">&quot;bc_dissimilarity&quot;</span>)</span>
+<span id="cb495-11"><a href="vol_acc.html#cb495-11" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb495-12"><a href="vol_acc.html#cb495-12" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">mutate</span>(</span>
+<span id="cb495-13"><a href="vol_acc.html#cb495-13" tabindex="-1"></a>  <span class="at">name =</span> name <span class="sc">%&gt;%</span> </span>
+<span id="cb495-14"><a href="vol_acc.html#cb495-14" tabindex="-1"></a>    stringr<span class="sc">::</span><span class="fu">str_extract</span>(<span class="st">&quot;(_genus_|_species_)&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb495-15"><a href="vol_acc.html#cb495-15" tabindex="-1"></a>    stringr<span class="sc">::</span><span class="fu">str_remove_all</span>(<span class="st">&quot;_&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb495-16"><a href="vol_acc.html#cb495-16" tabindex="-1"></a>    stringr<span class="sc">::</span><span class="fu">str_to_sentence</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb495-17"><a href="vol_acc.html#cb495-17" tabindex="-1"></a>    stringr<span class="sc">::</span><span class="fu">str_c</span>(<span class="st">&quot;-level&quot;</span>)</span>
+<span id="cb495-18"><a href="vol_acc.html#cb495-18" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
+<span id="cb495-19"><a href="vol_acc.html#cb495-19" tabindex="-1"></a>  <span class="co"># plot</span></span>
+<span id="cb495-20"><a href="vol_acc.html#cb495-20" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(</span>
+<span id="cb495-21"><a href="vol_acc.html#cb495-21" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> value, <span class="at">y =</span> acc_site_vol_cuft_ac_pct_diff, <span class="at">color =</span> name)</span>
+<span id="cb495-22"><a href="vol_acc.html#cb495-22" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb495-23"><a href="vol_acc.html#cb495-23" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">geom_point</span>(<span class="at">size =</span> <span class="dv">4</span>, <span class="at">alpha =</span> <span class="fl">0.8</span>) <span class="sc">+</span></span>
+<span id="cb495-24"><a href="vol_acc.html#cb495-24" tabindex="-1"></a>  ggrepel<span class="sc">::</span><span class="fu">geom_text_repel</span>(</span>
+<span id="cb495-25"><a href="vol_acc.html#cb495-25" tabindex="-1"></a>    <span class="at">mapping =</span> ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">label =</span> data_site_nm, <span class="at">fontface =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb495-26"><a href="vol_acc.html#cb495-26" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;black&quot;</span></span>
+<span id="cb495-27"><a href="vol_acc.html#cb495-27" tabindex="-1"></a>    , <span class="at">size =</span> <span class="fl">2.4</span></span>
+<span id="cb495-28"><a href="vol_acc.html#cb495-28" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb495-29"><a href="vol_acc.html#cb495-29" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">facet_grid</span>(</span>
+<span id="cb495-30"><a href="vol_acc.html#cb495-30" tabindex="-1"></a>    <span class="at">cols =</span> dplyr<span class="sc">::</span><span class="fu">vars</span>(name)</span>
+<span id="cb495-31"><a href="vol_acc.html#cb495-31" tabindex="-1"></a>    <span class="co"># , rows = dplyr::vars(taxon_level)</span></span>
+<span id="cb495-32"><a href="vol_acc.html#cb495-32" tabindex="-1"></a>    <span class="co"># , switch = &quot;y&quot;</span></span>
+<span id="cb495-33"><a href="vol_acc.html#cb495-33" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb495-34"><a href="vol_acc.html#cb495-34" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_y_continuous</span>(</span>
+<span id="cb495-35"><a href="vol_acc.html#cb495-35" tabindex="-1"></a>    <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>)</span>
+<span id="cb495-36"><a href="vol_acc.html#cb495-36" tabindex="-1"></a>    , <span class="at">expand =</span> ggplot2<span class="sc">::</span><span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.02</span>,<span class="fl">0.07</span>))</span>
+<span id="cb495-37"><a href="vol_acc.html#cb495-37" tabindex="-1"></a>    , <span class="at">breaks =</span> scales<span class="sc">::</span><span class="fu">breaks_extended</span>(<span class="at">n =</span> <span class="dv">7</span>)</span>
+<span id="cb495-38"><a href="vol_acc.html#cb495-38" tabindex="-1"></a>  ) <span class="sc">+</span> </span>
+<span id="cb495-39"><a href="vol_acc.html#cb495-39" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_x_continuous</span>(</span>
+<span id="cb495-40"><a href="vol_acc.html#cb495-40" tabindex="-1"></a>    <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>)</span>
+<span id="cb495-41"><a href="vol_acc.html#cb495-41" tabindex="-1"></a>    , <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">label_percent</span>(<span class="at">accuracy =</span> <span class="dv">1</span>)</span>
+<span id="cb495-42"><a href="vol_acc.html#cb495-42" tabindex="-1"></a>    , <span class="at">expand =</span> ggplot2<span class="sc">::</span><span class="fu">expansion</span>(<span class="at">mult =</span> <span class="fu">c</span>(<span class="fl">0.02</span>,<span class="fl">0.07</span>))</span>
+<span id="cb495-43"><a href="vol_acc.html#cb495-43" tabindex="-1"></a>    , <span class="at">breaks =</span> scales<span class="sc">::</span><span class="fu">breaks_extended</span>(<span class="at">n =</span> <span class="dv">7</span>)</span>
+<span id="cb495-44"><a href="vol_acc.html#cb495-44" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb495-45"><a href="vol_acc.html#cb495-45" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">scale_color_viridis_d</span>(<span class="at">option =</span> <span class="st">&quot;magma&quot;</span>, <span class="at">begin =</span> <span class="fl">0.2</span>, <span class="at">end =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb495-46"><a href="vol_acc.html#cb495-46" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">labs</span>(</span>
+<span id="cb495-47"><a href="vol_acc.html#cb495-47" tabindex="-1"></a>    <span class="at">subtitle =</span> <span class="st">&quot;Predicted stand-level gross volume accuarcy versus taxonomic classification accuracy&quot;</span></span>
+<span id="cb495-48"><a href="vol_acc.html#cb495-48" tabindex="-1"></a>    , <span class="at">x =</span> <span class="st">&quot;Bray-Curtis Dissimilarity&quot;</span> <span class="co"># </span></span>
+<span id="cb495-49"><a href="vol_acc.html#cb495-49" tabindex="-1"></a>    , <span class="at">y =</span> <span class="st">&quot;Predicted gross volume % difference&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
+<span id="cb495-50"><a href="vol_acc.html#cb495-50" tabindex="-1"></a>    , <span class="at">color =</span> <span class="st">&quot;&quot;</span> <span class="co"># &quot;study site&quot;</span></span>
+<span id="cb495-51"><a href="vol_acc.html#cb495-51" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb495-52"><a href="vol_acc.html#cb495-52" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme_light</span>() <span class="sc">+</span></span>
+<span id="cb495-53"><a href="vol_acc.html#cb495-53" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">theme</span>(</span>
+<span id="cb495-54"><a href="vol_acc.html#cb495-54" tabindex="-1"></a>    <span class="at">legend.position =</span> <span class="st">&quot;top&quot;</span></span>
+<span id="cb495-55"><a href="vol_acc.html#cb495-55" tabindex="-1"></a>    , <span class="at">strip.text =</span> ggplot2<span class="sc">::</span><span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>, <span class="at">face =</span> <span class="st">&quot;bold&quot;</span>)</span>
+<span id="cb495-56"><a href="vol_acc.html#cb495-56" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb495-57"><a href="vol_acc.html#cb495-57" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">guides</span>(</span>
+<span id="cb495-58"><a href="vol_acc.html#cb495-58" tabindex="-1"></a>    <span class="at">color =</span> ggplot2<span class="sc">::</span><span class="fu">guide_legend</span>(<span class="at">override.aes =</span> <span class="fu">list</span>(<span class="at">shape =</span> <span class="dv">15</span>, <span class="at">lwd =</span> <span class="cn">NA</span>, <span class="at">size =</span> <span class="dv">8</span>, <span class="at">fill =</span> <span class="cn">NA</span>))</span>
+<span id="cb495-59"><a href="vol_acc.html#cb495-59" tabindex="-1"></a>    , <span class="at">fill =</span> <span class="st">&quot;none&quot;</span></span>
+<span id="cb495-60"><a href="vol_acc.html#cb495-60" tabindex="-1"></a>  )</span></code></pre></div>
+<p><img src="cloud2trees_species_validation_files/figure-html/unnamed-chunk-524-1.png" alt="" width="1008" /></p>
+<p>so it looks like the taxonomic classification accuracy has limited influence on differences in the predicted aggregate, stand-level volume accuracy…let’s just do a quick test using the coefficient of variation (R-squared) from a simple linear model looking at the effect of the site-level Bray-Curtis predicted species dissimilarity on predicted volume error.</p>
+<div class="sourceCode" id="cb496"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb496-1"><a href="vol_acc.html#cb496-1" tabindex="-1"></a>lm_temp <span class="ot">&lt;-</span> stats<span class="sc">::</span><span class="fu">lm</span>(acc_site_vol_cuft_ac_pct_diff <span class="sc">~</span> acc_site_species_bc_dissimilarity, <span class="at">data =</span> project_data_df)</span>
+<span id="cb496-2"><a href="vol_acc.html#cb496-2" tabindex="-1"></a><span class="fu">summary</span>(lm_temp)</span></code></pre></div>
+<pre><code>## 
+## Call:
+## stats::lm(formula = acc_site_vol_cuft_ac_pct_diff ~ acc_site_species_bc_dissimilarity, 
+##     data = project_data_df)
+## 
+## Residuals:
+##        2       11       12       14 
+##  0.03330  0.01171 -0.10803  0.06302 
+## 
+## Coefficients:
+##                                   Estimate Std. Error t value Pr(&gt;|t|)
+## (Intercept)                        0.03583    0.10402   0.344    0.763
+## acc_site_species_bc_dissimilarity  0.47591    0.32986   1.443    0.286
+## 
+## Residual standard error: 0.09189 on 2 degrees of freedom
+##   (12 observations deleted due to missingness)
+## Multiple R-squared:   0.51,  Adjusted R-squared:  0.265 
+## F-statistic: 2.082 on 1 and 2 DF,  p-value: 0.2859</code></pre>
+<div class="sourceCode" id="cb498"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb498-1"><a href="vol_acc.html#cb498-1" tabindex="-1"></a><span class="co"># summary(lm_temp)[[&quot;r.squared&quot;]]</span></span>
+<span id="cb498-2"><a href="vol_acc.html#cb498-2" tabindex="-1"></a><span class="co"># summary(lm_temp)[[&quot;coefficients&quot;]][2, 1] # coeff est</span></span>
+<span id="cb498-3"><a href="vol_acc.html#cb498-3" tabindex="-1"></a><span class="co"># summary(lm_temp)[[&quot;coefficients&quot;]][2, 4] # p-val</span></span></code></pre></div>
+<p>the simple linear regression model of predicted stand-level gross volume error against dissimilarity in the predicted species composition shows that the Bray-Curtis dissimilarity in species explains <strong>50.999%</strong> of the variance in stand-level gross volume error (R-squared = 0.50999). The p-value on the Bray-Curtis species-level dissimilarity of 0.286 provides evidence that there is no relationship between the accuracy of the predicted species composition and the accuracy of the predicted stand-level gross volume compared to the field reference data.</p>
+
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="nsvb.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+  "sharing": {
+    "github": false,
+    "facebook": true,
+    "twitter": true,
+    "linkedin": false,
+    "weibo": false,
+    "instapaper": false,
+    "vk": false,
+    "whatsapp": false,
+    "all": ["facebook", "twitter", "linkedin", "weibo", "instapaper"]
+  },
+  "fontsettings": {
+    "theme": "white",
+    "family": "sans",
+    "size": 2
+  },
+  "edit": {
+    "link": null,
+    "text": null
+  },
+  "history": {
+    "link": null,
+    "text": null
+  },
+  "view": {
+    "link": null,
+    "text": null
+  },
+  "download": null,
+  "search": {
+    "engine": "fuse",
+    "options": null
+  },
+  "toc": {
+    "collapse": "subsection"
+  }
+});
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+</body>
+
+</html>
