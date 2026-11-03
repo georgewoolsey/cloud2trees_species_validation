@@ -100,7 +100,7 @@ comp_df_temp %>%
   ggplot2::scale_x_continuous(labels = scales::comma, breaks=scales::breaks_extended(n=6)) +
   ggplot2::labs(
     color="",fill=""
-    , x="gross cubic-foot of stem wood volume"
+    , x="gross stem wood volume (ft³)"
     # , subtitle = "comparison of height and DBH distributions"
   ) +
   ggplot2::theme_light() +
@@ -238,7 +238,7 @@ agg_comp_df_temp %>%
 
 let's plot that too
 
-```{r}
+```{r, fig.height=11}
 agg_comp_df_temp %>% 
   dplyr::select(data_site_nm, tidyselect::ends_with("V_tot_ib_Gross_per_ac")) %>% 
   tidyr::pivot_longer(cols = c(tidyselect::starts_with("pred_"), tidyselect::starts_with("ref_"))) %>% 
@@ -269,29 +269,21 @@ agg_comp_df_temp %>%
   ggplot2::ggplot(
     mapping = ggplot2::aes(x = name, y = value, group = data_site_nm)
   ) +
-  ggplot2::geom_line(key_glyph = "point", alpha = 0.7, color = "gray", lwd = 1.1) +
-  # ref labs
+  ggplot2::geom_line(alpha = 0.7, color = "gray", lwd = 1.1) +
   ggplot2::geom_text(
-    data = function(x){dplyr::filter(x,name=="reference")}
-    , mapping = ggplot2::aes(label = value_lab)
-    , size = 3
-    , hjust = 0.5, vjust = 2.2
-  ) +
-  # pred labs
-  ggrepel::geom_text_repel(
-  # ggplot2::geom_text(
-    data = function(x){dplyr::filter(x,name=="predicted")}
-    , mapping = ggplot2::aes(label = value_lab)
+    mapping = ggplot2::aes(label = value_lab)
+    , hjust = 0.5
+    , vjust = 1.8
     , size = 2.7
-    , hjust = 0.5, vjust = 2.2
+    , show.legend = F
   ) +
   ggplot2::geom_point(
     mapping = ggplot2::aes(color = name)
-    # , alpha = 0.7
     , size = 4
   ) +
   ggplot2::facet_wrap(
     facets = dplyr::vars(data_site_nm)
+    , ncol = 3
     , scales = "free"
     , axes = "all_y"
   ) +
@@ -304,16 +296,15 @@ agg_comp_df_temp %>%
   ) +
   ggplot2::labs(
     x = "" # "comparison"
-    , y = "gross volume ft³ ac⁻¹"
+    , y = "gross stem wood volume ft³ ac⁻¹"
     , color = ""
     # , subtitle = "gross volume ft³ ac⁻¹"
   ) +
   ggplot2::theme_light() +
   ggplot2::theme(
     legend.position = "top"
-    , axis.text.x = ggplot2::element_text(size = 10, face = "bold", color = "black")
-    # , axis.text.y = ggplot2::element_text(size = 7)
-    # , axis.title.y = ggplot2::element_text(size = 7)
+    , axis.text.x = ggplot2::element_text(size = 9, face = "bold", color = "black")
+    , axis.text.y = ggplot2::element_text(size = 7)
     , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
   ) +
   ggplot2::guides(
@@ -323,14 +314,96 @@ agg_comp_df_temp %>%
   )
 ```
 
+interesting, let's plot the percent difference in stem wood volume per acre between the field reference data and our predicted data against the site-level accuracy of genus and species classification quantified with the Bray-Curtis dissimilarity/similarity index which compares the predicted composition against the observed field composition. for this figure, we'll use the Bray-Curtis dissimilarity index where 0 indicates identical species compositions and 1 indicates completely non-overlapping communities. this will allow us to read the plot intuitively where points in the upper right have both high taxonomic classification and high volume prediction error while points in the lower left have both low taxonomic classification and low volume prediction error.
 
-```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
-remove(list = ls()[grep("_temp",ls())])
-gc()
+```{r}
+# add it to our data
+# project_data_df %>% dplyr::glimpse()
+# agg_comp_df_temp %>% dplyr::glimpse()
+project_data_df <-
+  project_data_df %>% 
+  dplyr::left_join(
+    agg_comp_df_temp %>% 
+      dplyr::select(data_site_nm, acc_site_vol_cuft_ac_pct_diff=pct_diff_V_tot_ib_Gross_per_ac)
+    , by = "data_site_nm"
+  )
 ```
 
+```{r, fig.height=8.5}
+# plot
+# ?tidyr::pivot_longer
+project_data_df %>%
+  dplyr::select(
+    data_site_nm, acc_site_vol_cuft_ac_pct_diff
+    , acc_site_genus_bc_dissimilarity
+    , acc_site_species_bc_dissimilarity
+  ) %>% 
+  tidyr::pivot_longer(
+    cols = tidyselect::ends_with("bc_dissimilarity")
+  ) %>% 
+  dplyr::mutate(
+  name = name %>% 
+    stringr::str_extract("(_genus_|_species_)") %>% 
+    stringr::str_remove_all("_") %>% 
+    stringr::str_to_sentence() %>% 
+    stringr::str_c("-level")
+  ) %>% 
+  # plot
+  ggplot2::ggplot(
+    mapping = ggplot2::aes(x = value, y = acc_site_vol_cuft_ac_pct_diff, color = name)
+  ) +
+  ggplot2::geom_point(size = 4, alpha = 0.8) +
+  ggrepel::geom_text_repel(
+    mapping = ggplot2::aes(label = data_site_nm, fontface = "bold")
+    , color = "black"
+    , size = 2.4
+  ) +
+  ggplot2::facet_grid(
+    cols = dplyr::vars(name)
+    # , rows = dplyr::vars(taxon_level)
+    # , switch = "y"
+  ) +
+  ggplot2::scale_y_continuous(
+    labels = scales::label_percent(accuracy = 1)
+    , expand = ggplot2::expansion(mult = c(0.02,0.07))
+    , breaks = scales::breaks_extended(n = 7)
+  ) + 
+  ggplot2::scale_x_continuous(
+    limits = c(0,1)
+    , labels = scales::label_percent(accuracy = 1)
+    , expand = ggplot2::expansion(mult = c(0.02,0.07))
+    , breaks = scales::breaks_extended(n = 7)
+  ) +
+  ggplot2::scale_color_viridis_d(option = "magma", begin = 0.2, end = 0.5) +
+  ggplot2::labs(
+    subtitle = "Predicted stand-level gross volume accuarcy versus taxonomic classification accuracy"
+    , x = "Bray-Curtis Dissimilarity" # 
+    , y = "Predicted gross volume % difference" # "study site"
+    , color = "" # "study site"
+  ) +
+  ggplot2::theme_light() +
+  ggplot2::theme(
+    legend.position = "top"
+    , strip.text = ggplot2::element_text(size = 10, color = "black", face = "bold")
+  ) +
+  ggplot2::guides(
+    color = ggplot2::guide_legend(override.aes = list(shape = 15, lwd = NA, size = 8, fill = NA))
+    , fill = "none"
+  )
+```
 
+so it looks like the taxonomic classification accuracy has limited influence on differences in the predicted aggregate, stand-level volume accuracy...let's just do a quick test using the coefficient of variation (R-squared) from a simple linear model looking at the effect of the site-level Bray-Curtis predicted species dissimilarity on predicted volume error. 
 
+```{r}
+lm_temp <- stats::lm(acc_site_vol_cuft_ac_pct_diff ~ acc_site_species_bc_dissimilarity, data = project_data_df)
+# summary(lm_temp)
+# summary(lm_temp)[["r.squared"]]
+# summary(lm_temp)[["coefficients"]][2, 1] # coeff est
+# summary(lm_temp)[["coefficients"]][2, 4] # p-val
+
+```
+
+the simple linear regression model of predicted stand-level gross volume error against dissimilarity in the predicted species composition shows that the Bray-Curtis dissimilarity in species explains **`r scales::percent(summary(lm_temp)[["r.squared"]], accuracy = 0.001)`** of the variance in stand-level gross volume error (R-squared = `r scales::number(summary(lm_temp)[["r.squared"]],accuracy=0.00001)`). The p-value on the Bray-Curtis species-level dissimilarity of `r scales::number(summary(lm_temp)[["coefficients"]][2, 4],accuracy=0.001)` provides evidence that there is `r ifelse(summary(lm_temp)[["coefficients"]][2, 4]<0.1,"a significant relationship", "no relationship")` between the accuracy of the predicted species composition and the accuracy of the predicted stand-level gross volume compared to the field reference data.
 
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE, include=FALSE}
